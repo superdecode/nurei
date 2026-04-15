@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import {
   Plus, Search, LayoutGrid, List, Edit2, Trash2, Star, StarOff,
-  ChevronUp, ChevronDown, MoreHorizontal, Check, X, Package,
+  ChevronUp, ChevronDown, ChevronRight, MoreHorizontal, Check, X, Package,
   ArrowUpDown, Filter, CheckSquare, Upload, Download, FileSpreadsheet,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -255,6 +255,52 @@ export default function ProductosAdminPage() {
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [showImportModal, setShowImportModal] = useState(false)
   const [importPreview, setImportPreview] = useState<Partial<Product>[]>([])
+  const [csvRawHeaders, setCsvRawHeaders] = useState<string[]>([])
+  const [csvRawRows, setCsvRawRows] = useState<Record<string, string>[]>([])
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
+  const [importStep, setImportStep] = useState<'mapping' | 'validate'>('mapping')
+
+  // Product fields available for mapping
+  const PRODUCT_FIELDS = [
+    { value: '', label: '— Ignorar —' },
+    { value: 'name', label: 'Nombre *' },
+    { value: 'slug', label: 'Slug' },
+    { value: 'description', label: 'Descripción' },
+    { value: 'category', label: 'Categoría' },
+    { value: 'sku', label: 'SKU' },
+    { value: 'origin', label: 'Origen' },
+    { value: 'price', label: 'Precio (MXN)' },
+    { value: 'weight_g', label: 'Peso (g)' },
+    { value: 'spice_level', label: 'Nivel picante' },
+    { value: 'availability_score', label: 'Disponibilidad %' },
+    { value: 'stock_quantity', label: 'Stock' },
+    { value: 'is_active', label: 'Activo (true/false)' },
+    { value: 'is_featured', label: 'Destacado (true/false)' },
+  ]
+
+  // Auto-detect column mapping from header names
+  const autoDetect = (headers: string[]): Record<string, string> => {
+    const MAP: Record<string, string> = {
+      name: 'name', nombre: 'name',
+      slug: 'slug',
+      description: 'description', descripcion: 'description', desc: 'description',
+      category: 'category', categoria: 'category', cat: 'category',
+      sku: 'sku', codigo: 'sku', code: 'sku',
+      origin: 'origin', origen: 'origin', pais: 'origin',
+      price: 'price', precio: 'price', costo: 'price', cost: 'price',
+      weight: 'weight_g', weight_g: 'weight_g', peso: 'weight_g', 'peso(g)': 'weight_g',
+      spice: 'spice_level', spice_level: 'spice_level', picante: 'spice_level',
+      availability: 'availability_score', availability_score: 'availability_score', disponibilidad: 'availability_score',
+      stock: 'stock_quantity', stock_quantity: 'stock_quantity', inventario: 'stock_quantity',
+      is_active: 'is_active', activo: 'is_active', active: 'is_active',
+      is_featured: 'is_featured', destacado: 'is_featured', featured: 'is_featured',
+    }
+    const result: Record<string, string> = {}
+    for (const h of headers) {
+      result[h] = MAP[h.toLowerCase().trim()] ?? ''
+    }
+    return result
+  }
 
   const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -264,36 +310,11 @@ export default function ProductosAdminPage() {
       skipEmptyLines: true,
       complete: (results) => {
         const rows = results.data as Record<string, string>[]
-        const parsed: Partial<Product>[] = rows.map((row) => ({
-          id: `import-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          name: row.name || row.nombre || '',
-          slug: (row.slug || row.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          description: row.description || row.descripcion || null,
-          category: (['crunchy', 'spicy', 'limited_edition', 'drinks'].includes(row.category || row.categoria || '')
-            ? row.category || row.categoria
-            : 'crunchy') as ProductCategory,
-          sku: row.sku || `NR-${Date.now()}`,
-          origin: row.origin || row.origen || 'Japón',
-          spice_level: parseInt(row.spice_level || '0', 10) || 0,
-          weight_g: parseInt(row.weight_g || row.peso || '100', 10) || 100,
-          price: Math.round(parseFloat(row.price || row.precio || '0') * 100),
-          is_active: row.is_active !== 'false',
-          is_featured: row.is_featured === 'true',
-          is_limited: row.is_limited === 'true',
-          availability_score: parseInt(row.availability_score || '100', 10) || 100,
-          compare_at_price: null,
-          cost_estimate: null,
-          image_url: null,
-          image_thumbnail_url: null,
-          meta_title: null,
-          meta_description: null,
-          subcategory: null,
-          views_count: 0,
-          purchases_count: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }))
-        setImportPreview(parsed.filter((p) => p.name))
+        const headers = results.meta.fields ?? []
+        setCsvRawHeaders(headers)
+        setCsvRawRows(rows)
+        setColumnMapping(autoDetect(headers))
+        setImportStep('mapping')
         setShowImportModal(true)
       },
       error: () => toast.error('Error al leer el archivo'),
@@ -301,16 +322,54 @@ export default function ProductosAdminPage() {
     e.target.value = ''
   }
 
+  const buildPreviewFromMapping = () => {
+    const now = new Date().toISOString()
+    const parsed: Partial<Product>[] = csvRawRows.map((row) => {
+      const mapped: Record<string, string> = {}
+      for (const [csvCol, productField] of Object.entries(columnMapping)) {
+        if (productField) mapped[productField] = row[csvCol] ?? ''
+      }
+      const name = mapped.name ?? ''
+      const price = Math.round(parseFloat(mapped.price || '0') * 100)
+      const cat = (['crunchy', 'spicy', 'limited_edition', 'drinks'].includes(mapped.category || '')
+        ? mapped.category : 'crunchy') as ProductCategory
+      return {
+        id: `import-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name,
+        slug: mapped.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        description: mapped.description || null,
+        category: cat,
+        sku: mapped.sku || `NR-${Date.now()}`,
+        origin: mapped.origin || 'Japón',
+        spice_level: parseInt(mapped.spice_level || '0', 10) || 0,
+        weight_g: parseInt(mapped.weight_g || '100', 10) || 100,
+        price,
+        is_active: mapped.is_active !== 'false',
+        is_featured: mapped.is_featured === 'true',
+        is_limited: false,
+        availability_score: parseInt(mapped.availability_score || '100', 10) || 100,
+        stock_quantity: parseInt(mapped.stock_quantity || '0', 10) || 0,
+        compare_at_price: null, cost_estimate: null, image_url: null,
+        image_thumbnail_url: null, meta_title: null, meta_description: null,
+        subcategory: null, views_count: 0, purchases_count: 0,
+        created_at: now, updated_at: now,
+      }
+    })
+    return parsed.filter((p) => p.name)
+  }
+
   const confirmImport = () => {
     const newProducts = importPreview as Product[]
     setProducts((prev) => [...newProducts, ...prev])
     setShowImportModal(false)
     setImportPreview([])
+    setCsvRawRows([])
+    setCsvRawHeaders([])
     toast.success(`${newProducts.length} productos importados`)
   }
 
   const downloadTemplate = () => {
-    const csv = 'name,category,sku,origin,spice_level,weight_g,price,is_active,is_featured,is_limited\nEjemplo Snack,crunchy,NR-001,Japón,2,100,59.90,true,false,false'
+    const csv = 'name,category,sku,origin,spice_level,weight_g,price,is_active,is_featured,stock_quantity\nRamen Shirakiku Tonkotsu,crunchy,NR-001,Japón,1,500,89.90,true,false,20'
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -1095,21 +1154,32 @@ export default function ProductosAdminPage() {
 
       {/* ─── Create / Edit Dialog ────────────────────────────────── */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => setEditDialogOpen(open)}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? 'Editar producto' : 'Nuevo producto'}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto p-0">
+          {/* Gradient header */}
+          <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5 sticky top-0 z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-cyan/20 flex items-center justify-center flex-shrink-0">
+                <Package className="w-5 h-5 text-primary-cyan" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  {editingProduct ? 'Editar producto' : 'Nuevo producto'}
+                </h2>
+                <p className="text-xs text-white/50 mt-0.5">
+                  {editingProduct ? `Modificando: ${editingProduct.name}` : 'Completa los campos para agregar el producto al catálogo'}
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <div className="space-y-4 mt-2">
+          <div className="p-6 space-y-5">
             {/* Name */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-gray-600">Nombre *</label>
               <Input
                 value={form.name}
                 onChange={(e) => updateForm({ name: e.target.value })}
-                placeholder="Ej: Cerveza Victoria 12-pack"
+                placeholder="Ej: Ramen Shirakiku Tonkotsu 500g"
                 className={cn('h-9', formErrors.name && 'border-error')}
               />
               {formErrors.name && (
@@ -1123,7 +1193,7 @@ export default function ProductosAdminPage() {
               <Input
                 value={form.slug}
                 onChange={(e) => updateForm({ slug: e.target.value })}
-                placeholder="cerveza-victoria-12-pack"
+                placeholder="ramen-shirakiku-tonkotsu"
                 className="h-9 text-gray-500 font-mono text-xs"
               />
             </div>
@@ -1164,7 +1234,7 @@ export default function ProductosAdminPage() {
                 <Input
                   value={form.subcategory}
                   onChange={(e) => updateForm({ subcategory: e.target.value })}
-                  placeholder="Ej: blanco, reposado"
+                  placeholder="Ej: picante, original, vegano"
                   className="h-9"
                 />
               </div>
@@ -1351,107 +1421,229 @@ export default function ProductosAdminPage() {
             </div>
           </div>
 
-          <DialogFooter className="mt-4">
+          <div className="px-6 pb-6 flex justify-end gap-3 border-t pt-5">
             <Button
               variant="outline"
               onClick={() => setEditDialogOpen(false)}
-              className="rounded-xl"
+              className="rounded-xl h-10"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleSave}
-              className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold rounded-xl"
+              className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold rounded-xl h-10 px-6"
             >
               {editingProduct ? 'Guardar cambios' : 'Crear producto'}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* ─── Delete Confirmation Dialog ──────────────────────────── */}
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => setDeleteDialogOpen(open)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Eliminar producto</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-sm p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-600 to-red-700 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                <Trash2 className="w-4 h-4 text-white" />
+              </div>
+              <h2 className="text-sm font-bold text-white">Eliminar producto</h2>
+            </div>
+          </div>
 
-          <div className="py-2">
+          <div className="p-5 space-y-4">
             <p className="text-sm text-gray-600">
               ¿Estás seguro de que deseas eliminar{' '}
               <span className="font-semibold text-primary-dark">{deletingProduct?.name}</span>?
             </p>
-            <p className="text-xs text-gray-400 mt-2">Esta acción no se puede deshacer.</p>
+            <p className="text-xs text-gray-400">Esta acción no se puede deshacer.</p>
+            <div className="flex gap-3 pt-1">
+              <Button
+                variant="outline"
+                onClick={() => { setDeleteDialogOpen(false); setDeletingProduct(null) }}
+                className="flex-1 rounded-xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                className="flex-1 rounded-xl font-semibold"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                Eliminar
+              </Button>
+            </div>
           </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => { setDeleteDialogOpen(false); setDeletingProduct(null) }}
-              className="rounded-xl"
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              className="rounded-xl font-semibold"
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1" />
-              Eliminar
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ─── CSV Import Preview Modal ──────────────────────────── */}
-      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
-        <DialogContent className="max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-green-500" />
-              Importar productos
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="py-2 space-y-3">
-            <p className="text-sm text-gray-600">
-              Se encontraron <span className="font-bold text-gray-900">{importPreview.length}</span> productos para importar:
-            </p>
-            <div className="max-h-60 overflow-y-auto border border-gray-100 rounded-xl">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-gray-50">
-                    <th className="text-left py-2 px-3 text-xs font-bold text-gray-400">Nombre</th>
-                    <th className="text-left py-2 px-3 text-xs font-bold text-gray-400">Cat.</th>
-                    <th className="text-right py-2 px-3 text-xs font-bold text-gray-400">Precio</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {importPreview.map((p, i) => (
-                    <tr key={i} className="border-b border-gray-50">
-                      <td className="py-2 px-3 font-medium text-gray-900">{p.name}</td>
-                      <td className="py-2 px-3 text-gray-500">{p.category}</td>
-                      <td className="py-2 px-3 text-right text-gray-900">{formatPrice(p.price || 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* ─── CSV Import Modal ──────────────────────────── */}
+      <Dialog open={showImportModal} onOpenChange={(open) => { if (!open) { setShowImportModal(false); setImportPreview([]) } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-emerald-700 to-emerald-600 px-6 py-5 sticky top-0 z-10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <FileSpreadsheet className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">Importar productos desde CSV</h2>
+                  <p className="text-xs text-white/60 mt-0.5">
+                    {importStep === 'mapping'
+                      ? `${csvRawRows.length} filas detectadas · Paso 1: Mapear columnas`
+                      : `${importPreview.length} productos listos · Paso 2: Validar y confirmar`
+                    }
+                  </p>
+                </div>
+              </div>
+              {/* Step indicator */}
+              <div className="flex items-center gap-1.5">
+                <div className={cn('w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center', importStep === 'mapping' ? 'bg-white text-emerald-700' : 'bg-white/30 text-white')}>1</div>
+                <div className="w-4 h-0.5 bg-white/30" />
+                <div className={cn('w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center', importStep === 'validate' ? 'bg-white text-emerald-700' : 'bg-white/30 text-white')}>2</div>
+              </div>
             </div>
-            <button onClick={downloadTemplate} className="flex items-center gap-1.5 text-xs text-primary-cyan hover:underline">
-              <Download className="w-3 h-3" /> Descargar plantilla CSV
-            </button>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowImportModal(false)} className="rounded-xl">
-              Cancelar
-            </Button>
-            <Button onClick={confirmImport} className="bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold">
-              <Check className="w-3.5 h-3.5 mr-1" />
-              Importar {importPreview.length} productos
-            </Button>
-          </DialogFooter>
+          <div className="p-6">
+            {importStep === 'mapping' ? (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
+                  Asocia cada columna de tu CSV al campo correspondiente del producto. Las columnas comunes fueron detectadas automáticamente.
+                </div>
+
+                {/* Column mapping table */}
+                <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                  <div className="grid grid-cols-[1fr,auto,1fr] gap-0 bg-gray-50 px-4 py-2.5 border-b border-gray-100">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Columna CSV</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide text-center px-4">→</span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Campo de producto</span>
+                  </div>
+                  <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                    {csvRawHeaders.map((header) => (
+                      <div key={header} className="grid grid-cols-[1fr,auto,1fr] items-center gap-3 px-4 py-2.5 hover:bg-gray-50/50">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                          <span className="text-sm font-mono text-gray-700 truncate">{header}</span>
+                          {csvRawRows[0]?.[header] && (
+                            <span className="text-xs text-gray-400 truncate hidden sm:inline">· {csvRawRows[0][header]}</span>
+                          )}
+                        </div>
+                        <span className="text-gray-300 text-sm px-2">→</span>
+                        <select
+                          value={columnMapping[header] ?? ''}
+                          onChange={(e) => setColumnMapping(prev => ({ ...prev, [header]: e.target.value }))}
+                          className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 bg-white"
+                        >
+                          {PRODUCT_FIELDS.map(f => (
+                            <option key={f.value} value={f.value}>{f.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <button onClick={downloadTemplate} className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline">
+                    <Download className="w-3 h-3" /> Descargar plantilla CSV
+                  </button>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setShowImportModal(false)} className="rounded-xl h-9">
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const preview = buildPreviewFromMapping()
+                        setImportPreview(preview)
+                        setImportStep('validate')
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-9 font-semibold"
+                      disabled={!Object.values(columnMapping).some(v => v === 'name')}
+                    >
+                      Continuar <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Validation summary */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+                    <p className="text-2xl font-black text-emerald-600">{importPreview.filter(p => p.name && (p.price ?? 0) > 0).length}</p>
+                    <p className="text-xs text-emerald-600 mt-0.5">Listos</p>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-center">
+                    <p className="text-2xl font-black text-amber-600">{importPreview.filter(p => p.name && !(p.price ?? 0)).length}</p>
+                    <p className="text-xs text-amber-600 mt-0.5">Sin precio</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
+                    <p className="text-2xl font-black text-red-500">{csvRawRows.length - importPreview.length}</p>
+                    <p className="text-xs text-red-500 mt-0.5">Omitidos</p>
+                  </div>
+                </div>
+
+                {/* Preview table with validation */}
+                <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0">
+                        <tr className="bg-gray-50 border-b border-gray-100">
+                          <th className="text-left py-2.5 px-3 text-xs font-bold text-gray-400">Estado</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-bold text-gray-400">Nombre</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-bold text-gray-400 hidden sm:table-cell">Categoría</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-bold text-gray-400">Precio</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.map((p, i) => {
+                          const hasName = !!p.name
+                          const hasPrice = (p.price ?? 0) > 0
+                          const isOk = hasName && hasPrice
+                          return (
+                            <tr key={i} className={cn('border-b border-gray-50', isOk ? '' : 'bg-amber-50/50')}>
+                              <td className="py-2 px-3">
+                                {isOk ? (
+                                  <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                  </span>
+                                ) : (
+                                  <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center" title={!hasName ? 'Sin nombre' : 'Sin precio'}>
+                                    <X className="w-3 h-3 text-amber-500" />
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 font-medium text-gray-900">{p.name || <span className="text-red-400 italic">sin nombre</span>}</td>
+                              <td className="py-2 px-3 text-gray-500 hidden sm:table-cell">{p.category}</td>
+                              <td className="py-2 px-3 text-right text-gray-900">{(p.price ?? 0) > 0 ? formatPrice(p.price || 0) : <span className="text-amber-500">—</span>}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <Button variant="outline" onClick={() => setImportStep('mapping')} className="rounded-xl h-9 text-sm gap-1">
+                    ← Ajustar mapeo
+                  </Button>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setShowImportModal(false)} className="rounded-xl h-9">
+                      Cancelar
+                    </Button>
+                    <Button onClick={confirmImport} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold h-9" disabled={importPreview.length === 0}>
+                      <Check className="w-3.5 h-3.5 mr-1.5" />
+                      Importar {importPreview.length} productos
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

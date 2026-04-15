@@ -267,114 +267,138 @@ export default function CuponesPage() {
               className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.96, y: 24 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-x-4 top-[10%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md z-50 bg-white rounded-2xl shadow-2xl p-6"
+              exit={{ opacity: 0, scale: 0.96, y: 24 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 300 }}
+              className="fixed inset-x-4 top-[8%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-50 bg-white rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-black text-gray-900">
-                  {editingId ? 'Editar cupón' : 'Nuevo cupón'}
-                </h2>
-                <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-gray-100">
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
+              {/* Gradient header */}
+              <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-primary-cyan/20 flex items-center justify-center">
+                      <Ticket className="w-4.5 h-4.5 text-primary-cyan" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-white">
+                        {editingId ? 'Editar cupón' : 'Nuevo cupón'}
+                      </h2>
+                      <p className="text-xs text-white/50 mt-0.5">
+                        {editingId ? 'Modifica los datos del cupón' : 'Define el descuento y sus condiciones'}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="p-6 space-y-5">
+                {/* Code */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Código</label>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Código *</label>
                   <input
                     value={form.code}
                     onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                    placeholder="DESCUENTO20"
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-cyan/50"
+                    placeholder="RAMEN15, DUMPLING20..."
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary-cyan/40 focus:border-primary-cyan/50 shadow-sm"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Tipo</label>
-                    <select
-                      value={form.type}
-                      onChange={(e) => setForm({ ...form, type: e.target.value as CouponType })}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/50"
-                    >
-                      <option value="percentage">Porcentaje (%)</option>
-                      <option value="fixed">Monto fijo ($)</option>
-                    </select>
+                {/* Discount section */}
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Descuento</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Tipo</label>
+                      <select
+                        value={form.type}
+                        onChange={(e) => setForm({ ...form, type: e.target.value as CouponType })}
+                        className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/40 shadow-sm"
+                      >
+                        <option value="percentage">Porcentaje (%)</option>
+                        <option value="fixed">Monto fijo ($)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                        Valor {form.type === 'percentage' ? '(%)' : '(MXN)'}
+                      </label>
+                      <input
+                        type="number"
+                        value={form.value}
+                        onChange={(e) => setForm({ ...form, value: e.target.value })}
+                        placeholder={form.type === 'percentage' ? '15' : '99'}
+                        className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/40 shadow-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conditions section */}
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Condiciones</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Mín. orden (MXN)</label>
+                      <input
+                        type="number"
+                        value={form.min_order_amount}
+                        onChange={(e) => setForm({ ...form, min_order_amount: e.target.value })}
+                        placeholder="200"
+                        className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/40 shadow-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Máx. usos</label>
+                      <input
+                        type="number"
+                        value={form.max_uses}
+                        onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
+                        placeholder="Ilimitado"
+                        className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/40 shadow-sm"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">
-                      Valor {form.type === 'percentage' ? '(%)' : '(MXN)'}
-                    </label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Fecha expiración</label>
                     <input
-                      type="number"
-                      value={form.value}
-                      onChange={(e) => setForm({ ...form, value: e.target.value })}
-                      placeholder={form.type === 'percentage' ? '10' : '99'}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/50"
+                      type="date"
+                      value={form.expires_at}
+                      onChange={(e) => setForm({ ...form, expires_at: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/40 shadow-sm"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Mín. orden (MXN)</label>
-                    <input
-                      type="number"
-                      value={form.min_order_amount}
-                      onChange={(e) => setForm({ ...form, min_order_amount: e.target.value })}
-                      placeholder="200"
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Máx. usos</label>
-                    <input
-                      type="number"
-                      value={form.max_uses}
-                      onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
-                      placeholder="Ilimitado"
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/50"
-                    />
-                  </div>
-                </div>
-
+                {/* Description */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Fecha expiración</label>
-                  <input
-                    type="date"
-                    value={form.expires_at}
-                    onChange={(e) => setForm({ ...form, expires_at: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Descripción</label>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Descripción</label>
                   <input
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Campaña de verano"
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/50"
+                    placeholder="Ej: Campaña de apertura, descuento de verano..."
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-cyan/40 focus:border-primary-cyan/50 shadow-sm"
                   />
                 </div>
-              </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 py-2.5 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex-1 py-2.5 text-sm font-bold text-primary-dark bg-primary-cyan rounded-xl hover:bg-primary-cyan-hover transition-colors"
-                >
-                  {editingId ? 'Guardar' : 'Crear cupón'}
-                </button>
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="flex-1 py-2.5 text-sm font-semibold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 py-2.5 text-sm font-bold text-primary-dark bg-primary-cyan rounded-xl hover:bg-primary-cyan-hover transition-colors"
+                  >
+                    {editingId ? 'Guardar cambios' : 'Crear cupón'}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </>

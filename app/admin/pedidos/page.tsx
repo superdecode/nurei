@@ -30,10 +30,6 @@ import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -631,24 +627,34 @@ function OrderDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-primary-dark">
-            <span className="font-mono font-bold text-lg">{order.short_id}</span>
-            <Badge
-              variant="secondary"
-              className={cn('text-[10px]', statusInfo.bgColor, statusInfo.color)}
-            >
-              {statusInfo.icon} {statusInfo.label}
-            </Badge>
-          </DialogTitle>
-          <DialogDescription>
-            Creado {formatRelativeTime(order.created_at)}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-xl max-h-[92vh] overflow-y-auto p-0">
+        {/* Gradient header */}
+        <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5 sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-cyan/20 flex items-center justify-center flex-shrink-0">
+                <Package className="w-5 h-5 text-primary-cyan" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-white text-lg">{order.short_id}</span>
+                  <Badge
+                    variant="secondary"
+                    className={cn('text-[10px] border-0', statusInfo.bgColor, statusInfo.color)}
+                  >
+                    {statusInfo.icon} {statusInfo.label}
+                  </Badge>
+                </div>
+                <p className="text-xs text-white/50 mt-0.5">Creado {formatRelativeTime(order.created_at)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
 
         {/* Customer info */}
-        <div className="space-y-3">
+        <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
           <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cliente</h4>
           <div className="space-y-2">
             {order.customer_name && (
@@ -683,10 +689,8 @@ function OrderDetailModal({
           </div>
         </div>
 
-        <Separator />
-
         {/* Order items */}
-        <div className="space-y-3">
+        <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
           <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
             Productos ({itemsCount})
           </h4>
@@ -724,12 +728,9 @@ function OrderDetailModal({
           </div>
         </div>
 
-        <Separator />
-
-        {/* Store info */}
         {/* Timeline */}
-        <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Timeline</h4>
+        <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Timeline del pedido</h4>
           <div className="space-y-0">
             {timeline.map((step, idx) => (
               <div key={idx} className="flex items-start gap-3 relative">
@@ -762,63 +763,59 @@ function OrderDetailModal({
         {/* Cancellation reason */}
         {order.cancellation_reason && (
           <>
-            <Separator />
-            <div className="p-3 rounded-lg bg-error/5 border border-error/20">
+            <div className="p-3 rounded-xl bg-error/5 border border-error/20">
               <div className="flex items-center gap-2 text-sm font-medium text-error mb-1">
                 <AlertTriangle className="w-4 h-4" />
-                Motivo de cancelacion
+                Motivo de cancelación
               </div>
               <p className="text-sm text-gray-600">{order.cancellation_reason}</p>
             </div>
           </>
         )}
 
-        <Separator />
-
         {/* Notes */}
-        <div className="space-y-2">
+        <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
           <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Notas del operador</h4>
           <Textarea
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
-            placeholder="Agregar nota..."
-            className="text-sm min-h-[60px]"
+            placeholder="Agregar nota interna sobre este pedido..."
+            className="text-sm min-h-[60px] bg-white border-gray-200 shadow-sm"
           />
           <Button
             variant="outline"
             size="sm"
             onClick={() => onNoteSave(order.id, noteText)}
-            className="text-xs"
+            className="text-xs rounded-lg"
           >
             Guardar nota
           </Button>
         </div>
 
         {/* Actions footer */}
-        <DialogFooter className="flex-row gap-2 sm:justify-between">
-          {/* Status transitions */}
-          <div className="flex flex-wrap gap-2">
-            {validTransitions.map((newStatus) => {
-              const info = ORDER_STATUS_MAP[newStatus as OrderStatus]
-              if (!info) return null
-              const isDestructive = newStatus === 'cancelled' || newStatus === 'failed'
-              return (
-                <Button
-                  key={newStatus}
-                  variant={isDestructive ? 'destructive' : 'outline'}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => {
-                    onStatusChange(order.id, newStatus as OrderStatus)
-                    onOpenChange(false)
-                  }}
-                >
-                  {info.icon} {info.label}
-                </Button>
-              )
-            })}
-          </div>
-        </DialogFooter>
+        <div className="flex flex-wrap gap-2 pt-1">
+          {validTransitions.map((newStatus) => {
+            const info = ORDER_STATUS_MAP[newStatus as OrderStatus]
+            if (!info) return null
+            const isDestructive = newStatus === 'cancelled' || newStatus === 'failed'
+            return (
+              <Button
+                key={newStatus}
+                variant={isDestructive ? 'destructive' : 'outline'}
+                size="sm"
+                className="text-xs rounded-lg"
+                onClick={() => {
+                  onStatusChange(order.id, newStatus as OrderStatus)
+                  onOpenChange(false)
+                }}
+              >
+                {info.icon} {info.label}
+              </Button>
+            )
+          })}
+        </div>
+
+        </div>{/* end p-6 wrapper */}
       </DialogContent>
     </Dialog>
   )

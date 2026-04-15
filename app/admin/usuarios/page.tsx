@@ -605,89 +605,105 @@ export default function UsuariosPage() {
 
       {/* ── User Dialog ─────────────────────────────────────────────────────── */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-primary-dark">
-              {editingUser ? 'Editar usuario' : 'Nuevo usuario'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-cyan/20 flex items-center justify-center">
+                <UserCog className="w-4.5 h-4.5 text-primary-cyan" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  {editingUser ? 'Editar usuario' : 'Nuevo usuario'}
+                </h2>
+                <p className="text-xs text-white/50 mt-0.5">
+                  {editingUser ? 'Modifica los datos y permisos del usuario' : 'Completa los campos para crear el acceso'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+              <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">
                 Nombre completo <span className="text-red-400">*</span>
               </label>
               <Input
                 value={userForm.full_name}
                 onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
-                placeholder="Juan Perez"
+                placeholder="Juan Pérez García"
+                className="border-gray-200 shadow-sm"
               />
             </div>
 
             {!editingUser && (
-              <>
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Credenciales de acceso</p>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">
                     Email <span className="text-red-400">*</span>
                   </label>
                   <Input
                     type="email"
                     value={userForm.email}
                     onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder="correo@ejemplo.com"
+                    placeholder="correo@empresa.com"
+                    className="border-gray-200 bg-white shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                    Contrasena <span className="text-red-400">*</span>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                    Contraseña <span className="text-red-400">*</span>
                   </label>
                   <Input
                     type="password"
                     value={userForm.password}
                     onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    placeholder="Minimo 8 caracteres"
+                    placeholder="Mínimo 8 caracteres"
+                    className="border-gray-200 bg-white shadow-sm"
                   />
                 </div>
-              </>
+              </div>
             )}
 
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Telefono</label>
-              <Input
-                value={userForm.phone}
-                onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-                placeholder="+52 55 1234 5678"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Teléfono</label>
+                <Input
+                  value={userForm.phone}
+                  onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                  placeholder="+52 55 1234 5678"
+                  className="border-gray-200 shadow-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Rol de acceso</label>
+                <Select
+                  value={userForm.admin_role_id || 'none'}
+                  onValueChange={(v) => setUserForm({ ...userForm, admin_role_id: !v || v === 'none' ? '' : v })}
+                >
+                  <SelectTrigger className="border-gray-200 shadow-sm">
+                    <SelectValue placeholder="Sin rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin rol</SelectItem>
+                    {roles.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Rol</label>
-              <Select
-                value={userForm.admin_role_id || 'none'}
-                onValueChange={(v) => setUserForm({ ...userForm, admin_role_id: !v || v === 'none' ? '' : v })}
-              >
-                <SelectTrigger className="border-gray-200">
-                  <SelectValue placeholder="Seleccionar rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin rol</SelectItem>
-                  {roles.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-3 justify-end pt-2">
+            <div className="flex gap-3 pt-1">
               <Button
                 variant="outline"
                 onClick={() => setUserDialogOpen(false)}
-                className="border-gray-200"
+                className="flex-1 rounded-xl"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleSaveUser}
-                className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold"
+                className="flex-1 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold rounded-xl"
               >
                 {editingUser ? 'Guardar cambios' : 'Crear usuario'}
               </Button>
@@ -698,13 +714,21 @@ export default function UsuariosPage() {
 
       {/* ── Role Dialog ─────────────────────────────────────────────────────── */}
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-primary-dark">
-              {editingRole ? 'Editar rol' : 'Nuevo rol'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5 pt-2">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+          <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5 sticky top-0 z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-cyan/20 flex items-center justify-center">
+                <Shield className="w-4.5 h-4.5 text-primary-cyan" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  {editingRole ? 'Editar rol' : 'Nuevo rol'}
+                </h2>
+                <p className="text-xs text-white/50 mt-0.5">Configura el nombre y los permisos por módulo</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-5">
             {/* Name & Description */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -822,27 +846,37 @@ export default function UsuariosPage() {
 
       {/* ── Delete Role Confirm ─────────────────────────────────────────────── */}
       <Dialog open={!!deleteRoleConfirm} onOpenChange={() => setDeleteRoleConfirm(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-primary-dark">Eliminar rol</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-500 py-2">
-            Esta accion no se puede deshacer. Los usuarios con este rol perderan sus permisos.
-          </p>
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteRoleConfirm(null)}
-              className="border-gray-200"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => deleteRoleConfirm && handleDeleteRole(deleteRoleConfirm)}
-              className="bg-red-500 text-white hover:bg-red-600 font-semibold"
-            >
-              Eliminar
-            </Button>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-600 to-red-700 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                <Trash2 className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Eliminar rol</h2>
+                <p className="text-xs text-white/70">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-5 space-y-4">
+            <p className="text-sm text-gray-600">
+              Los usuarios con este rol perderán sus permisos de acceso al panel.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteRoleConfirm(null)}
+                className="flex-1 rounded-xl"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => deleteRoleConfirm && handleDeleteRole(deleteRoleConfirm)}
+                className="flex-1 bg-red-500 text-white hover:bg-red-600 font-semibold rounded-xl"
+              >
+                Sí, eliminar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

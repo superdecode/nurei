@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 interface Category {
@@ -25,14 +25,14 @@ interface Category {
 }
 
 const INITIAL_CATEGORIES: Category[] = [
-  { id: '1', name: 'Cerveza', slug: 'cerveza', emoji: '🍺', color: '#F59E0B', description: 'Cervezas nacionales e importadas', is_active: true, order: 0, productCount: 4 },
-  { id: '2', name: 'Tequila', slug: 'tequila', emoji: '🥃', color: '#00E5FF', description: 'Tequila blanco, reposado, añejo', is_active: true, order: 1, productCount: 3 },
-  { id: '3', name: 'Vodka', slug: 'vodka', emoji: '🍸', color: '#8B5CF6', description: 'Vodka premium y estándar', is_active: true, order: 2, productCount: 2 },
-  { id: '4', name: 'Ron', slug: 'ron', emoji: '🍹', color: '#EF4444', description: 'Ron blanco, dorado, añejo', is_active: true, order: 3, productCount: 2 },
-  { id: '5', name: 'Whisky', slug: 'whisky', emoji: '🥃', color: '#0A1F2F', description: 'Scotch, bourbon, irlandés', is_active: true, order: 4, productCount: 2 },
-  { id: '6', name: 'Vino', slug: 'vino', emoji: '🍷', color: '#DC2626', description: 'Vino tinto, blanco, rosado', is_active: true, order: 5, productCount: 2 },
-  { id: '7', name: 'Mezcal', slug: 'mezcal', emoji: '🌵', color: '#10B981', description: 'Mezcal artesanal', is_active: false, order: 6, productCount: 0 },
-  { id: '8', name: 'Otros', slug: 'otros', emoji: '🍹', color: '#6B7280', description: 'Mixers, hielo, snacks', is_active: false, order: 7, productCount: 0 },
+  { id: '1', name: 'Ramen', slug: 'ramen', emoji: '🍜', color: '#F59E0B', description: 'Ramen instantáneo y fresco de diversas regiones', is_active: true, order: 0, productCount: 4 },
+  { id: '2', name: 'Dumplings', slug: 'dumplings', emoji: '🥟', color: '#00E5FF', description: 'Gyoza, shumai, bao y otras empanadillas asiáticas', is_active: true, order: 1, productCount: 3 },
+  { id: '3', name: 'Snacks Crunchy', slug: 'snacks-crunchy', emoji: '🍘', color: '#8B5CF6', description: 'Snacks crujientes de arroz, algas y maíz', is_active: true, order: 2, productCount: 2 },
+  { id: '4', name: 'Salsa & Condimentos', slug: 'salsas-condimentos', emoji: '🌶️', color: '#EF4444', description: 'Salsas, pastas y aderezos asiáticos', is_active: true, order: 3, productCount: 2 },
+  { id: '5', name: 'Bebidas', slug: 'bebidas', emoji: '🧋', color: '#0A1F2F', description: 'Bubble tea, matcha, té de cebada y más', is_active: true, order: 4, productCount: 2 },
+  { id: '6', name: 'Dulces & Postres', slug: 'dulces-postres', emoji: '🍡', color: '#DC2626', description: 'Mochi, pocky, daifuku y dulces asiáticos', is_active: true, order: 5, productCount: 2 },
+  { id: '7', name: 'Edición Limitada', slug: 'edicion-limitada', emoji: '⭐', color: '#10B981', description: 'Productos de temporada y colaboraciones especiales', is_active: false, order: 6, productCount: 0 },
+  { id: '8', name: 'Otros', slug: 'otros', emoji: '🛒', color: '#6B7280', description: 'Utensilios, accesorios y artículos de cocina asiática', is_active: false, order: 7, productCount: 0 },
 ]
 
 function generateSlug(name: string): string {
@@ -216,25 +216,38 @@ export default function CategoriesPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? 'Editar categoría' : 'Nueva categoría'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          {/* Gradient header */}
+          <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-cyan/20 flex items-center justify-center">
+                <FolderTree className="w-4.5 h-4.5 text-primary-cyan" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  {editingCategory ? 'Editar categoría' : 'Nueva categoría'}
+                </h2>
+                <p className="text-xs text-white/50 mt-0.5">
+                  {editingCategory ? `Modificando: ${editingCategory.name}` : 'Completa los campos para crear la categoría'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-5">
+            {/* Emoji + Name row */}
             <div className="flex gap-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Emoji</label>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Emoji</label>
                 <Input
                   value={formData.emoji}
                   onChange={(e) => setFormData({ ...formData, emoji: e.target.value })}
-                  className="w-16 h-12 text-center text-2xl"
+                  className="w-16 h-11 text-center text-2xl border-gray-200 shadow-sm"
                   maxLength={2}
                 />
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1 block">Nombre</label>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Nombre *</label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({
@@ -242,32 +255,37 @@ export default function CategoriesPage() {
                     name: e.target.value,
                     slug: generateSlug(e.target.value),
                   })}
-                  placeholder="Nombre categoría"
-                  className="h-12"
+                  placeholder="Ej: Ramen, Dumplings, Snacks..."
+                  className="h-11 border-gray-200 shadow-sm"
                 />
               </div>
             </div>
 
+            {/* Slug */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Slug</label>
-              <Input
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                placeholder="slug-categoria"
-                className="font-mono text-sm"
-              />
+              <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Slug URL</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-mono">/</span>
+                <Input
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  placeholder="nombre-categoria"
+                  className="font-mono text-sm pl-5 border-gray-200 shadow-sm bg-gray-50"
+                />
+              </div>
             </div>
 
+            {/* Color picker */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Color</label>
-              <div className="flex gap-2">
+              <label className="text-xs font-semibold text-gray-500 mb-2 block uppercase tracking-wide">Color de acento</label>
+              <div className="flex gap-2 flex-wrap">
                 {['#00E5FF', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6', '#0A1F2F', '#DC2626', '#6B7280'].map((color) => (
                   <button
                     key={color}
                     onClick={() => setFormData({ ...formData, color })}
                     className={cn(
-                      'w-8 h-8 rounded-lg border-2 transition-all',
-                      formData.color === color ? 'border-primary-dark scale-110' : 'border-transparent'
+                      'w-9 h-9 rounded-xl border-2 transition-all shadow-sm hover:scale-110',
+                      formData.color === color ? 'border-primary-dark ring-2 ring-primary-dark/20 scale-110' : 'border-transparent'
                     )}
                     style={{ backgroundColor: color }}
                   />
@@ -275,39 +293,45 @@ export default function CategoriesPage() {
               </div>
             </div>
 
+            {/* Description */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Descripción</label>
+              <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Descripción</label>
               <Input
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descripción corta"
+                placeholder="Descripción corta de la categoría..."
+                className="border-gray-200 shadow-sm"
               />
             </div>
 
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-gray-500">Activa</label>
+            {/* Active toggle */}
+            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Categoría activa</p>
+                <p className="text-xs text-gray-400">Visible en la tienda para los clientes</p>
+              </div>
               <button
                 onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                 className={cn(
-                  'w-10 h-6 rounded-full transition-colors relative',
+                  'w-11 h-6 rounded-full transition-colors relative shadow-sm',
                   formData.is_active ? 'bg-primary-cyan' : 'bg-gray-200'
                 )}
               >
                 <span className={cn(
                   'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform',
-                  formData.is_active ? 'left-5' : 'left-1'
+                  formData.is_active ? 'left-[22px]' : 'left-1'
                 )} />
               </button>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>
-                <X className="w-4 h-4 mr-1" />
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1 rounded-xl h-10" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button className="flex-1 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover" onClick={handleSave}>
-                <Save className="w-4 h-4 mr-1" />
-                Guardar
+              <Button className="flex-1 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold rounded-xl h-10" onClick={handleSave}>
+                <Save className="w-4 h-4 mr-1.5" />
+                {editingCategory ? 'Guardar cambios' : 'Crear categoría'}
               </Button>
             </div>
           </div>
@@ -316,19 +340,29 @@ export default function CategoriesPage() {
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>¿Eliminar categoría?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-500">Esta acción no se puede deshacer. Los productos no serán eliminados.</p>
-          <div className="flex gap-3 mt-4">
-            <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
-            <Button
-              className="flex-1 bg-error text-white hover:bg-error/90"
-              onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-            >
-              Eliminar
-            </Button>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                <Trash2 className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white">Eliminar categoría</h2>
+                <p className="text-xs text-white/70 mt-0.5">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-600">Los productos asignados a esta categoría no serán eliminados, pero quedarán sin categoría.</p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
+              <Button
+                className="flex-1 bg-error text-white hover:bg-error/90 rounded-xl"
+                onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+              >
+                Sí, eliminar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
