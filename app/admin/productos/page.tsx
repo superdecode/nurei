@@ -92,6 +92,10 @@ interface ProductForm {
   price_pesos: string
   cost_estimate_pesos: string
   availability_score: string
+  stock_quantity: string
+  low_stock_threshold: string
+  track_inventory: boolean
+  allow_backorder: boolean
   is_active: boolean
   is_featured: boolean
   is_limited: boolean
@@ -110,6 +114,10 @@ const emptyForm: ProductForm = {
   price_pesos: '',
   cost_estimate_pesos: '',
   availability_score: '80',
+  stock_quantity: '0',
+  low_stock_threshold: '5',
+  track_inventory: true,
+  allow_backorder: false,
   is_active: true,
   is_featured: false,
   is_limited: false,
@@ -130,6 +138,10 @@ function productToForm(p: Product): ProductForm {
     price_pesos: (p.price / 100).toString(),
     cost_estimate_pesos: p.cost_estimate ? (p.cost_estimate / 100).toString() : '',
     availability_score: p.availability_score.toString(),
+    stock_quantity: (p.stock_quantity ?? 0).toString(),
+    low_stock_threshold: (p.low_stock_threshold ?? 5).toString(),
+    track_inventory: p.track_inventory ?? true,
+    allow_backorder: p.allow_backorder ?? false,
     is_active: p.is_active,
     is_featured: p.is_featured,
   }
@@ -161,6 +173,10 @@ function formToProduct(form: ProductForm, existingId?: string): Product {
     image_thumbnail_url: null,
     meta_title: null,
     meta_description: null,
+    stock_quantity: parseInt(form.stock_quantity, 10) || 0,
+    low_stock_threshold: parseInt(form.low_stock_threshold, 10) || 5,
+    track_inventory: form.track_inventory,
+    allow_backorder: form.allow_backorder,
     views_count: 0,
     purchases_count: 0,
     created_at: existingId ? now : now,
@@ -742,6 +758,7 @@ export default function ProductosAdminPage() {
                     <TableHead>
                       <SortHeader field="availability_score">Disponibilidad</SortHeader>
                     </TableHead>
+                    <TableHead className="text-center">Stock</TableHead>
                     <TableHead>
                       <SortHeader field="is_active">Estado</SortHeader>
                     </TableHead>
@@ -810,6 +827,14 @@ export default function ProductosAdminPage() {
                             )} />
                             <span className="text-sm text-gray-600">{product.availability_score}%</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className={cn(
+                            'text-sm font-medium',
+                            (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5) ? 'text-red-500' : 'text-gray-600'
+                          )}>
+                            {product.stock_quantity ?? 0}
+                          </span>
                         </TableCell>
                         <TableCell>
                           <span className={cn(
@@ -1250,6 +1275,37 @@ export default function ProductosAdminPage() {
               {formErrors.availability_score && (
                 <p className="text-[11px] text-error">{formErrors.availability_score}</p>
               )}
+            </div>
+
+            <Separator />
+
+            {/* Inventory */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Inventario</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Stock actual</label>
+                  <Input type="number" min="0" value={form.stock_quantity} onChange={(e) => updateForm({ stock_quantity: e.target.value })} className="h-9" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-500">Alerta stock bajo</label>
+                  <Input type="number" min="0" value={form.low_stock_threshold} onChange={(e) => updateForm({ low_stock_threshold: e.target.value })} className="h-9" />
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <button type="button" onClick={() => updateForm({ track_inventory: !form.track_inventory })} className={cn('w-10 h-5.5 rounded-full relative transition-colors duration-200', form.track_inventory ? 'bg-primary-cyan' : 'bg-gray-300')}>
+                    <span className={cn('absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white shadow-sm transition-transform duration-200', form.track_inventory && 'translate-x-[18px]')} />
+                  </button>
+                  <span className="text-xs text-gray-600">Control de inventario</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <button type="button" onClick={() => updateForm({ allow_backorder: !form.allow_backorder })} className={cn('w-10 h-5.5 rounded-full relative transition-colors duration-200', form.allow_backorder ? 'bg-amber-400' : 'bg-gray-300')}>
+                    <span className={cn('absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white shadow-sm transition-transform duration-200', form.allow_backorder && 'translate-x-[18px]')} />
+                  </button>
+                  <span className="text-xs text-gray-600">Permitir backorder</span>
+                </label>
+              </div>
             </div>
 
             <Separator />

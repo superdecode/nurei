@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Package, BarChart3, LogOut, ShoppingBag, FolderTree,
   Image as ImageIcon, Settings, Menu, X, Bell, ChevronRight, Ticket, Upload,
+  Users, CreditCard, Boxes,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -18,8 +19,10 @@ const NAV_ITEMS = [
   { href: '/admin/productos', label: 'Productos', icon: ShoppingBag },
   { href: '/admin/categorias', label: 'Categorías', icon: FolderTree },
   { href: '/admin/media', label: 'Multimedia', icon: ImageIcon },
-  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/cupones', label: 'Cupones', icon: Ticket },
+  { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
+  { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
+  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/configuracion', label: 'Configuración', icon: Settings },
 ]
 

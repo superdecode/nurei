@@ -14,6 +14,15 @@ export type NotificationType = 'order_confirmed' | 'order_shipped' | 'order_deli
 
 export type UserRole = 'customer' | 'admin'
 
+export type PermissionLevel = 'total' | 'escritura' | 'lectura' | 'sin_acceso'
+
+export type AdminModule =
+  | 'dashboard' | 'pedidos' | 'productos' | 'categorias'
+  | 'inventario' | 'cupones' | 'multimedia' | 'clientes'
+  | 'usuarios' | 'roles' | 'configuracion' | 'analytics' | 'pagos'
+
+export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste' | 'venta' | 'devolucion'
+
 export interface Product {
   id: string
   name: string
@@ -34,6 +43,10 @@ export interface Product {
   is_limited: boolean
   image_url: string | null
   image_thumbnail_url: string | null
+  stock_quantity: number
+  low_stock_threshold: number
+  track_inventory: boolean
+  allow_backorder: boolean
   views_count: number
   purchases_count: number
   meta_title: string | null
@@ -133,8 +146,97 @@ export interface UserProfile {
   phone: string | null
   avatar_url: string | null
   role: UserRole
+  admin_role_id: string | null
+  admin_role?: AdminRole | null
+  is_active: boolean
+  last_login_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface AdminRole {
+  id: string
+  name: string
+  description: string | null
+  color: string
+  permissions: Record<AdminModule, PermissionLevel>
+  is_system: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface InventoryMovement {
+  id: string
+  product_id: string
+  product?: Product
+  type: InventoryMovementType
+  quantity: number
+  reason: string | null
+  reference: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface PaymentMethod {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  icon: string | null
+  is_active: boolean
+  config: Record<string, unknown>
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface StoreSettings {
+  store_info: {
+    name: string
+    phone: string
+    whatsapp: string
+    email: string
+    address: string
+    description: string
+  }
+  shipping: {
+    fee_cents: number
+    free_shipping_min_cents: number
+    estimated_time: string
+    enabled: boolean
+    zones: string[]
+  }
+  checkout: {
+    require_account: boolean
+    guest_checkout: boolean
+    min_order_cents: number
+    max_items_per_order: number
+  }
+  notifications: {
+    email_admin: string
+    email_on_new_order: boolean
+    email_on_payment: boolean
+    whatsapp_customer: boolean
+    sound_alerts: boolean
+  }
+  appearance: {
+    primary_color: string
+    logo_url: string | null
+    favicon_url: string | null
+    social_links: { instagram: string; facebook: string; tiktok: string }
+  }
+  seo: {
+    meta_title: string
+    meta_description: string
+    og_image: string | null
+  }
+  legal: {
+    terms_url: string
+    privacy_url: string
+    return_policy: string
+    tax_rate: number
+  }
 }
 
 export interface Address {
