@@ -1,0 +1,281 @@
+'use client'
+
+import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X, ShoppingBag, ArrowRight, Sparkles, PartyPopper } from 'lucide-react'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { CartItem } from './CartItem'
+import { useCartStore } from '@/lib/stores/cart'
+import { useUIStore } from '@/lib/stores/ui'
+import { formatPrice } from '@/lib/utils/format'
+import { DEFAULT_SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, MIN_ORDER_AMOUNT } from '@/lib/utils/constants'
+
+function AnimatedPrice({ value, className }: { value: number; className?: string }) {
+  return (
+    <AnimatePresence mode="popLayout">
+      <motion.span
+        key={value}
+        initial={{ y: -8, opacity: 0, filter: 'blur(3px)' }}
+        animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+        exit={{ y: 8, opacity: 0, filter: 'blur(3px)' }}
+        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+        className={className}
+      >
+        {formatPrice(value)}
+      </motion.span>
+    </AnimatePresence>
+  )
+}
+
+function AnimatedBadge({ count }: { count: number }) {
+  return (
+    <AnimatePresence mode="popLayout">
+      <motion.span
+        key={count}
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 1.3, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+        className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-nurei-cta text-nurei-black text-xs font-bold"
+      >
+        {count}
+      </motion.span>
+    </AnimatePresence>
+  )
+}
+
+function EmptyCartIllustration() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 py-12">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25, delay: 0.1 }}
+        className="relative"
+      >
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.25, 0.1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-0 -m-6 rounded-full bg-nurei-cta/10"
+        />
+        <motion.div
+          animate={{ y: [-6, 6, -6] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-7xl"
+        >
+          🛒
+        </motion.div>
+      </motion.div>
+
+      <motion.div
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.25 }}
+        className="text-center space-y-2"
+      >
+        <p className="text-gray-900 font-black text-lg">Tu carrito está vacío</p>
+        <p className="text-gray-500 text-sm font-medium">¡Agrega tus snacks favoritos! 😋</p>
+      </motion.div>
+
+      <motion.div
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Link href="/menu">
+          <Button
+            variant="outline"
+            className="border-nurei-cta text-nurei-cta hover:bg-nurei-cta hover:text-nurei-black gap-2 h-12 px-8 rounded-full font-bold transition-all"
+          >
+            Ver menú
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </Link>
+      </motion.div>
+    </div>
+  )
+}
+
+function ProgressBar({ subtotal }: { subtotal: number }) {
+  const progress = Math.min((subtotal / FREE_SHIPPING_THRESHOLD) * 100, 100)
+  const remaining = FREE_SHIPPING_THRESHOLD - subtotal
+  const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="mx-6 mb-3 p-4 rounded-3xl bg-gray-50 border border-gray-100"
+    >
+      <div className="relative">
+        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ type: 'spring', stiffness: 100, damping: 20, delay: 0.3 }}
+            className={`h-full rounded-full transition-colors ${
+              freeShipping
+                ? 'bg-gradient-to-r from-nurei-stock to-emerald-400'
+                : 'bg-gradient-to-r from-nurei-cta to-nurei-cta-hover'
+            }`}
+          />
+        </div>
+
+        <AnimatePresence mode="wait">
+          {freeShipping ? (
+            <motion.p
+              key="met"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="flex items-center gap-1.5 text-xs text-nurei-stock font-semibold mt-2"
+            >
+              <PartyPopper className="w-3.5 h-3.5" />
+              ¡Envío gratis desbloqueado! 🎉
+            </motion.p>
+          ) : (
+            <motion.p
+              key="not-met"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="text-xs text-gray-500 mt-2 font-medium"
+            >
+              Agrega <span className="font-bold text-nurei-cta">{formatPrice(remaining)}</span> más para envío gratis 🚚
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  )
+}
+
+export function CartDrawer() {
+  const items = useCartStore((s) => s.items)
+  const getSubtotal = useCartStore((s) => s.getSubtotal)
+  const getTotal = useCartStore((s) => s.getTotal)
+  const getItemCount = useCartStore((s) => s.getItemCount)
+  const isCartOpen = useUIStore((s) => s.isCartOpen)
+  const closeCart = useUIStore((s) => s.closeCart)
+
+  const subtotal = getSubtotal()
+  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_FEE
+  const total = getTotal(shippingFee)
+  const itemCount = getItemCount()
+  const meetsMinimum = subtotal >= MIN_ORDER_AMOUNT
+
+  return (
+    <Sheet open={isCartOpen} onOpenChange={(open) => !open && closeCart()}>
+      <SheetContent
+        showCloseButton={false}
+        className="w-full sm:max-w-[450px] flex flex-col p-0 h-full max-h-[100dvh] sm:max-h-full bg-white border-l border-gray-100"
+      >
+        {/* Header */}
+        <SheetHeader className="px-6 py-5 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <SheetTitle className="text-xl font-black text-gray-900 flex items-center gap-2">
+                🛒 Mi carrito
+              </SheetTitle>
+              {itemCount > 0 && <AnimatedBadge count={itemCount} />}
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.85, rotate: -90 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              onClick={closeCart}
+              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </motion.button>
+          </div>
+        </SheetHeader>
+
+        {items.length === 0 ? (
+          <EmptyCartIllustration />
+        ) : (
+          <>
+            <div className="pt-3">
+              <ProgressBar subtotal={subtotal} />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-2 scrollbar-none">
+              <AnimatePresence mode="popLayout">
+                {items.map((item) => (
+                  <CartItem key={item.product.id} item={item} />
+                ))}
+              </AnimatePresence>
+            </div>
+
+            {/* Footer summary */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.15 }}
+              className="border-t border-gray-100 bg-white px-5 sm:px-6 py-6 space-y-3 flex-shrink-0"
+            >
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500 font-medium">Subtotal</span>
+                <AnimatedPrice value={subtotal} className="font-black text-gray-900" />
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500 font-medium">Envío</span>
+                <span className={`font-black ${shippingFee === 0 ? 'text-emerald-500' : 'text-gray-900'}`}>
+                  {shippingFee === 0 ? '¡Gratis! 🎉' : formatPrice(shippingFee)}
+                </span>
+              </div>
+
+              <Separator className="!my-3 bg-gray-100" />
+
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-lg text-gray-900">Total</span>
+                <AnimatedPrice value={total} className="font-black text-2xl text-gray-900" />
+              </div>
+
+              <AnimatePresence>
+                {!meetsMinimum && (
+                  <motion.p
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="text-xs text-nurei-promo text-center overflow-hidden"
+                  >
+                    Pedido mínimo: {formatPrice(MIN_ORDER_AMOUNT)}. Faltan{' '}
+                    {formatPrice(MIN_ORDER_AMOUNT - subtotal)} 😊
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <motion.div
+                whileTap={{ scale: meetsMinimum ? 0.98 : 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              >
+                {meetsMinimum ? (
+                  <Link href="/checkout" onClick={closeCart} className="block">
+                    <Button
+                      className="w-full h-14 text-base font-bold bg-nurei-cta text-nurei-black hover:bg-nurei-cta-hover rounded-2xl gap-2 transition-all shadow-lg shadow-nurei-cta/20"
+                    >
+                      Continuar al pago
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    className="w-full h-14 text-base font-bold bg-nurei-cta text-nurei-black hover:bg-nurei-cta-hover disabled:opacity-40 rounded-2xl gap-2 transition-all"
+                    disabled
+                  >
+                    Continuar al pago
+                  </Button>
+                )}
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}
