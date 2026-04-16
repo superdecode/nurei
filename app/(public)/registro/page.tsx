@@ -40,7 +40,7 @@ export default function RegistroPage() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <span className="text-4xl">🍘</span>
+          <img src="/logo.png" alt="nurei" className="w-16 h-16 mx-auto mb-2 object-contain" />
           <h1 className="text-3xl font-black text-gray-900 mt-3">Crear cuenta</h1>
           <p className="text-gray-500 mt-2 text-sm">Únete a la comunidad nurei</p>
         </div>

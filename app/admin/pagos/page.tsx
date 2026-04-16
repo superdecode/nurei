@@ -154,14 +154,21 @@ export default function PagosPage() {
 
       {/* Config dialog */}
       <Dialog open={!!editMethod} onOpenChange={() => setEditMethod(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-primary-cyan" />
-              Configurar {editMethod?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
+        <DialogContent size="md" className="p-0 overflow-hidden flex flex-col max-h-[90vh]">
+          {/* Header Fixed */}
+          <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0 border-b">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5 shadow-inner">
+                <Settings className="w-5 h-5 text-gray-900" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-gray-900">Configuración</DialogTitle>
+                <p className="text-xs text-gray-900/60 font-medium">{editMethod?.name}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
             {Object.entries(editConfig)
               .filter(([key]) => key !== 'provider')
               .map(([key, value]) => (
@@ -177,14 +184,23 @@ export default function PagosPage() {
                   />
                 </div>
               ))}
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setEditMethod(null)}>
-                Cancelar
-              </Button>
-              <Button className="flex-1 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold" onClick={handleSaveConfig}>
-                <Check className="w-4 h-4 mr-1" /> Guardar
-              </Button>
-            </div>
+          </div>
+
+          <div className="p-6 flex justify-end gap-3 border-t bg-gray-50/50 flex-shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => setEditMethod(null)}
+              className="rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100 px-6"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveConfig}
+              className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-10 px-8 shadow-md"
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Guardar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

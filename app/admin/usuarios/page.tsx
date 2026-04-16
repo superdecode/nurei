@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, Shield, Plus, Search, Edit2, Trash2, ToggleLeft, ToggleRight,
   LayoutDashboard, ShoppingCart, Package, FolderTree, Warehouse, Ticket,
-  Image, UserCheck, UserCog, Lock, Settings, BarChart3, CreditCard, X,
+  Image, UserCheck, UserCog, Lock, Settings, BarChart3, CreditCard, X, Check,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -187,6 +187,8 @@ export default function UsuariosPage() {
             full_name: userForm.full_name,
             phone: userForm.phone || null,
             admin_role_id: userForm.admin_role_id || null,
+            ...(userForm.email !== editingUser.email ? { email: userForm.email } : {}),
+            ...(userForm.password ? { password: userForm.password } : {}),
           }),
         })
         if (!res.ok) throw new Error()
@@ -388,7 +390,7 @@ export default function UsuariosPage() {
                     <SelectValue placeholder="Filtrar por rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos los roles</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     {roles.map((r) => (
                       <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                     ))}
@@ -605,23 +607,24 @@ export default function UsuariosPage() {
 
       {/* ── User Dialog ─────────────────────────────────────────────────────── */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-cyan/20 flex items-center justify-center">
-                <UserCog className="w-4.5 h-4.5 text-primary-cyan" />
+        <DialogContent size="lg" className="p-0 overflow-hidden flex flex-col">
+          {/* Header Fixed */}
+          <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5">
+                <UserCog className="w-5 h-6 text-gray-900" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white">
-                  {editingUser ? 'Editar usuario' : 'Nuevo usuario'}
-                </h2>
-                <p className="text-xs text-white/50 mt-0.5">
-                  {editingUser ? 'Modifica los datos y permisos del usuario' : 'Completa los campos para crear el acceso'}
-                </p>
+                <DialogTitle className="text-lg font-bold text-gray-900 leading-tight">
+                  {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+                </DialogTitle>
+                <p className="text-xs text-gray-900/60 font-medium">Gestiona permisos y accesos de usuario</p>
               </div>
             </div>
           </div>
-          <div className="p-6 space-y-4">
+
+          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
             <div>
               <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">
                 Nombre completo <span className="text-red-400">*</span>
@@ -634,35 +637,35 @@ export default function UsuariosPage() {
               />
             </div>
 
-            {!editingUser && (
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Credenciales de acceso</p>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">
-                    Email <span className="text-red-400">*</span>
-                  </label>
-                  <Input
-                    type="email"
-                    value={userForm.email}
-                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder="correo@empresa.com"
-                    className="border-gray-200 bg-white shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">
-                    Contraseña <span className="text-red-400">*</span>
-                  </label>
-                  <Input
-                    type="password"
-                    value={userForm.password}
-                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    placeholder="Mínimo 8 caracteres"
-                    className="border-gray-200 bg-white shadow-sm"
-                  />
-                </div>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                Credenciales de acceso {editingUser && '(Dejar contraseña en blanco si no se desea cambiar)'}
+              </p>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                  Email <span className="text-red-400">*</span>
+                </label>
+                <Input
+                  type="email"
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  placeholder="correo@empresa.com"
+                  className="border-gray-200 bg-white shadow-sm"
+                />
               </div>
-            )}
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                  Nueva contraseña {!editingUser && <span className="text-red-400">*</span>}
+                </label>
+                <Input
+                  type="password"
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  placeholder="Mínimo 8 caracteres"
+                  className="border-gray-200 bg-white shadow-sm"
+                />
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -684,7 +687,7 @@ export default function UsuariosPage() {
                     <SelectValue placeholder="Sin rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Sin rol</SelectItem>
+                    <SelectItem value="none">Escoger rol</SelectItem>
                     {roles.map((r) => (
                       <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                     ))}
@@ -692,76 +695,81 @@ export default function UsuariosPage() {
                 </Select>
               </div>
             </div>
+          </div>
 
-            <div className="flex gap-3 pt-1">
-              <Button
-                variant="outline"
-                onClick={() => setUserDialogOpen(false)}
-                className="flex-1 rounded-xl"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveUser}
-                className="flex-1 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold rounded-xl"
-              >
-                {editingUser ? 'Guardar cambios' : 'Crear usuario'}
-              </Button>
-            </div>
+          <div className="p-6 flex justify-end gap-3 border-t bg-gray-50/50 flex-shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => setUserDialogOpen(false)}
+              className="rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100 px-6"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveUser}
+              className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-10 px-8 shadow-md"
+            >
+              {editingUser ? 'Guardar' : 'Crear'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* ── Role Dialog ─────────────────────────────────────────────────────── */}
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-          <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5 sticky top-0 z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-cyan/20 flex items-center justify-center">
-                <Shield className="w-4.5 h-4.5 text-primary-cyan" />
+        <DialogContent size="xl" className="p-0 overflow-hidden flex flex-col">
+          {/* Header Fixed */}
+          <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0 border-b">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5">
+                <Shield className="w-5 h-5 text-gray-900" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white">
-                  {editingRole ? 'Editar rol' : 'Nuevo rol'}
-                </h2>
-                <p className="text-xs text-white/50 mt-0.5">Configura el nombre y los permisos por módulo</p>
+                <DialogTitle className="text-lg font-bold text-gray-900 leading-tight">
+                  {editingRole ? 'Editar Rol' : 'Nuevo Rol'}
+                </DialogTitle>
+                <p className="text-xs text-gray-900/60 font-medium whitespace-nowrap">Gestiona los niveles de acceso del sistema</p>
               </div>
             </div>
           </div>
-          <div className="p-6 space-y-5">
+
+          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
             {/* Name & Description */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">
                   Nombre <span className="text-red-400">*</span>
                 </label>
                 <Input
                   value={roleForm.name}
                   onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                  placeholder="Ej: Editor"
+                  placeholder="Ej: Editor, Operador..."
+                  className="h-10 border-gray-200 shadow-sm"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">Descripcion</label>
+                <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Descripción</label>
                 <Input
                   value={roleForm.description}
                   onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
-                  placeholder="Breve descripcion del rol"
+                  placeholder="Breve descripción del rol"
+                  className="h-10 border-gray-200 shadow-sm"
                 />
               </div>
             </div>
 
             {/* Color */}
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Color</label>
-              <div className="flex gap-2">
+              <label className="text-xs font-semibold text-gray-500 mb-2.5 block uppercase tracking-wide">Color identificador</label>
+              <div className="flex gap-2.5">
                 {ROLE_COLORS.map((c) => (
                   <button
                     key={c}
                     onClick={() => setRoleForm({ ...roleForm, color: c })}
                     className={cn(
-                      'w-7 h-7 rounded-full transition-all',
-                      roleForm.color === c ? 'ring-2 ring-offset-2 ring-primary-cyan scale-110' : 'hover:scale-105'
+                      'w-8 h-8 rounded-xl transition-all shadow-sm',
+                      roleForm.color === c ? 'ring-2 ring-offset-2 ring-gray-700 scale-110' : 'hover:scale-105'
                     )}
                     style={{ backgroundColor: c }}
                   />
@@ -771,13 +779,13 @@ export default function UsuariosPage() {
 
             {/* Permissions Matrix */}
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-3 block">Permisos por modulo</label>
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <label className="text-xs font-semibold text-gray-500 mb-3 block uppercase tracking-wide">Permisos por módulo</label>
+              <div className="rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                 {/* Header */}
-                <div className="grid grid-cols-[1fr_repeat(4,64px)] sm:grid-cols-[1fr_repeat(4,80px)] bg-gray-50 px-4 py-2.5 border-b border-gray-100">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Modulo</span>
+                <div className="grid grid-cols-[1fr_repeat(4,90px)] bg-gray-50 px-5 py-3 border-b border-gray-200">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Módulo</span>
                   {PERMISSION_LEVELS.map((level) => (
-                    <span key={level} className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
+                    <span key={level} className="text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
                       {PERMISSION_LABELS[level]}
                     </span>
                   ))}
@@ -790,12 +798,12 @@ export default function UsuariosPage() {
                     <div
                       key={mod}
                       className={cn(
-                        'grid grid-cols-[1fr_repeat(4,64px)] sm:grid-cols-[1fr_repeat(4,80px)] px-4 py-2.5 items-center',
-                        i < ALL_MODULES.length - 1 && 'border-b border-gray-50'
+                        'grid grid-cols-[1fr_repeat(4,90px)] px-5 py-3.5 items-center hover:bg-amber-50/40 transition-colors',
+                        i < ALL_MODULES.length - 1 && 'border-b border-gray-100'
                       )}
                     >
-                      <span className="flex items-center gap-2 text-sm text-primary-dark font-medium">
-                        <Icon className="w-4 h-4 text-gray-400" />
+                      <span className="flex items-center gap-2.5 text-sm text-gray-800 font-medium">
+                        <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         {MODULE_LABELS[mod]}
                       </span>
                       {PERMISSION_LEVELS.map((level) => (
@@ -803,10 +811,10 @@ export default function UsuariosPage() {
                           <button
                             onClick={() => updatePermission(mod, level)}
                             className={cn(
-                              'w-5 h-5 rounded-full border-2 transition-all',
+                              'w-6 h-6 rounded-full border-2 transition-all',
                               roleForm.permissions[mod] === level
-                                ? cn(PERMISSION_COLORS[level], 'border-transparent')
-                                : 'border-gray-200 hover:border-gray-300 bg-white'
+                                ? cn(PERMISSION_COLORS[level], 'border-transparent scale-110')
+                                : 'border-gray-200 hover:border-gray-400 bg-white'
                             )}
                           >
                             {roleForm.permissions[mod] === level && (
@@ -824,22 +832,23 @@ export default function UsuariosPage() {
                 })}
               </div>
             </div>
+          </div>
 
-            <div className="flex gap-3 justify-end pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setRoleDialogOpen(false)}
-                className="border-gray-200"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveRole}
-                className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold"
-              >
-                {editingRole ? 'Guardar cambios' : 'Crear rol'}
-              </Button>
-            </div>
+          <div className="p-6 flex justify-end gap-3 border-t bg-gray-50/50 flex-shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => setRoleDialogOpen(false)}
+              className="rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100 px-6"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveRole}
+              className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-10 px-8 shadow-md"
+            >
+              <Check className="w-4 h-4 mr-2" />
+              {editingRole ? 'Guardar' : 'Crear'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -847,7 +856,7 @@ export default function UsuariosPage() {
       {/* ── Delete Role Confirm ─────────────────────────────────────────────── */}
       <Dialog open={!!deleteRoleConfirm} onOpenChange={() => setDeleteRoleConfirm(null)}>
         <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-600 to-red-700 px-5 py-4">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
                 <Trash2 className="w-4 h-4 text-white" />

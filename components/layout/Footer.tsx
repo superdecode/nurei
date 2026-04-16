@@ -9,8 +9,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🍘</span>
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="nurei" className="w-8 h-8 object-contain" />
               <span className="text-xl font-black tracking-tight text-gray-900">
                 nu<span className="text-nurei-cta">rei</span>
               </span>

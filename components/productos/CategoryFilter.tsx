@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils'
 import { CATEGORIES } from '@/lib/utils/constants'
 
 const CATEGORY_EMOJI: Record<string, string> = {
-  all: '�',
-  crunchy: '�',
-  spicy: '�️',
-  limited_edition: '�',
-  drinks: '�',
+  all: '✨',
+  crunchy: '🍘',
+  spicy: '🌶️',
+  limited_edition: '🍵',
+  drinks: '🥤',
 }
 
 interface CategoryFilterProps {

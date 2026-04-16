@@ -17,7 +17,19 @@ export async function PATCH(
       return NextResponse.json({ success: true })
     }
 
-    const user = await updateUserProfile(supabase, id, body)
+    // Handle auth update
+    if (body.email || body.password) {
+      const authUpdates: any = {}
+      if (body.email) authUpdates.email = body.email
+      if (body.password) authUpdates.password = body.password
+      
+      const { error: authError } = await supabase.auth.admin.updateUserById(id, authUpdates)
+      if (authError) throw authError
+    }
+
+    // Now remove email and password to only pass valid fields to updateUserProfile
+    const { email, password, ...profileUpdates } = body
+    const user = await updateUserProfile(supabase, id, profileUpdates)
     return NextResponse.json({ data: user })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error updating user'

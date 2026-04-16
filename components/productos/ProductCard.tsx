@@ -17,10 +17,8 @@ interface ProductCardProps {
 
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
-    crunchy: '🍘',
-    spicy: '🌶️',
-    limited_edition: '🍵',
-    drinks: '🥤',
+    crunchy: '🍘', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
+    snacks: '🍿', ramen: '🍜', dulces: '🍬', salsas: '🫙',
   }
   return map[category] || '🍘'
 }
@@ -68,6 +66,9 @@ export function ProductCard({ product }: ProductCardProps) {
   }
 
   const lowAvailability = product.availability_score < 40
+  const price = product.base_price ?? product.price
+  const discountPercent = product.compare_at_price && product.compare_at_price > price
+    ? Math.round((1 - price / product.compare_at_price) * 100) : 0
 
   return (
     <Link href={`/producto/${product.slug}`}>
@@ -75,14 +76,24 @@ export function ProductCard({ product }: ProductCardProps) {
         layout
         className="card-product group overflow-hidden flex flex-col"
       >
-        <div className="relative aspect-[4/3] bg-gray-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
-          <motion.span
-            className="text-5xl sm:text-6xl select-none"
-            whileHover={{ scale: 1.2, rotate: [0, -8, 8, 0] }}
-            transition={{ duration: 0.5 }}
-          >
-            {getCategoryEmoji(product.category)}
-          </motion.span>
+        <div className="relative aspect-square bg-gray-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
+          {product.images?.[product.primary_image_index] ? (
+            <motion.img
+              src={product.images[product.primary_image_index]}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            />
+          ) : (
+            <motion.span
+              className="text-5xl sm:text-6xl select-none opacity-40"
+              whileHover={{ scale: 1.2, rotate: [0, -8, 8, 0] }}
+              transition={{ duration: 0.5 }}
+            >
+              {getCategoryEmoji(product.category)}
+            </motion.span>
+          )}
 
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">
@@ -91,14 +102,19 @@ export function ProductCard({ product }: ProductCardProps) {
                 Limitado
               </span>
             )}
-            {product.compare_at_price && (
-              <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-gray-900 rounded-full shadow-lg">
-                Oferta
+            {discountPercent > 0 && (
+              <span className="px-2.5 py-1 text-[10px] font-black uppercase bg-red-500 text-white rounded-full shadow-lg">
+                DESC {discountPercent}%
               </span>
             )}
             {product.is_featured && (
               <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-gray-900 rounded-full shadow-lg">
                 Popular
+              </span>
+            )}
+            {product.has_variants && (
+              <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-blue-500 text-white rounded-full shadow-lg">
+                Opciones
               </span>
             )}
           </div>
@@ -147,19 +163,21 @@ export function ProductCard({ product }: ProductCardProps) {
                 </span>
               </div>
             )}
-            <span className="text-[10px] font-bold text-gray-400 uppercase">{product.weight_g}g</span>
+            {product.unit_of_measure && (
+              <span className="text-[10px] font-bold text-gray-400 uppercase">{product.unit_of_measure}</span>
+            )}
           </div>
 
           {/* Price + CTA */}
           <div className="mt-auto pt-4 flex items-end justify-between gap-3">
             <div className="flex flex-col">
-              {product.compare_at_price && (
+              {product.compare_at_price && product.compare_at_price > price && (
                 <span className="text-[10px] font-bold text-gray-300 line-through">
                   {formatPrice(product.compare_at_price)}
                 </span>
               )}
               <span className="text-xl font-black text-gray-900 tabular-nums tracking-tight">
-                {formatPrice(product.price)}
+                {formatPrice(price)}
               </span>
             </div>
 

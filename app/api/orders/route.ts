@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createOrderSchema } from '@/lib/validations/order'
-import { PRODUCTS } from '@/lib/data/products'
 import { calculateShippingFee } from '@/lib/utils/calculations'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { getUserOrders } from '@/lib/supabase/queries/userOrders'
 
 // ─── GET: user's order history ───────────────────────────────────────────────
@@ -41,19 +40,27 @@ export async function POST(request: NextRequest) {
     } = parsed.data
 
     // Validate items and calculate totals
+    const productIds = items.map((i) => i.product_id)
+    const supabaseService = createServiceClient()
+    const { data: dbProducts } = await supabaseService
+      .from('products')
+      .select('id, name, price, base_price, is_active, status')
+      .in('id', productIds)
+
     let subtotal = 0
     const orderItems = items.map((item) => {
-      const product = PRODUCTS.find((p) => p.id === item.product_id)
-      if (!product || !product.is_active) {
+      const product = dbProducts?.find((p) => p.id === item.product_id)
+      if (!product || (!product.is_active && product.status !== 'active')) {
         throw new Error(`Producto ${item.product_id} no disponible`)
       }
-      const itemSubtotal = product.price * item.quantity
+      const unitPrice = product.base_price ?? product.price
+      const itemSubtotal = unitPrice * item.quantity
       subtotal += itemSubtotal
       return {
         product_id: product.id,
         name: product.name,
         quantity: item.quantity,
-        unit_price: product.price,
+        unit_price: unitPrice,
         subtotal: itemSubtotal,
       }
     })

@@ -45,10 +45,14 @@ export function Header() {
       >
         <Container className="flex items-center justify-between h-full">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <span className="text-2xl group-hover:animate-[wiggle_0.5s_ease-in-out]">🍘</span>
-            <span className="text-xl font-black tracking-tight text-gray-900">
-              nu<span className="text-nurei-cta">rei</span>
+          <Link href="/" className="flex items-center gap-2 group">
+            <img 
+              src="/logo.png" 
+              alt="nurei logo" 
+              className="w-8 h-8 group-hover:animate-[wiggle_0.5s_ease-in-out] object-contain"
+            />
+            <span className="text-lg font-black tracking-tight text-gray-900">
+              nurei
             </span>
           </Link>
 

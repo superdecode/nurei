@@ -1,36 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PRODUCTS } from '@/lib/data/products'
+import { listProducts, createProduct } from '@/lib/supabase/queries/products'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl
-  const category = searchParams.get('category')
-  const featured = searchParams.get('featured')
+  try {
+    const { searchParams } = request.nextUrl
+    const category = searchParams.get('category') || undefined
+    const status = searchParams.get('status') || undefined
+    const featured = searchParams.get('featured') === 'true' || undefined
+    const search = searchParams.get('search') || undefined
+    const hasVariants = searchParams.has('has_variants')
+      ? searchParams.get('has_variants') === 'true'
+      : undefined
 
-  let products = PRODUCTS.filter((p) => p.is_active)
+    const products = await listProducts({ category, status, featured, search, hasVariants })
 
-  if (category && category !== 'all') {
-    products = products.filter((p) => p.category === category)
+    return NextResponse.json({ data: { products, total: products.length } })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Error fetching products'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
+}
 
-  if (featured === 'true') {
-    products = products.filter((p) => p.is_featured)
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const product = await createProduct(body)
+    return NextResponse.json({ data: product }, { status: 201 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Error creating product'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  // Sort: featured first, then by availability, then name
-  products.sort((a, b) => {
-    if (a.is_featured !== b.is_featured) return a.is_featured ? -1 : 1
-    if (a.availability_score !== b.availability_score) return b.availability_score - a.availability_score
-    return a.name.localeCompare(b.name)
-  })
-
-  return NextResponse.json({
-    data: { products, total: products.length },
-  })
-
-  // TODO: Replace with Supabase query
-  // const supabase = createServiceClient()
-  // const query = supabase.from('products').select('*').eq('is_active', true)
-  // if (category) query.eq('category', category)
-  // if (featured) query.eq('is_featured', true)
-  // const { data, error } = await query.order('is_featured', { ascending: false })
 }

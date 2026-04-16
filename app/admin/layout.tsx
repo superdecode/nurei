@@ -6,59 +6,68 @@ import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Package, BarChart3, LogOut, ShoppingBag, FolderTree,
-  Image as ImageIcon, Settings, Menu, X, Bell, ChevronRight, Ticket, Upload,
-  Users, CreditCard, Boxes,
+  Image as ImageIcon, Settings, Menu, X, Bell, ChevronRight, Ticket,
+  Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useAdminAuthStore } from '@/lib/stores/adminAuth'
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/pedidos', label: 'Pedidos', icon: Package, badge: 3 },
   { href: '/admin/productos', label: 'Productos', icon: ShoppingBag },
-  { href: '/admin/categorias', label: 'Categorías', icon: FolderTree },
+  { href: '/admin/categorias', label: 'Categorias', icon: FolderTree },
   { href: '/admin/media', label: 'Multimedia', icon: ImageIcon },
   { href: '/admin/cupones', label: 'Cupones', icon: Ticket },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/admin/configuracion', label: 'Configuración', icon: Settings },
+  { href: '/admin/configuracion', label: 'Configuracion', icon: Settings },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [authenticated, setAuthenticated] = useState(false)
+  const { user, isAuthenticated, isLoading, login, logout, checkSession } = useAdminAuthStore()
+
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem('nurei-admin-token')
-    if (token) setAuthenticated(true)
-  }, [])
+    checkSession()
+  }, [checkSession])
 
   useEffect(() => {
     setSidebarOpen(false)
   }, [pathname])
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password === 'nurei2024' || password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      localStorage.setItem('nurei-admin-token', 'authenticated')
-      setAuthenticated(true)
-    } else {
-      setError(true)
+    setError('')
+    setSubmitting(true)
+    const result = await login(email, password)
+    if (!result.success) {
+      setError(result.error || 'Error al iniciar sesion')
     }
+    setSubmitting(false)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('nurei-admin-token')
-    setAuthenticated(false)
-    setPassword('')
+  // Loading state
+  if (isLoading && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-dark to-[#0D2A3F] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary-cyan animate-spin" />
+      </div>
+    )
   }
 
-  if (!authenticated) {
+  // Login form
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-dark to-[#0D2A3F] flex items-center justify-center p-4">
         <motion.form
@@ -69,30 +78,55 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm space-y-6"
         >
           <div className="text-center">
-            <h1 className="text-3xl font-black text-primary-dark">
-              nu<span className="text-primary-cyan">rei</span>
-            </h1>
-            <p className="text-gray-400 text-sm mt-2">Panel de administración</p>
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <img src="/logo.png" alt="nurei" className="w-10 h-10 object-contain" />
+              <h1 className="text-3xl font-black text-primary-dark">
+                nu<span className="text-primary-cyan">rei</span>
+              </h1>
+            </div>
+            <p className="text-gray-400 text-sm">Panel de administracion</p>
           </div>
 
           <div className="space-y-3">
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(false) }}
-              placeholder="Contraseña"
-              className="h-12 border-2 focus:border-primary-cyan text-center text-lg"
-              autoFocus
-            />
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError('') }}
+                placeholder="Email"
+                className="h-12 pl-10 border-2 focus:border-primary-cyan"
+                autoFocus
+                required
+              />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError('') }}
+                placeholder="Contrasena"
+                className="h-12 pl-10 pr-10 border-2 focus:border-primary-cyan"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
             <AnimatePresence>
               {error && (
                 <motion.p
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="text-xs text-error text-center"
+                  className="text-xs text-error text-center font-medium"
                 >
-                  Contraseña incorrecta
+                  {error}
                 </motion.p>
               )}
             </AnimatePresence>
@@ -100,9 +134,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <Button
             type="submit"
+            disabled={submitting}
             className="w-full h-12 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-bold text-base rounded-xl"
           >
-            Entrar
+            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Entrar'}
           </Button>
         </motion.form>
       </div>
@@ -121,9 +156,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-gray-100">
           <Menu className="w-5 h-5" />
         </button>
-        <span className="text-lg font-black text-primary-dark">
-          nu<span className="text-primary-cyan">rei</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="nurei" className="w-6 h-6 object-contain" />
+          <span className="text-lg font-black text-primary-dark">
+            nu<span className="text-primary-cyan">rei</span>
+          </span>
+        </div>
         <div className="relative">
           <Bell className="w-5 h-5 text-gray-400" />
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-cyan rounded-full" />
@@ -149,9 +187,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="lg:hidden fixed left-0 top-0 bottom-0 z-50 w-[280px] bg-white shadow-xl"
             >
               <div className="p-5 flex items-center justify-between border-b">
-                <span className="text-xl font-black text-primary-dark">
-                  nu<span className="text-primary-cyan">rei</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <img src="/logo.png" alt="nurei" className="w-8 h-8 object-contain" />
+                  <span className="text-xl font-black text-primary-dark">
+                    nu<span className="text-primary-cyan">rei</span>
+                  </span>
+                </div>
                 <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-lg hover:bg-gray-100">
                   <X className="w-5 h-5" />
                 </button>
@@ -178,6 +219,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </Link>
                 ))}
               </nav>
+              <div className="p-3 border-t mt-auto">
+                <p className="px-4 py-1 text-[10px] text-gray-400 truncate">{user?.email}</p>
+              </div>
             </motion.aside>
           </>
         )}
@@ -186,10 +230,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-100 fixed h-full z-40">
         <div className="p-6 pb-4">
-          <span className="text-xl font-black text-primary-dark">
-            nu<span className="text-primary-cyan">rei</span>
-          </span>
-          <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-widest">Admin Panel</p>
+          <div className="flex items-center gap-3 mb-1">
+            <img src="/logo.png" alt="nurei" className="w-9 h-9 object-contain" />
+            <span className="text-xl font-black text-primary-dark">
+              nu<span className="text-primary-cyan">rei</span>
+            </span>
+          </div>
+          <p className="text-[10px] text-gray-400 uppercase tracking-widest">Admin Panel</p>
         </div>
 
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
@@ -217,13 +264,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
 
-        <div className="p-3 border-t">
+        <div className="p-3 border-t space-y-1">
+          <p className="px-4 text-[10px] text-gray-400 truncate">{user?.email}</p>
           <button
-            onClick={handleLogout}
+            onClick={logout}
             className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
           >
             <LogOut className="w-[18px] h-[18px]" />
-            Cerrar sesión
+            Cerrar sesion
           </button>
         </div>
       </aside>

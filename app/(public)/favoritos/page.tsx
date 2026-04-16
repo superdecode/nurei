@@ -2,22 +2,37 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart } from 'lucide-react'
+import { Heart, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useFavoritesStore } from '@/lib/stores/favorites'
-import { PRODUCTS } from '@/lib/data/products'
 import { ProductCard } from '@/components/productos/ProductCard'
 import { Container } from '@/components/layout/Container'
+import type { Product } from '@/types'
 
 export default function FavoritosPage() {
   const [mounted, setMounted] = useState(false)
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
   const favoriteIds = useFavoritesStore((s) => s.favoriteIds)
 
   useEffect(() => { setMounted(true) }, [])
 
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/products?status=active')
+        const json = await res.json()
+        setAllProducts(json.data?.products ?? [])
+      } catch { /* ignore */ } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
   if (!mounted) return null
 
-  const favoriteProducts = PRODUCTS.filter((p) => favoriteIds.includes(p.id))
+  const favoriteProducts = allProducts.filter((p) => favoriteIds.includes(p.id))
 
   return (
     <Container className="py-8 sm:py-12">

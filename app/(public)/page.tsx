@@ -1,25 +1,17 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, ArrowRight, Flame, Truck, Star, Check, Plus, Heart, ChevronDown, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/layout/Container'
-import { PRODUCTS } from '@/lib/data/products'
-import { CATEGORIES, SPICE_LABELS, FREE_SHIPPING_THRESHOLD } from '@/lib/utils/constants'
+// Products fetched from Supabase via API
+import { SPICE_LABELS, FREE_SHIPPING_THRESHOLD } from '@/lib/utils/constants'
 import { formatPrice } from '@/lib/utils/format'
 import { useCartStore } from '@/lib/stores/cart'
 import type { Product } from '@/types'
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  all: '✨',
-  crunchy: '🍘',
-  spicy: '🌶️',
-  limited_edition: '🍵',
-  drinks: '🥤',
-}
 
 function SpiceDots({ level }: { level: number }) {
   return (
@@ -65,14 +57,24 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
       className="card-product group overflow-hidden flex flex-col"
     >
       {/* Image area */}
-      <div className="relative aspect-[4/3] bg-yellow-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
-        <motion.span
-          className="text-6xl sm:text-7xl select-none"
-          whileHover={{ scale: 1.2, rotate: [0, -8, 8, 0] }}
-          transition={{ duration: 0.5 }}
-        >
-          {emoji}
-        </motion.span>
+      <div className="relative aspect-square bg-yellow-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
+        {product.images && product.images.length > 0 ? (
+          <motion.img
+            src={product.images[product.primary_image_index ?? 0] || product.images[0]}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          />
+        ) : (
+          <motion.span
+            className="text-6xl sm:text-7xl select-none"
+            whileHover={{ scale: 1.2, rotate: [0, -8, 8, 0] }}
+            transition={{ duration: 0.5 }}
+          >
+            {emoji}
+          </motion.span>
+        )}
 
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
@@ -81,23 +83,12 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
               🔥 Edición Limitada
             </span>
           )}
-          {product.compare_at_price && (
+          {product.compare_at_price && product.compare_at_price > (product.price || 0) && (
             <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-nurei-black rounded-full shadow-lg">
               Oferta
             </span>
           )}
         </div>
-
-        {/* Availability */}
-        {product.availability_score < 40 && (
-          <div className="absolute bottom-3 left-3 right-3">
-            <div className="px-3 py-1.5 bg-white/80 backdrop-blur-sm rounded-full text-center">
-              <span className="text-[10px] font-semibold text-nurei-promo animate-pulse">
-                ¡Últimas unidades! 🏃‍♂️
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* Origin flag */}
         <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/70 backdrop-blur-md rounded-full border border-stone-200">
@@ -187,16 +178,45 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
   const addItem = useCartStore((s) => s.addItem)
-  const featuredProduct = PRODUCTS.find((p) => p.is_featured) || PRODUCTS[0]
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([
+    { value: 'all', label: 'Todo', emoji: '✨' }
+  ])
   const [featuredAdded, setFeaturedAdded] = useState(false)
 
+  useEffect(() => {
+    async function load() {
+      try {
+        const [prodRes, catRes] = await Promise.all([
+          fetch('/api/products?status=active'),
+          fetch('/api/admin/categories')
+        ])
+        const prodJson = await prodRes.json()
+        const catJson = await catRes.json()
+        
+        setAllProducts(prodJson.data?.products ?? [])
+        if (catJson.data) {
+          const dbCats = catJson.data.map((c: any) => ({
+            value: c.slug,
+            label: c.name,
+            emoji: c.emoji || '📦'
+          }))
+          setCategories([{ value: 'all', label: 'Todo', emoji: '✨' }, ...dbCats])
+        }
+      } catch { /* ignore */ }
+    }
+    load()
+  }, [])
+
+  const featuredProduct = allProducts.find((p) => p.is_featured) || allProducts[0]
+
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((p) => {
+    return allProducts.filter((p) => {
       const matchesCategory = activeCategory === 'all' || p.category === activeCategory
       const matchesSearch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesCategory && matchesSearch && p.is_active
+      return matchesCategory && matchesSearch
     })
-  }, [activeCategory, searchQuery])
+  }, [activeCategory, searchQuery, allProducts])
 
   const handleAddFeatured = () => {
     addItem(featuredProduct)
@@ -315,7 +335,7 @@ export default function LandingPage() {
 
           {/* Category pills */}
           <div className="flex items-center justify-center gap-2 flex-wrap mb-12">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <motion.button
                 key={cat.value}
                 whileTap={{ scale: 0.95 }}
@@ -326,7 +346,7 @@ export default function LandingPage() {
                     : 'bg-white text-gray-500 border-gray-100 hover:border-yellow-300 hover:text-gray-900 hover:bg-yellow-50'
                 }`}
               >
-                <span>{CATEGORY_EMOJI[cat.value] || '🍘'}</span>
+                <span>{cat.emoji}</span>
                 {cat.label}
               </motion.button>
             ))}

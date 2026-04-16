@@ -1,15 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   Plus, GripVertical, Edit2, Trash2, ChevronRight, Save, X,
-  FolderTree, Search, Eye, EyeOff, Package,
+  FolderTree, Search, Eye, EyeOff, Package, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 interface Category {
@@ -24,23 +24,14 @@ interface Category {
   productCount: number
 }
 
-const INITIAL_CATEGORIES: Category[] = [
-  { id: '1', name: 'Ramen', slug: 'ramen', emoji: '🍜', color: '#F59E0B', description: 'Ramen instantáneo y fresco de diversas regiones', is_active: true, order: 0, productCount: 4 },
-  { id: '2', name: 'Dumplings', slug: 'dumplings', emoji: '🥟', color: '#00E5FF', description: 'Gyoza, shumai, bao y otras empanadillas asiáticas', is_active: true, order: 1, productCount: 3 },
-  { id: '3', name: 'Snacks Crunchy', slug: 'snacks-crunchy', emoji: '🍘', color: '#8B5CF6', description: 'Snacks crujientes de arroz, algas y maíz', is_active: true, order: 2, productCount: 2 },
-  { id: '4', name: 'Salsa & Condimentos', slug: 'salsas-condimentos', emoji: '🌶️', color: '#EF4444', description: 'Salsas, pastas y aderezos asiáticos', is_active: true, order: 3, productCount: 2 },
-  { id: '5', name: 'Bebidas', slug: 'bebidas', emoji: '🧋', color: '#0A1F2F', description: 'Bubble tea, matcha, té de cebada y más', is_active: true, order: 4, productCount: 2 },
-  { id: '6', name: 'Dulces & Postres', slug: 'dulces-postres', emoji: '🍡', color: '#DC2626', description: 'Mochi, pocky, daifuku y dulces asiáticos', is_active: true, order: 5, productCount: 2 },
-  { id: '7', name: 'Edición Limitada', slug: 'edicion-limitada', emoji: '⭐', color: '#10B981', description: 'Productos de temporada y colaboraciones especiales', is_active: false, order: 6, productCount: 0 },
-  { id: '8', name: 'Otros', slug: 'otros', emoji: '🛒', color: '#6B7280', description: 'Utensilios, accesorios y artículos de cocina asiática', is_active: false, order: 7, productCount: 0 },
-]
 
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState(INITIAL_CATEGORIES)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
@@ -49,6 +40,23 @@ export default function CategoriesPage() {
   const [formData, setFormData] = useState({
     name: '', slug: '', emoji: '🍹', color: '#00E5FF', description: '', is_active: true,
   })
+
+  const loadCategories = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('/api/admin/categories')
+      const json = await res.json()
+      if (json.data) setCategories(json.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadCategories()
+  }, [])
 
   const filtered = categories.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -62,40 +70,73 @@ export default function CategoriesPage() {
 
   const openEdit = (cat: Category) => {
     setEditingCategory(cat)
-    setFormData({ name: cat.name, slug: cat.slug, emoji: cat.emoji, color: cat.color, description: cat.description, is_active: cat.is_active })
+    setFormData({ name: cat.name, slug: cat.slug, emoji: cat.emoji || '📦', color: cat.color || '#6B7280', description: cat.description || '', is_active: cat.is_active })
     setDialogOpen(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name.trim()) return
     const slug = formData.slug || generateSlug(formData.name)
 
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) => c.id === editingCategory.id ? { ...c, ...formData, slug } : c)
-      )
-    } else {
-      const newCat: Category = {
-        id: `cat-${Date.now()}`,
-        ...formData,
-        slug,
-        order: categories.length,
-        productCount: 0,
+    try {
+      if (editingCategory) {
+        await fetch('/api/admin/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formData, slug, id: editingCategory.id }),
+        })
+      } else {
+        await fetch('/api/admin/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formData, slug, sort_order: categories.length }),
+        })
       }
-      setCategories((prev) => [...prev, newCat])
+      loadCategories()
+      setDialogOpen(false)
+    } catch (err) {
+      console.error(err)
     }
-    setDialogOpen(false)
   }
 
-  const handleDelete = (id: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== id))
-    setDeleteConfirm(null)
+  const handleDelete = async (id: string) => {
+    try {
+      await fetch(`/api/admin/categories?id=${id}`, { method: 'DELETE' })
+      loadCategories()
+      setDeleteConfirm(null)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  const toggleActive = (id: string) => {
-    setCategories((prev) =>
-      prev.map((c) => c.id === id ? { ...c, is_active: !c.is_active } : c)
-    )
+  const toggleActive = async (cat: Category) => {
+    try {
+      await fetch('/api/admin/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cat.id, is_active: !cat.is_active }),
+      })
+      loadCategories()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleReorder = async (newOrder: Category[]) => {
+    const backup = [...categories]
+    setCategories(newOrder)
+    try {
+      await fetch('/api/admin/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reorder: true,
+          orders: newOrder.map((c, i) => ({ id: c.id, sort_order: i }))
+        }),
+      })
+    } catch (err) {
+      setCategories(backup)
+    }
   }
 
   return (
@@ -130,7 +171,7 @@ export default function CategoriesPage() {
       <Reorder.Group
         axis="y"
         values={filtered}
-        onReorder={(newOrder) => setCategories(newOrder)}
+        onReorder={handleReorder}
         className="space-y-2"
       >
         <AnimatePresence>
@@ -179,7 +220,7 @@ export default function CategoriesPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => toggleActive(cat.id)}
+                    onClick={() => toggleActive(cat)}
                     className={cn(
                       'p-2 rounded-lg transition-colors',
                       cat.is_active ? 'text-success hover:bg-success/10' : 'text-gray-300 hover:bg-gray-100'
@@ -216,25 +257,24 @@ export default function CategoriesPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
-          {/* Gradient header */}
-          <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-cyan/20 flex items-center justify-center">
-                <FolderTree className="w-4.5 h-4.5 text-primary-cyan" />
+        <DialogContent size="lg" className="p-0 overflow-hidden flex flex-col">
+          {/* Header Fixed */}
+          <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5">
+                <FolderTree className="w-5 h-5 text-gray-900" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white">
-                  {editingCategory ? 'Editar categoría' : 'Nueva categoría'}
-                </h2>
-                <p className="text-xs text-white/50 mt-0.5">
-                  {editingCategory ? `Modificando: ${editingCategory.name}` : 'Completa los campos para crear la categoría'}
-                </p>
+                <DialogTitle className="text-lg font-bold text-gray-900 leading-tight">
+                  {editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}
+                </DialogTitle>
+                <p className="text-xs text-gray-900/60 font-medium whitespace-nowrap">Gestiona las categorías de productos</p>
               </div>
             </div>
           </div>
 
-          <div className="p-6 space-y-5">
+          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
             {/* Emoji + Name row */}
             <div className="flex gap-3">
               <div>
@@ -323,44 +363,62 @@ export default function CategoriesPage() {
                 )} />
               </button>
             </div>
+          </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-1">
-              <Button variant="outline" className="flex-1 rounded-xl h-10" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button className="flex-1 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold rounded-xl h-10" onClick={handleSave}>
-                <Save className="w-4 h-4 mr-1.5" />
-                {editingCategory ? 'Guardar cambios' : 'Crear categoría'}
-              </Button>
-            </div>
+          <div className="p-6 flex justify-end gap-3 border-t bg-gray-50/50 flex-shrink-0">
+            <Button
+              variant="ghost"
+              onClick={() => setDialogOpen(false)}
+              className="rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100 px-6"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSave}
+              className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-10 px-8 shadow-md"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {editingCategory ? 'Guardar' : 'Crear'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-                <Trash2 className="w-4 h-4 text-white" />
+        <DialogContent size="sm" className="p-0">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 px-8 py-5 flex-shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/10">
+                <Trash2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white">Eliminar categoría</h2>
-                <p className="text-xs text-white/70 mt-0.5">Esta acción no se puede deshacer</p>
+                <DialogTitle className="text-lg font-bold text-white">Eliminar Categoría</DialogTitle>
+                <p className="text-xs text-white/70">Esta acción no se puede deshacer</p>
               </div>
             </div>
           </div>
-          <div className="p-6 space-y-4">
-            <p className="text-sm text-gray-600">Los productos asignados a esta categoría no serán eliminados, pero quedarán sin categoría.</p>
+
+          <div className="p-8 space-y-6">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              ¿Estás seguro de que deseas eliminar{' '}
+              <span className="font-bold text-primary-dark underline decoration-error/30 underline-offset-4">
+                {categories.find(c => c.id === deleteConfirm)?.name}
+              </span>?
+            </p>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
               <Button
-                className="flex-1 bg-error text-white hover:bg-error/90 rounded-xl"
-                onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+                variant="ghost"
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100"
               >
-                Sí, eliminar
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+                className="flex-1 rounded-xl h-10 font-bold shadow-sm"
+              >
+                Eliminar
               </Button>
             </div>
           </div>

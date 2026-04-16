@@ -2,7 +2,7 @@
 // DATABASE TYPES
 // ============================================
 
-export type ProductCategory = 'crunchy' | 'spicy' | 'limited_edition' | 'drinks'
+export type ProductCategory = string
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' | 'failed'
 
@@ -11,6 +11,10 @@ export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 export type CouponType = 'percentage' | 'fixed'
 
 export type NotificationType = 'order_confirmed' | 'order_shipped' | 'order_delivered' | 'payment_failed' | 'coupon_received' | 'general'
+
+export type ProductStatus = 'draft' | 'active' | 'archived'
+
+export type UnitOfMeasure = 'ml' | 'g' | 'kg' | 'L' | 'oz' | 'units' | 'box' | 'pack'
 
 export type UserRole = 'customer' | 'admin'
 
@@ -31,18 +35,30 @@ export interface Product {
   category: ProductCategory
   subcategory: string | null
   sku: string
+  brand: string | null
   origin: string
-  spice_level: number // 0-5 scale
+  origin_country: string | null
+  unit_of_measure: UnitOfMeasure
+  spice_level: number
   weight_g: number
-  price: number // centavos MXN
+  base_price: number // centavos MXN
+  price: number // centavos MXN (kept for compat)
   compare_at_price: number | null
   cost_estimate: number | null
   availability_score: number
   is_active: boolean
   is_featured: boolean
   is_limited: boolean
+  has_variants: boolean
+  requires_spice_level: boolean
+  status: ProductStatus
+  campaign: string | null
   image_url: string | null
   image_thumbnail_url: string | null
+  images: string[]
+  primary_image_index: number
+  tags: string[]
+  dimensions_cm: { length?: number; width?: number; height?: number } | null
   stock_quantity: number
   low_stock_threshold: number
   track_inventory: boolean
@@ -51,6 +67,24 @@ export interface Product {
   purchases_count: number
   meta_title: string | null
   meta_description: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  variants?: ProductVariant[]
+}
+
+export interface ProductVariant {
+  id: string
+  product_id: string
+  name: string
+  sku_suffix: string | null
+  price: number
+  compare_at_price: number | null
+  stock: number
+  attributes: Record<string, string>
+  image: string | null
+  status: 'active' | 'inactive'
+  sort_order: number
   created_at: string
   updated_at: string
 }

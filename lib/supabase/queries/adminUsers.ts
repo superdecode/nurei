@@ -11,13 +11,26 @@ export async function getAdminUsers(supabase: SupabaseClient): Promise<UserProfi
   return (data ?? []) as unknown as UserProfile[]
 }
 
-export async function getAllUsers(supabase: SupabaseClient): Promise<UserProfile[]> {
+export async function getAllUsers(supabase: SupabaseClient): Promise<(UserProfile & { email?: string })[]> {
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*, admin_role:admin_roles(*)')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data ?? []) as unknown as UserProfile[]
+
+  // Fetch emails from auth.admin
+  let authUsers: any[] = []
+  try {
+    const { data: authData } = await supabase.auth.admin.listUsers()
+    authUsers = authData.users
+  } catch (e) {
+    // Ignore error if not using service role
+  }
+
+  return (data ?? []).map((p: any) => ({
+    ...p,
+    email: authUsers.find((u) => u.id === p.id)?.email,
+  })) as unknown as (UserProfile & { email?: string })[]
 }
 
 export async function getUserById(supabase: SupabaseClient, id: string): Promise<UserProfile | null> {

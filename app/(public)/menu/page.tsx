@@ -1,19 +1,35 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Loader2 } from 'lucide-react'
 import { Container } from '@/components/layout/Container'
 import { CategoryFilter } from '@/components/productos/CategoryFilter'
 import { ProductGrid } from '@/components/productos/ProductGrid'
 import { PageTransition } from '@/components/motion'
-import { PRODUCTS } from '@/lib/data/products'
+import type { Product } from '@/types'
 
 export default function MenuPage() {
   const [category, setCategory] = useState('all')
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredProducts = useMemo(() => {
-    if (category === 'all') return PRODUCTS
-    return PRODUCTS.filter((p) => p.category === category)
+  useEffect(() => {
+    async function fetchProducts() {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({ status: 'active' })
+        if (category !== 'all') params.set('category', category)
+        const res = await fetch(`/api/products?${params}`)
+        const json = await res.json()
+        setProducts(json.data?.products ?? [])
+      } catch {
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProducts()
   }, [category])
 
   return (
@@ -33,14 +49,14 @@ export default function MenuPage() {
               </h1>
               <AnimatePresence mode="wait">
                 <motion.span
-                  key={filteredProducts.length}
+                  key={products.length}
                   initial={{ opacity: 0, scale: 0.8, y: -4 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.8, y: 4 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   className="inline-flex items-center justify-center h-7 min-w-[2rem] px-2.5 rounded-full bg-primary-cyan/15 text-primary-cyan text-xs font-bold tabular-nums"
                 >
-                  {filteredProducts.length}
+                  {products.length}
                 </motion.span>
               </AnimatePresence>
             </div>
@@ -55,7 +71,14 @@ export default function MenuPage() {
                 : `Filtrando por ${category}`}
             </motion.p>
           </motion.div>
-          <ProductGrid products={filteredProducts} category={category} />
+
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+            </div>
+          ) : (
+            <ProductGrid products={products} category={category} />
+          )}
         </Container>
       </section>
     </PageTransition>

@@ -660,16 +660,22 @@ export default function MediaPage() {
         </div>
       )}
 
-      {/* Upload dialog */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-primary-cyan" />
-              Subir archivos
-            </DialogTitle>
-          </DialogHeader>
-          <div className="mt-2">
+        <DialogContent size="md" className="p-0 overflow-hidden flex flex-col max-h-[90vh]">
+          {/* Header Fixed */}
+          <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5 shadow-inner">
+                <Upload className="w-5 h-5 text-gray-900" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-gray-900">Subir Archivos</DialogTitle>
+                <p className="text-xs text-gray-900/60 font-medium">Imágenes para tu catálogo</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 overflow-y-auto">
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -707,22 +713,21 @@ export default function MediaPage() {
                 JPG, PNG, SVG, WebP, GIF &middot; Max. 5 MB
               </p>
             </div>
-            <div className="flex gap-3 mt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setUploadOpen(false)}>
-                <X className="w-4 h-4 mr-1" />
+            <div className="flex gap-4 mt-6">
+              <Button variant="ghost" className="flex-1 rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100" onClick={() => setUploadOpen(false)}>
                 Cancelar
               </Button>
               <Button
-                className="flex-1 bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold"
+                className="flex-1 bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-10 shadow-md"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
               >
                 {isUploading ? (
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <Upload className="w-4 h-4 mr-1" />
+                  <Upload className="w-4 h-4 mr-2" />
                 )}
-                Seleccionar
+                Subir
               </Button>
             </div>
           </div>
@@ -731,71 +736,88 @@ export default function MediaPage() {
 
       {/* Preview dialog */}
       <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 truncate">
-              <Eye className="w-5 h-5 text-primary-cyan flex-shrink-0" />
-              <span className="truncate">{previewItem?.filename}</span>
-            </DialogTitle>
-          </DialogHeader>
-          {previewItem && (
-            <div className="space-y-4 mt-2">
-              {/* Large preview */}
-              <div className="w-full rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
-                <img
-                  src={previewItem.url}
-                  alt={previewItem.alt_text ?? previewItem.filename}
-                  className="max-w-full max-h-[400px] object-contain"
-                />
-              </div>
-
-              {/* Metadata */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Nombre</p>
-                  <p className="text-sm font-medium text-primary-dark mt-0.5 truncate">{previewItem.filename}</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Tamano</p>
-                  <p className="text-sm font-medium text-primary-dark mt-0.5">{formatSize(previewItem.size_bytes)}</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Tipo</p>
-                  <p className="text-sm font-medium text-primary-dark mt-0.5">{previewItem.mime_type}</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Fecha</p>
-                  <p className="text-sm font-medium text-primary-dark mt-0.5">{formatDate(previewItem.created_at)}</p>
+        <DialogContent size="lg" className="p-0 overflow-hidden flex flex-col max-h-[92vh]">
+          {!previewItem ? null : (
+            <>
+              {/* Header Fixed */}
+              <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5 shadow-inner flex-shrink-0">
+                      <Eye className="w-5 h-5 text-gray-900" />
+                    </div>
+                    <div className="min-w-0">
+                      <DialogTitle className="text-lg font-bold text-gray-900 truncate pr-8">{previewItem.filename}</DialogTitle>
+                      <p className="text-xs text-gray-900/60 font-medium">{mimeShortLabel(previewItem.mime_type)} &middot; {formatSize(previewItem.size_bytes)}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
+              <div className="p-0 flex-1 overflow-y-auto">
+                <div className="p-8 space-y-6">
+                  {/* Large preview */}
+                  <div className="w-full rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center">
+                    <img
+                      src={previewItem.url}
+                      alt={previewItem.alt_text ?? previewItem.filename}
+                      className="max-w-full max-h-[400px] object-contain"
+                    />
+                  </div>
 
-              {/* URL copy */}
-              <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">URL</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs text-gray-600 bg-white rounded-lg px-3 py-2 border border-gray-100 truncate">
-                    {previewItem.url}
-                  </code>
-                  <button
-                    onClick={() => handleCopyUrl(previewItem.url)}
-                    className={cn(
-                      'p-2 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center',
-                      copiedUrl
-                        ? 'bg-green-50 text-green-500'
-                        : 'bg-white border border-gray-100 text-gray-400 hover:text-primary-cyan hover:border-primary-cyan/30'
-                    )}
-                    aria-label="Copiar URL"
-                  >
-                    {copiedUrl ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  </button>
+                  {/* Metadata */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Nombre</p>
+                      <p className="text-sm font-medium text-primary-dark mt-0.5 truncate">{previewItem.filename}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Tamano</p>
+                      <p className="text-sm font-medium text-primary-dark mt-0.5">{formatSize(previewItem.size_bytes)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Tipo</p>
+                      <p className="text-sm font-medium text-primary-dark mt-0.5">{previewItem.mime_type}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider">Fecha</p>
+                      <p className="text-sm font-medium text-primary-dark mt-0.5">{formatDate(previewItem.created_at)}</p>
+                    </div>
+                  </div>
+
+                  {/* URL copy */}
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">URL</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs text-gray-600 bg-white rounded-lg px-3 py-2 border border-gray-100 truncate">
+                        {previewItem.url}
+                      </code>
+                      <button
+                        onClick={() => handleCopyUrl(previewItem.url)}
+                        className={cn(
+                          'p-2 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center',
+                          copiedUrl
+                            ? 'bg-green-50 text-green-500'
+                            : 'bg-white border border-gray-100 text-gray-400 hover:text-primary-cyan hover:border-primary-cyan/30'
+                        )}
+                        aria-label="Copiar URL"
+                      >
+                        {copiedUrl ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-3">
+              <div className="p-6 flex justify-end gap-3 border-t bg-gray-50/50 flex-shrink-0">
                 <Button
-                  variant="outline"
-                  className="flex-1 gap-2"
+                  variant="ghost"
+                  onClick={() => setPreviewItem(null)}
+                  className="rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100 px-6"
+                >
+                  Cerrar
+                </Button>
+                <Button
                   onClick={() => {
                     const a = document.createElement('a')
                     a.href = previewItem.url
@@ -803,69 +825,101 @@ export default function MediaPage() {
                     a.target = '_blank'
                     a.click()
                   }}
+                  className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-10 gap-2 flex items-center px-6 shadow-md"
                 >
-                  <Download className="w-4 h-4" />
-                  Descargar
+                  <Download className="w-4 h-4" /> Descargar
                 </Button>
                 <Button
-                  className="flex-1 gap-2 bg-red-500 text-white hover:bg-red-600"
+                  variant="destructive"
                   onClick={() => { setPreviewItem(null); setDeleteConfirm(previewItem.id) }}
+                  className="rounded-xl h-10 font-bold gap-2 flex items-center px-6"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  Eliminar
+                  <Trash2 className="w-4 h-4" /> Eliminar
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation dialog */}
+      {/* Delete Confirmation */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Eliminar archivo</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-500">
-            Esta accion no se puede deshacer. El archivo sera eliminado permanentemente.
-          </p>
-          <div className="flex gap-3 mt-4">
-            <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
-              Cancelar
-            </Button>
-            <Button
-              className="flex-1 bg-red-500 text-white hover:bg-red-600"
-              onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-              disabled={deleting}
-            >
-              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-              Eliminar
-            </Button>
+        <DialogContent size="sm" className="p-0">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 px-8 py-5 flex-shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/10">
+                <Trash2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-white">Eliminar Archivo</DialogTitle>
+                <p className="text-xs text-white/70">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-8 space-y-6">
+            <p className="text-sm text-gray-600 leading-relaxed text-center">
+              ¿Estás seguro de que deseas eliminar este archivo? Se borrará permanentemente de los servidores.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+                disabled={deleting}
+                className="flex-1 rounded-xl h-10 font-bold shadow-sm"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}
+                Eliminar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Bulk delete confirmation dialog */}
+      {/* Bulk Delete Confirmation */}
       <Dialog open={bulkDeleteConfirm} onOpenChange={setBulkDeleteConfirm}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Eliminar {selectedItems.size} archivos</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-500">
-            Esta accion no se puede deshacer. Los archivos seleccionados seran eliminados permanentemente.
-          </p>
-          <div className="flex gap-3 mt-4">
-            <Button variant="outline" className="flex-1" onClick={() => setBulkDeleteConfirm(false)}>
-              Cancelar
-            </Button>
-            <Button
-              className="flex-1 bg-red-500 text-white hover:bg-red-600"
-              onClick={handleBulkDelete}
-              disabled={deleting}
-            >
-              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-              Eliminar todos
-            </Button>
+        <DialogContent size="sm" className="p-0">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 px-8 py-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/10">
+                <Trash2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-white">Eliminar {selectedItems.size} Archivos</DialogTitle>
+                <p className="text-sm text-white/70">Esta acción es irreversible</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-8 space-y-6">
+            <p className="text-base text-gray-600 leading-relaxed text-center">
+              ¿Confirmas que deseas eliminar <span className="font-bold text-primary-dark">{selectedItems.size}</span> archivos seleccionados?
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => setBulkDeleteConfirm(false)}
+                className="flex-1 rounded-2xl h-12 font-bold text-gray-500 hover:bg-gray-100"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={deleting}
+                className="flex-1 rounded-2xl h-12 font-bold shadow-lg shadow-error/20"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}
+                Eliminar todo
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -30,6 +30,8 @@ import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -627,31 +629,31 @@ function OrderDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[92vh] overflow-y-auto p-0">
-        {/* Gradient header */}
-        <div className="bg-gradient-to-r from-primary-dark to-[#0D3050] px-6 py-5 sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-cyan/20 flex items-center justify-center flex-shrink-0">
-                <Package className="w-5 h-5 text-primary-cyan" />
+      <DialogContent size="lg" className="p-0 overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Header Fixed */}
+        <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0 border-b">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5 shadow-inner">
+                <Package className="w-5 h-5 text-gray-900" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-white text-lg">{order.short_id}</span>
+                  <DialogTitle className="font-mono font-bold text-gray-900 text-xl tracking-tighter leading-none">{order.short_id}</DialogTitle>
                   <Badge
-                    variant="secondary"
-                    className={cn('text-[10px] border-0', statusInfo.bgColor, statusInfo.color)}
+                    className={cn('text-[10px] font-bold border-0 px-2 py-0.5 bg-black/10 text-gray-900')}
                   >
                     {statusInfo.icon} {statusInfo.label}
                   </Badge>
                 </div>
-                <p className="text-xs text-white/50 mt-0.5">Creado {formatRelativeTime(order.created_at)}</p>
+                <p className="text-xs text-gray-900/60 font-medium">Creado {formatRelativeTime(order.created_at)}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-8 space-y-6">
 
         {/* Customer info */}
         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
@@ -786,14 +788,15 @@ function OrderDetailModal({
             variant="outline"
             size="sm"
             onClick={() => onNoteSave(order.id, noteText)}
-            className="text-xs rounded-lg"
+            className="w-full rounded-2xl h-12 font-bold bg-gray-900 text-white hover:bg-black"
           >
             Guardar nota
           </Button>
         </div>
+        </div>
 
-        {/* Actions footer */}
-        <div className="flex flex-wrap gap-2 pt-1">
+        {/* Actions footer Fixed */}
+        <div className="flex flex-wrap gap-3 p-6 border-t bg-gray-50/50 flex-shrink-0">
           {validTransitions.map((newStatus) => {
             const info = ORDER_STATUS_MAP[newStatus as OrderStatus]
             if (!info) return null
@@ -801,21 +804,22 @@ function OrderDetailModal({
             return (
               <Button
                 key={newStatus}
-                variant={isDestructive ? 'destructive' : 'outline'}
-                size="sm"
-                className="text-xs rounded-lg"
                 onClick={() => {
                   onStatusChange(order.id, newStatus as OrderStatus)
                   onOpenChange(false)
                 }}
+                className={cn(
+                  'flex-1 rounded-xl h-10 font-bold shadow-sm text-xs',
+                  isDestructive
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'bg-amber-500 text-white hover:bg-amber-600'
+                )}
               >
                 {info.icon} {info.label}
               </Button>
             )
           })}
         </div>
-
-        </div>{/* end p-6 wrapper */}
       </DialogContent>
     </Dialog>
   )
