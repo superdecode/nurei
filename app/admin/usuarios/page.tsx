@@ -301,8 +301,8 @@ export default function UsuariosPage() {
   }
 
   const getRoleName = (roleId: string | null) => {
-    if (!roleId) return null
-    return roles.find((r) => r.id === roleId) ?? null
+    if (!roleId || roleId === 'none') return null
+    return roles.find((r) => r.id === roleId) || null
   }
 
   const countUsersWithRole = (roleId: string) =>
@@ -447,15 +447,16 @@ export default function UsuariosPage() {
                             {role ? (
                               <Badge
                                 className="text-xs font-medium border-0"
-                                style={{
+                                style={role.color.startsWith('#') ? {
                                   backgroundColor: `${role.color}18`,
                                   color: role.color,
-                                }}
+                                } : {}}
+                                variant={role.color.startsWith('#') ? 'outline' : 'secondary'}
                               >
                                 {role.name}
                               </Badge>
                             ) : (
-                              <span className="text-gray-300 text-sm">—</span>
+                              <span className="text-gray-400 text-xs">—</span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -681,10 +682,12 @@ export default function UsuariosPage() {
                 <label className="text-xs font-semibold text-gray-500 mb-1.5 block uppercase tracking-wide">Rol de acceso</label>
                 <Select
                   value={userForm.admin_role_id || 'none'}
-                  onValueChange={(v) => setUserForm({ ...userForm, admin_role_id: !v || v === 'none' ? '' : v })}
+                  onValueChange={(v) => setUserForm({ ...userForm, admin_role_id: v === 'none' ? '' : (v || '') })}
                 >
                   <SelectTrigger className="border-gray-200 shadow-sm">
-                    <SelectValue placeholder="Sin rol" />
+                    <SelectValue>
+                      {roles.find(r => r.id === userForm.admin_role_id)?.name || (userForm.admin_role_id === '' || !userForm.admin_role_id ? 'Escoger rol' : userForm.admin_role_id)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Escoger rol</SelectItem>

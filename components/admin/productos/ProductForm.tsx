@@ -320,12 +320,14 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       const res = await fetch('/api/admin/media', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, url: item.url }),
+        body: JSON.stringify(items.length === 1 ? { id: items[0].id, url: items[0].url } : { items }),
       })
       if (res.ok) {
-        setMedia(prev => prev.filter(m => m.id !== item.id))
-        update({ images: form.images.filter(img => img !== item.url) })
-        toast.success('Imagen eliminada')
+        const itemIds = new Set(items.map(i => i.id))
+        const itemUrls = new Set(items.map(i => i.url))
+        setMedia(prev => prev.filter(m => !itemIds.has(m.id)))
+        update({ images: form.images.filter(img => !itemUrls.has(img)) })
+        toast.success(items.length === 1 ? 'Imagen eliminada' : `${items.length} imágenes eliminadas`)
       } else {
         toast.error('Error al eliminar')
       }
@@ -1209,7 +1211,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                 </div>
 
                 <div className="flex gap-2 items-center">
-                  <Select value={mediaSort} onValueChange={setMediaSort}>
+                  <Select value={mediaSort} onValueChange={(v) => setMediaSort(v || '')}>
                     <SelectTrigger className="h-10 w-44 rounded-xl border-gray-200 bg-white text-xs font-bold">
                       <div className="flex items-center gap-2">
                         <SortDesc className="w-3.5 h-3.5 text-gray-400" />
@@ -1225,7 +1227,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                     </SelectContent>
                   </Select>
 
-                  <Select value={mediaTypeFilter} onValueChange={setMediaTypeFilter}>
+                  <Select value={mediaTypeFilter} onValueChange={(v) => setMediaTypeFilter(v || '')}>
                     <SelectTrigger className="h-10 w-32 rounded-xl border-gray-200 bg-white text-xs font-bold">
                       <div className="flex items-center gap-2">
                         <Layers className="w-3.5 h-3.5 text-gray-400" />
