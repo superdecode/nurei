@@ -30,6 +30,7 @@ export const useAdminAuthStore = create<AdminAuthStore>()(
           const res = await fetch('/api/auth/admin-login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ email, password }),
           })
           const json = await res.json()
@@ -48,14 +49,14 @@ export const useAdminAuthStore = create<AdminAuthStore>()(
 
       logout: async () => {
         try {
-          await fetch('/api/auth/logout', { method: 'POST' })
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
         } catch { /* ignore */ }
         set({ user: null, isAuthenticated: false, isLoading: false })
       },
 
       checkSession: async () => {
         try {
-          const res = await fetch('/api/auth/me')
+          const res = await fetch('/api/auth/me', { credentials: 'include' })
           if (!res.ok) {
             set({ user: null, isAuthenticated: false, isLoading: false })
             return

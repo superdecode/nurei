@@ -38,6 +38,19 @@ export interface CustomerListResult {
   limit: number
 }
 
+/** Staff / internal profiles (any `user_profiles.role` other than `customer`) must not appear in storefront CRM. */
+async function getNonCustomerProfileIds(supabase: SupabaseClient): Promise<string[]> {
+  const { data, error } = await supabase.from('user_profiles').select('id').neq('role', 'customer')
+  if (error) throw error
+  return (data ?? []).map((r) => r.id as string)
+}
+
+/** PostgREST OR: manual CRM rows (`user_id` null) or linked auth users who are storefront customers only. */
+function buildExcludeInternalUsersOr(excludedUserIds: string[]): string | null {
+  if (excludedUserIds.length === 0) return null
+  return `user_id.is.null,user_id.not.in.(${excludedUserIds.join(',')})`
+}
+
 export async function listCustomers(
   supabase: SupabaseClient,
   filters: CustomerListFilters = {},
@@ -49,16 +62,27 @@ export async function listCustomers(
     sort = 'created_at', order = 'desc',
   } = filters
 
+  const excludedIds = await getNonCustomerProfileIds(supabase)
+  const excludeInternalOr = buildExcludeInternalUsersOr(excludedIds)
+
   let query = supabase
     .from('customers')
     .select(BASE_SELECT, { count: 'exact' })
 
+  if (excludeInternalOr) {
+    // PostgREST combines multiple `or` params with AND (postgrest-js uses append).
+    query = query.or(excludeInternalOr)
+  }
   if (search && search.trim()) {
     // PostgREST `or` splits on commas — strip them so user input cannot break the filter
     const s = search.trim().replace(/,/g, ' ')
     if (s.length > 0) {
       const esc = (x: string) =>
-        x.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+        x
+          .replace(/\\/g, '\\\\')
+          .replace(/%/g, '\\%')
+          .replace(/_/g, '\\_')
+          .replace(/[()]/g, ' ')
       const q = esc(s)
       // Search real columns only — generated `full_name` can fail to filter in some PostgREST setups
       query = query.or(
@@ -127,31 +151,82 @@ export async function createCustomer(
   input: CreateCustomerInput,
 ): Promise<Customer> {
   const { addresses, ...rest } = input
-  const normalized = {
-    ...rest,
+
+  // Whitelist only columns that exist in the `customers` table (schema 006_customers.sql).
+  // This prevents "column X does not exist" failures if Zod adds optional fields
+  // ahead of a migration.
+  const emailNorm = rest.email ? rest.email.toLowerCase().trim() : null
+  const phoneNorm = rest.phone ? rest.phone.trim() : null
+  const whatsappNorm = rest.whatsapp ? rest.whatsapp.trim() : null
+
+  const payload: Record<string, unknown> = {
+    first_name: rest.first_name,
+    last_name: rest.last_name ?? null,
+    email: emailNorm,
+    phone: phoneNorm,
+    whatsapp: whatsappNorm,
+
+    customer_type: rest.customer_type ?? 'individual',
+    company_name: rest.company_name ?? null,
+    tax_id: rest.tax_id ?? null,
+    tax_regime: rest.tax_regime ?? null,
+    billing_email: rest.billing_email ?? null,
+
+    birthday: rest.birthday ?? null,
+    gender: rest.gender ?? null,
+    preferred_language: rest.preferred_language ?? 'es',
+
+    // Force admin source for manually-created customers, never attach to auth user
     source: 'admin',
     user_id: null,
-    email: rest.email ? rest.email.toLowerCase().trim() : null,
-    phone: rest.phone ?? null,
-    consent_updated_at: rest.accepts_marketing
+    referral_code: rest.referral_code ?? null,
+    utm_source: rest.utm_source ?? null,
+    utm_medium: rest.utm_medium ?? null,
+    utm_campaign: rest.utm_campaign ?? null,
+
+    segment: rest.segment ?? 'new',
+    tags: rest.tags ?? [],
+
+    accepts_marketing: rest.accepts_marketing ?? false,
+    accepts_email_marketing: rest.accepts_email_marketing ?? false,
+    accepts_sms_marketing: rest.accepts_sms_marketing ?? false,
+    accepts_whatsapp_marketing: rest.accepts_whatsapp_marketing ?? false,
+    consent_updated_at:
+      rest.accepts_marketing
       || rest.accepts_email_marketing
       || rest.accepts_sms_marketing
       || rest.accepts_whatsapp_marketing
-      ? new Date().toISOString()
-      : null,
+        ? new Date().toISOString()
+        : null,
+
+    loyalty_points: rest.loyalty_points ?? 0,
+    store_credit_cents: rest.store_credit_cents ?? 0,
+
+    is_active: rest.is_active ?? true,
+    is_verified: rest.is_verified ?? false,
+    risk_level: rest.risk_level ?? 'normal',
+    internal_notes: rest.internal_notes ?? null,
   }
 
   const { data, error } = await supabase
     .from('customers')
-    .insert(normalized)
+    .insert(payload)
     .select(BASE_SELECT)
     .single()
-  if (error) throw error
+  if (error) {
+    // Attach payload context so the caller's logs explain the failure.
+    const augmented = Object.assign(error, { _hint: 'createCustomer insert failed' })
+    throw augmented
+  }
   const created = data as unknown as Customer
 
   if (addresses && addresses.length > 0) {
     const rows = addresses.map((a) => ({ ...a, customer_id: created.id }))
-    await supabase.from('customer_addresses').insert(rows)
+    const { error: addrError } = await supabase.from('customer_addresses').insert(rows)
+    if (addrError) {
+      // Don't fail the whole request; customer is created
+      console.error('[createCustomer] address insert failed:', addrError)
+    }
   }
 
   return created
@@ -354,24 +429,66 @@ export async function listCustomerRecentOrders(
 
 // ─── Stats ─────────────────────────────────────────────
 
+type CustomerStatsRow = {
+  is_active: boolean
+  segment: string
+  customer_type: string
+  accepts_marketing: boolean
+  total_spent_cents: number | null
+  completed_orders_count: number | null
+  created_at: string
+}
+
+/** Aggregates storefront CRM only (excludes rows linked to internal admin auth users). */
 export async function getCustomerStats(supabase: SupabaseClient): Promise<CustomerStats> {
-  const { data, error } = await supabase
-    .from('customer_stats')
-    .select('*')
-    .maybeSingle()
+  const excludedIds = await getNonCustomerProfileIds(supabase)
+  let q = supabase
+    .from('customers')
+    .select('is_active, segment, customer_type, accepts_marketing, total_spent_cents, completed_orders_count, created_at')
+  const ex = buildExcludeInternalUsersOr(excludedIds)
+  if (ex) q = q.or(ex)
+  const { data, error } = await q
   if (error) throw error
-  return (data ?? {
-    total: 0, active: 0, vip: 0, new_count: 0, at_risk: 0, lost: 0,
-    business: 0, marketable: 0, gmv_cents: 0, avg_ltv_cents: 0, new_last_30d: 0,
-  }) as unknown as CustomerStats
+  const rows = (data ?? []) as CustomerStatsRow[]
+  const thirtyMs = Date.now() - 30 * 86400000
+  let gmv = 0
+  let ltvSum = 0
+  let ltvN = 0
+  for (const r of rows) {
+    gmv += r.total_spent_cents ?? 0
+    if ((r.completed_orders_count ?? 0) > 0) {
+      ltvSum += r.total_spent_cents ?? 0
+      ltvN += 1
+    }
+  }
+  return {
+    total: rows.length,
+    active: rows.filter((r) => r.is_active).length,
+    vip: rows.filter((r) => r.segment === 'vip').length,
+    new_count: rows.filter((r) => r.segment === 'new').length,
+    at_risk: rows.filter((r) => r.segment === 'at_risk').length,
+    lost: rows.filter((r) => r.segment === 'lost').length,
+    business: rows.filter((r) => r.customer_type === 'business').length,
+    marketable: rows.filter((r) => r.accepts_marketing).length,
+    gmv_cents: gmv,
+    avg_ltv_cents: ltvN > 0 ? Math.round(ltvSum / ltvN) : 0,
+    new_last_30d: rows.filter((r) => new Date(r.created_at).getTime() >= thirtyMs).length,
+  }
 }
 
 // ─── CSV export helper ────────────────────────────────
 
 export async function exportCustomersCsv(supabase: SupabaseClient): Promise<string> {
-  const { data, error } = await supabase
+  const excludedIds = await getNonCustomerProfileIds(supabase)
+  const excludeInternalOr = buildExcludeInternalUsersOr(excludedIds)
+
+  let exportQuery = supabase
     .from('customers')
     .select('full_name,email,phone,customer_type,segment,tags,orders_count,total_spent_cents,last_order_at,created_at')
+  if (excludeInternalOr) {
+    exportQuery = exportQuery.or(excludeInternalOr)
+  }
+  const { data, error } = await exportQuery
     .order('created_at', { ascending: false })
     .limit(10000)
   if (error) throw error

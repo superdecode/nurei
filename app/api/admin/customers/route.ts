@@ -60,9 +60,11 @@ export async function POST(request: NextRequest) {
     const customer = await createCustomer(supabase, parsed.data)
     return NextResponse.json({ data: customer }, { status: 201 })
   } catch (err) {
-    const maybeDbErr = err as { code?: string; message?: string; details?: string }
-    if (maybeDbErr?.code === '23505') {
-      const detail = `${maybeDbErr.details ?? ''} ${maybeDbErr.message ?? ''}`.toLowerCase()
+    const dbErr = err as { code?: string; message?: string; details?: string; hint?: string }
+    console.error('[POST /api/admin/customers]', dbErr)
+
+    if (dbErr?.code === '23505') {
+      const detail = `${dbErr.details ?? ''} ${dbErr.message ?? ''}`.toLowerCase()
       if (detail.includes('email')) {
         return NextResponse.json({ error: 'Ya existe un cliente con ese email' }, { status: 409 })
       }
@@ -71,7 +73,29 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: 'Ya existe un cliente con esos datos' }, { status: 409 })
     }
-    const message = err instanceof Error ? err.message : 'Error creando cliente'
-    return NextResponse.json({ error: message }, { status: 400 })
+    if (dbErr?.code === '23502') {
+      return NextResponse.json(
+        { error: `Campo requerido faltante: ${dbErr.details ?? dbErr.message ?? ''}` },
+        { status: 400 },
+      )
+    }
+    if (dbErr?.code === '23514') {
+      return NextResponse.json(
+        { error: `Valor inválido: ${dbErr.details ?? dbErr.message ?? ''}` },
+        { status: 400 },
+      )
+    }
+    if (dbErr?.code === '42P01' || dbErr?.code === '42703') {
+      return NextResponse.json(
+        { error: `Error de esquema de base de datos (${dbErr.code}): ${dbErr.message ?? ''}. Revisa las migraciones.` },
+        { status: 500 },
+      )
+    }
+
+    const message = dbErr?.message || (err instanceof Error ? err.message : 'Error creando cliente')
+    return NextResponse.json(
+      { error: message, code: dbErr?.code, details: dbErr?.details, hint: dbErr?.hint },
+      { status: 400 },
+    )
   }
 }

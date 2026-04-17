@@ -14,6 +14,7 @@ import { AdminTopBar } from '@/components/admin/AdminTopBar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { useAdminAuthStore } from '@/lib/stores/adminAuth'
 import { useSidebarStore, SIDEBAR_W_EXPANDED, SIDEBAR_W_COLLAPSED } from '@/lib/stores/sidebarStore'
 
@@ -61,7 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/admin/orders/counts')
+        const res = await fetchWithCredentials('/api/admin/orders/counts')
         const json = await res.json()
         if (cancelled) return
         if (!res.ok || !json?.data || typeof json.data !== 'object') {
@@ -89,8 +90,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setSubmitting(false)
   }
 
-  // Loading state
-  if (isLoading && !isAuthenticated) {
+  // Wait for checkSession before trusting persisted `isAuthenticated` (avoids
+  // rendering admin + API calls with a stale "admin" flag while cookies are still a storefront session).
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-dark to-[#0D2A3F] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary-cyan animate-spin" />
@@ -385,12 +387,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         {/* On mobile the sidebar is an overlay, so remove the margin */}
         <style>{`@media (max-width: 1023px) { main { margin-left: 0 !important; } }`}</style>
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="min-w-0 max-w-full p-4 sm:p-6 lg:p-8">
           <motion.div
             key={pathname}
             initial={{ opacity: 0.98 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.18 }}
+            className="min-w-0"
           >
             {children}
           </motion.div>

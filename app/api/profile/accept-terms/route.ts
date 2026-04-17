@@ -33,10 +33,24 @@ export async function POST(request: NextRequest) {
       },
     )
 
-    await supabase.auth.signOut()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        legal_terms_accepted_at: new Date().toISOString(),
+      },
+    })
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
     const res = NextResponse.json({ data: { success: true } })
     return applyAuthCookies(res, pendingCookies)
   } catch {
-    return NextResponse.json({ error: 'Error al cerrar sesión' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al registrar aceptación' }, { status: 500 })
   }
 }

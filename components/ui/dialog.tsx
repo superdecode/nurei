@@ -4,8 +4,8 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -31,7 +31,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-[100] bg-black/20 duration-150 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-[100] bg-black/20 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:opacity-0",
         className
       )}
       {...props}
@@ -65,7 +65,7 @@ function DialogContent({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            "pointer-events-auto flex flex-col w-full rounded-3xl bg-popover text-sm text-popover-foreground shadow-2xl duration-150 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-1 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-1 overflow-hidden max-h-[90vh]",
+            "relative pointer-events-auto flex flex-col w-full rounded-3xl bg-popover text-sm text-popover-foreground shadow-2xl duration-150 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-1 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-1 overflow-hidden max-h-[90vh]",
             sizes[size],
             className
           )}
@@ -74,16 +74,11 @@ function DialogContent({
           {showCloseButton && (
             <DialogPrimitive.Close
               data-slot="dialog-close"
-              render={
-                <Button
-                  variant="ghost"
-                  className="absolute top-3 right-3 z-[200] text-muted-foreground hover:text-foreground hover:bg-black/10 rounded-full ring-0 transition-all"
-                  size="icon-sm"
-                />
-              }
+              aria-label="Cerrar"
+              className="absolute top-3 right-3 z-[200] inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-gray-600 transition-all hover:bg-black/10 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-cyan/60"
             >
-              <XIcon size={18} />
-              <span className="sr-only">Close</span>
+              <XIcon className="h-4 w-4" />
+              <span className="sr-only">Cerrar</span>
             </DialogPrimitive.Close>
           )}
           {children}

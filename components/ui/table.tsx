@@ -4,15 +4,60 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+export type TableHorizontalScroll = "always" | "overflow-only"
+
+type TableProps = React.ComponentProps<"table"> & {
+  /** `overflow-only`: horizontal scrollbar solo si el contenido sobrepasa el ancho (evita barra “activa” en vacío). */
+  horizontalScroll?: TableHorizontalScroll
+}
+
+function Table({ className, horizontalScroll = "overflow-only", ...props }: TableProps) {
+  const wrapRef = React.useRef<HTMLDivElement>(null)
+  const [needsHScroll, setNeedsHScroll] = React.useState(horizontalScroll === "always")
+
+  React.useLayoutEffect(() => {
+    if (horizontalScroll === "always") {
+      setNeedsHScroll(true)
+      return
+    }
+
+    const el = wrapRef.current
+    if (!el) return
+
+    const measure = () => {
+      // Umbral evita scrollbar fantasma por subpíxeles, bordes y overflow de elementos absolutos
+      setNeedsHScroll(el.scrollWidth > el.clientWidth + 8)
+    }
+
+    measure()
+
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(measure)
+    })
+    ro.observe(el)
+    const table = el.querySelector("table")
+    if (table) ro.observe(table)
+
+    return () => {
+      ro.disconnect()
+    }
+  }, [horizontalScroll])
+
   return (
     <div
+      ref={wrapRef}
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn(
+        "relative w-full min-w-0 max-w-full",
+        needsHScroll ? "overflow-x-auto" : "overflow-x-hidden",
+      )}
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn(
+          "w-full min-w-0 border-collapse caption-bottom text-sm",
+          className,
+        )}
         {...props}
       />
     </div>

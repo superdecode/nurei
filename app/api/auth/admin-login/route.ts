@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+
+type CookieToSet = { name: string; value: string; options?: Parameters<NextResponse['cookies']['set']>[2] }
+
+function applyAuthCookies(res: NextResponse, pending: CookieToSet[]) {
+  for (const { name, value, options } of pending) {
+    if (value === '') {
+      res.cookies.delete(name)
+    } else {
+      res.cookies.set(name, value, options)
+    }
+  }
+  return res
+}
 
 export async function POST(request: NextRequest) {
+  const pendingCookies: CookieToSet[] = []
+
   try {
     const { email, password } = await request.json()
 
@@ -11,23 +25,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email y contraseña son requeridos' }, { status: 400 })
     }
 
-    // Sign in with Supabase Auth
-    const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() { return cookieStore.getAll() },
+          getAll() {
+            return request.cookies.getAll()
+          },
           setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              )
-            } catch { /* Server Component context */ }
+            pendingCookies.push(...cookiesToSet)
           },
         },
-      }
+      },
     )
 
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -39,7 +49,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
     }
 
-    // Verify admin role
     const serviceClient = createServiceClient()
     const { data: profile } = await serviceClient
       .from('user_profiles')
@@ -48,12 +57,15 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!profile || profile.role !== 'admin') {
-      // Sign out non-admin users
       await supabase.auth.signOut()
-      return NextResponse.json({ error: 'No tienes permisos de administrador' }, { status: 403 })
+      const res = NextResponse.json(
+        { error: 'No tienes permisos de administrador' },
+        { status: 403 },
+      )
+      return applyAuthCookies(res, pendingCookies)
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       data: {
         user: {
           id: authData.user.id,
@@ -63,6 +75,7 @@ export async function POST(request: NextRequest) {
         session: authData.session,
       },
     })
+    return applyAuthCookies(res, pendingCookies)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error de autenticación'
     return NextResponse.json({ error: message }, { status: 500 })

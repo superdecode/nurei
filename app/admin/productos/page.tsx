@@ -9,7 +9,9 @@ import {
   ChevronUp, ChevronDown, Check, X, Package,
   ArrowUpDown, CheckSquare, Filter,
   Copy, Layers, Pencil, Eye,
+  Upload, Download,
 } from 'lucide-react'
+import { useDropzone } from 'react-dropzone'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -152,6 +154,16 @@ export default function ProductosAdminPage() {
   const [bulkValue, setBulkValue] = useState('')
   const [bulkNote, setBulkNote] = useState('')
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importPreview, setImportPreview] = useState<Array<Record<string, string | number | undefined>>>([])
+  const [importErrors, setImportErrors] = useState<Array<{ row: number; sku: string; message: string }>>([])
+  const [importValidRows, setImportValidRows] = useState<Array<Record<string, unknown>>>([])
+  const [importSummary, setImportSummary] = useState<{
+    total: number
+    valid: number
+    invalid: number
+  } | null>(null)
+  const [importBusy, setImportBusy] = useState(false)
   const [page, setPage] = useState(1)
   const pageSize = 14
 
@@ -400,6 +412,88 @@ export default function ProductosAdminPage() {
     }
   }, [bulkAction, bulkNote, bulkValue, fetchProducts, selectedIds])
 
+  const resetImportModal = () => {
+    setImportPreview([])
+    setImportErrors([])
+    setImportValidRows([])
+    setImportSummary(null)
+  }
+
+  const onImportDrop = async (files: File[]) => {
+    const file = files[0]
+    if (!file) return
+    setImportBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/products/import', { method: 'POST', body: fd })
+      const json = (await res.json()) as {
+        error?: string
+        data?: {
+          preview?: Array<Record<string, string | number | undefined>>
+          errors?: Array<{ row: number; sku: string; message: string }>
+          rows?: Array<Record<string, unknown>>
+          summary?: { total: number; valid: number; invalid: number }
+        }
+      }
+      if (!res.ok) throw new Error(json.error ?? 'Error')
+      setImportPreview(json.data?.preview ?? [])
+      setImportErrors(json.data?.errors ?? [])
+      setImportValidRows(json.data?.rows ?? [])
+      setImportSummary(json.data?.summary ?? null)
+    } catch {
+      toast.error('No se pudo validar el archivo')
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
+  const confirmProductImport = async () => {
+    if (!importValidRows.length) return
+    setImportBusy(true)
+    try {
+      const res = await fetch('/api/admin/products/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: importValidRows }),
+      })
+      const json = (await res.json()) as { data?: { imported?: number; failed?: unknown[] }; error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Error')
+      toast.success(
+        `Importados: ${json.data?.imported ?? 0}${(json.data?.failed?.length ?? 0) > 0 ? ` · Fallidos: ${json.data?.failed?.length}` : ''}`,
+      )
+      setImportOpen(false)
+      resetImportModal()
+      fetchProducts()
+    } catch {
+      toast.error('Error al importar')
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
+  const downloadImportErrorsCsv = () => {
+    const lines = [
+      'fila,sku,mensaje',
+      ...importErrors.map(
+        (e) => `${e.row},"${e.sku.replace(/"/g, '""')}","${e.message.replace(/"/g, '""')}"`,
+      ),
+    ]
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'errores_importacion_productos.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: onImportDrop,
+    accept: { 'text/csv': ['.csv'] },
+    multiple: false,
+  })
+
   useEffect(() => {
     setPage(1)
   }, [statusFilter, categoryFilter, search, viewMode])
@@ -428,22 +522,35 @@ export default function ProductosAdminPage() {
   // ─── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* ── Header: title + action ── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="shrink-0">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 shrink-0">
           <h1 className="text-2xl font-bold text-primary-dark">Productos</h1>
           <p className="text-sm text-gray-400 mt-0.5">{filteredProducts.length} de {products.length} productos</p>
         </div>
-        <Link href="/admin/productos/new">
-          <Button className="bg-nurei-cta text-gray-900 hover:bg-nurei-cta-hover font-bold gap-1.5 h-8 px-4 text-xs rounded-full shadow-sm">
-            <Plus className="w-3.5 h-3.5" /> Nuevo producto
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              resetImportModal()
+              setImportOpen(true)
+            }}
+            className="h-8 gap-1.5 rounded-full px-4 text-xs font-semibold"
+          >
+            <Upload className="h-3.5 w-3.5" /> Importar
           </Button>
-        </Link>
+          <Link href="/admin/productos/new">
+            <Button className="bg-nurei-cta text-gray-900 hover:bg-nurei-cta-hover font-bold gap-1.5 h-8 px-4 text-xs rounded-full shadow-sm">
+              <Plus className="w-3.5 h-3.5" /> Nuevo producto
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* ── Search, luego Filtrar + chips + vista ── */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex min-w-0 flex-wrap gap-2 items-center">
         {/* Search */}
         <div className="relative min-w-[min(100%,220px)] flex-1 basis-[220px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -614,8 +721,8 @@ export default function ProductosAdminPage() {
       {/* Content */}
       {loading ? (
         viewMode === 'table' ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <Table>
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <Table className="table-fixed">
               <TableBody>
                 {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
               </TableBody>
@@ -629,12 +736,12 @@ export default function ProductosAdminPage() {
       ) : (
         <AnimatePresence mode="wait">
           {viewMode === 'table' ? (
-            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <Table>
+            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-w-0">
+              <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                      <TableHead className="w-10">
+                      <TableHead className="w-[4%] min-w-0 p-1">
                         <button
                           onClick={toggleSelectAll}
                           className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
@@ -644,13 +751,21 @@ export default function ProductosAdminPage() {
                           {allVisibleSelected && <Check className="w-3 h-3 text-gray-900" />}
                         </button>
                       </TableHead>
-                      <TableHead className="w-12" />
-                      <TableHead><SortHeader field="name">Nombre</SortHeader></TableHead>
-                      <TableHead><SortHeader field="category">Categoria</SortHeader></TableHead>
-                      <TableHead><SortHeader field="price">Precio</SortHeader></TableHead>
-                      <TableHead><SortHeader field="status">Estado</SortHeader></TableHead>
-                      <TableHead className="text-center">Stock</TableHead>
-                      <TableHead className="w-24 text-right">Acciones</TableHead>
+                      <TableHead className="w-[6%] min-w-0 p-1" />
+                      <TableHead className="w-[26%] min-w-0 whitespace-normal p-1.5">
+                        <SortHeader field="name">Nombre</SortHeader>
+                      </TableHead>
+                      <TableHead className="w-[13%] min-w-0 whitespace-normal p-1.5">
+                        <SortHeader field="category">Categoria</SortHeader>
+                      </TableHead>
+                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5">
+                        <SortHeader field="price">Precio</SortHeader>
+                      </TableHead>
+                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5">
+                        <SortHeader field="status">Estado</SortHeader>
+                      </TableHead>
+                      <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-center">Stock</TableHead>
+                      <TableHead className="w-[19%] min-w-0 whitespace-normal p-1.5 text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -672,7 +787,7 @@ export default function ProductosAdminPage() {
                             )}
                             onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
                           >
-                            <TableCell onClick={(e) => e.stopPropagation()}>
+                            <TableCell className="min-w-0 p-1" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => toggleSelect(product.id)}
                                 className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
@@ -682,8 +797,8 @@ export default function ProductosAdminPage() {
                                 {selectedIds.has(product.id) && <Check className="w-3 h-3 text-primary-dark" />}
                               </button>
                             </TableCell>
-                            <TableCell>
-                              <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
+                            <TableCell className="min-w-0 p-1">
+                              <div className="mx-auto h-11 w-11 max-w-full rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
                                 {product.images?.[product.primary_image_index ?? 0] ? (
                                   <img src={product.images[product.primary_image_index ?? 0]} alt={product.name} className="w-full h-full object-cover" />
                                 ) : (
@@ -691,9 +806,9 @@ export default function ProductosAdminPage() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-primary-dark text-sm">{product.name}</p>
+                            <TableCell className="min-w-0 p-1.5">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-primary-dark">{product.name}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <p className="text-[11px] text-gray-400">{product.sku}</p>
                                   {product.has_variants && (
@@ -709,26 +824,26 @@ export default function ProductosAdminPage() {
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell>
-                              <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-medium', CATEGORY_COLORS[product.category] ?? 'bg-gray-100 text-gray-600')}>
+                            <TableCell className="min-w-0 p-1.5">
+                              <span className={cn('inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium', CATEGORY_COLORS[product.category] ?? 'bg-gray-100 text-gray-600')}>
                                 {catInfo.label}
                               </span>
                             </TableCell>
-                            <TableCell>
-                              <div>
+                            <TableCell className="min-w-0 p-1.5">
+                              <div className="min-w-0">
                                 <span className="font-semibold text-sm text-primary-dark">{formatPrice(price)}</span>
                                 {product.compare_at_price && product.compare_at_price > price && (
                                   <span className="text-[10px] text-gray-400 line-through ml-1">{formatPrice(product.compare_at_price)}</span>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>
-                              <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-medium', STATUS_COLORS[product.status ?? 'draft'])}>
+                            <TableCell className="min-w-0 p-1.5">
+                              <span className={cn('inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium', STATUS_COLORS[product.status ?? 'draft'])}>
                                 {STATUS_LABELS[product.status ?? 'draft']}
                               </span>
                             </TableCell>
-                            <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                              <div className="inline-flex items-center justify-center gap-1">
+                            <TableCell className="min-w-0 p-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="inline-flex items-center justify-center gap-0.5">
                                 <span className={cn('text-sm font-medium tabular-nums',
                                   (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5) ? 'text-red-500' : 'text-gray-600'
                                 )}>
@@ -737,7 +852,7 @@ export default function ProductosAdminPage() {
                                 <button
                                   type="button"
                                   title="Ajustar inventario"
-                                  className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
+                                  className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
                                   onClick={() => {
                                     setStockTarget(product)
                                     setStockAdjustment('0')
@@ -745,22 +860,19 @@ export default function ProductosAdminPage() {
                                     setStockModalOpen(true)
                                   }}
                                 >
-                                  <Pencil className="h-4 w-4" />
+                                  <Pencil className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </TableCell>
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <TableCell className="min-w-0 max-w-full p-1 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5">
                                 <button
                                   type="button"
                                   title="Editar"
                                   onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
-                                  className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                                  className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
                                 >
-                                  <Eye className="h-4 w-4" />
-                                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
-                                    Editar
-                                  </span>
+                                  <Eye className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   type="button"
@@ -769,23 +881,17 @@ export default function ProductosAdminPage() {
                                     setDuplicatingProduct(product)
                                     setDuplicateConfirmOpen(true)
                                   }}
-                                  className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                                  className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
                                 >
-                                  <Copy className="h-4 w-4" />
-                                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
-                                    Duplicar
-                                  </span>
+                                  <Copy className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   type="button"
                                   title="Eliminar"
                                   onClick={() => { setDeletingProduct(product); setDeleteDialogOpen(true) }}
-                                  className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-500"
+                                  className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-red-50 hover:text-red-500"
                                 >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
-                                    Eliminar
-                                  </span>
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </TableCell>
@@ -923,14 +1029,14 @@ export default function ProductosAdminPage() {
 
       <Dialog open={duplicateConfirmOpen} onOpenChange={setDuplicateConfirmOpen}>
         <DialogContent size="sm" className="p-0">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 px-8 py-5">
+          <div className="bg-primary-dark px-8 py-5">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                <Copy className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                <Copy className="w-5 h-5 text-primary-cyan" />
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold text-white">Duplicar Producto</DialogTitle>
-                <p className="text-xs text-white/70">Se creará una copia editable</p>
+                <p className="text-xs text-white/60">Se creará una copia editable</p>
               </div>
             </div>
           </div>
@@ -942,7 +1048,7 @@ export default function ProductosAdminPage() {
               <Button variant="ghost" onClick={() => setDuplicateConfirmOpen(false)} className="flex-1 rounded-xl h-10 font-bold text-gray-500">
                 Cancelar
               </Button>
-              <Button onClick={handleDuplicateConfirm} className="flex-1 rounded-xl h-10 font-bold">
+              <Button onClick={handleDuplicateConfirm} className="flex-1 rounded-xl h-10 font-bold bg-primary-cyan text-primary-dark hover:bg-primary-cyan/90">
                 Duplicar
               </Button>
             </div>
@@ -951,18 +1057,7 @@ export default function ProductosAdminPage() {
       </Dialog>
 
       <Dialog open={stockModalOpen} onOpenChange={setStockModalOpen}>
-        <DialogContent size="sm" className="relative p-6 duration-300 data-[closed]:duration-200" showCloseButton={false}>
-          <button
-            type="button"
-            onClick={() => setStockModalOpen(false)}
-            aria-label="Cerrar"
-            className="absolute right-4 top-4 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
+        <DialogContent size="sm" className="p-6 pr-12 duration-300">
           <DialogTitle>Ajuste de inventario</DialogTitle>
           <div className="space-y-3 text-sm">
             <p className="text-gray-500">{stockTarget?.name}</p>
@@ -973,6 +1068,133 @@ export default function ProductosAdminPage() {
               Nuevo total: {(stockTarget?.stock_quantity ?? 0) + (Number(stockAdjustment) || 0)}
             </p>
             <Button onClick={handleQuickStockAdjust} className="w-full">Guardar ajuste</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importOpen} onOpenChange={(o) => { if (!o) resetImportModal(); setImportOpen(o) }}>
+        <DialogContent size="xl" className="p-0 duration-200" showCloseButton>
+          <div className="border-b border-gray-100 px-6 py-4">
+            <DialogTitle className="text-base font-semibold">Importar productos (CSV)</DialogTitle>
+            <p className="mt-2 text-xs leading-relaxed text-gray-600">
+              <span className="font-bold text-gray-800">Obligatorios — producto nuevo:</span>{' '}
+              <code className="rounded bg-gray-100 px-1">sku</code>,{' '}
+              <code className="rounded bg-gray-100 px-1">nombre</code>,{' '}
+              <code className="rounded bg-gray-100 px-1">categoria_slug</code> (slug existente),{' '}
+              <code className="rounded bg-gray-100 px-1">precio_mxn</code> (pesos enteros, ej. 89 → $89).
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-600">
+              <span className="font-bold text-gray-800">Actualizar por SKU:</span>{' '}
+              <code className="rounded bg-gray-100 px-1">sku</code> + al menos otro campo (precio, stock, nombre, etc.).
+              Si el SKU ya existe, la fila actualiza; si no, se crea con los obligatorios de alta.
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Opcionales:{' '}
+              <code className="rounded bg-gray-50 px-1">stock</code>,{' '}
+              <code className="rounded bg-gray-50 px-1">alerta_stock</code>,{' '}
+              <code className="rounded bg-gray-50 px-1">estado</code> (draft/active/archived),{' '}
+              <code className="rounded bg-gray-50 px-1">descripcion</code>,{' '}
+              <code className="rounded bg-gray-50 px-1">slug</code>,{' '}
+              <code className="rounded bg-gray-50 px-1">unidad</code>,{' '}
+              <code className="rounded bg-gray-50 px-1">peso_g</code>,{' '}
+              <code className="rounded bg-gray-50 px-1">compare_precio_mxn</code>.
+            </p>
+          </div>
+          <div className="max-h-[75vh] space-y-4 overflow-y-auto px-6 py-5">
+            <div className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50/80 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Plantilla CSV</p>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Incluye encabezados y filas de ejemplo. Alias en inglés: name, category, price…
+                </p>
+              </div>
+              <a
+                href="/api/admin/products/import/template"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50"
+              >
+                <Download className="h-4 w-4" /> Descargar plantilla
+              </a>
+            </div>
+
+            <div
+              {...getRootProps()}
+              className={cn(
+                'cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition',
+                isDragActive ? 'border-primary-cyan bg-primary-cyan/5' : 'border-gray-200 bg-gray-50/80 hover:border-gray-300',
+              )}
+            >
+              <input {...getInputProps()} />
+              <Upload className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+              <p className="text-sm font-semibold text-gray-700">Arrastra un CSV aquí o haz clic para elegir</p>
+              {importBusy && <p className="mt-1 text-xs text-gray-500">Procesando…</p>}
+            </div>
+
+            {importSummary && (
+              <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
+                <p className="font-semibold text-gray-800">
+                  Resultado: <span className="text-emerald-700">{importSummary.valid} válidos</span>
+                  {importSummary.invalid > 0 && (
+                    <> · <span className="text-red-600">{importSummary.invalid} con error</span></>
+                  )}
+                  <span className="text-gray-400"> / {importSummary.total} filas</span>
+                </p>
+                {importErrors.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-7 rounded-lg text-xs"
+                    onClick={downloadImportErrorsCsv}
+                  >
+                    <Download className="mr-1 h-3.5 w-3.5" /> Descargar reporte de errores
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {importPreview.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Vista previa</p>
+                <div className="overflow-hidden rounded-xl border border-gray-100">
+                  <Table className="table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">SKU</TableHead>
+                        <TableHead className="text-xs">Nombre</TableHead>
+                        <TableHead className="text-xs">Cat.</TableHead>
+                        <TableHead className="text-xs">Precio</TableHead>
+                        <TableHead className="text-xs">Stock</TableHead>
+                        <TableHead className="text-xs">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importPreview.map((row, i) => (
+                        <TableRow key={i} className="text-sm">
+                          <TableCell className="min-w-0 truncate font-mono text-xs">{String(row.sku ?? '—')}</TableCell>
+                          <TableCell className="min-w-0 truncate text-xs">{String(row.nombre ?? '—')}</TableCell>
+                          <TableCell className="min-w-0 truncate text-xs">{String(row.categoria_slug ?? '—')}</TableCell>
+                          <TableCell className="text-xs tabular-nums">{row.precio_mxn ?? '—'}</TableCell>
+                          <TableCell className="text-xs tabular-nums">{row.stock ?? '—'}</TableCell>
+                          <TableCell className="text-xs">{String(row.accion ?? '—')}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            <Button
+              className="h-9 w-full rounded-xl font-semibold"
+              disabled={!importValidRows.length || importBusy}
+              onClick={() => { void confirmProductImport() }}
+            >
+              {importBusy
+                ? 'Importando…'
+                : importValidRows.length > 0
+                  ? `Confirmar importación (${importValidRows.length} filas)`
+                  : 'Carga un CSV para continuar'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

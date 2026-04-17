@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { z } from 'zod'
+
+type CookieToSet = { name: string; value: string; options?: Parameters<NextResponse['cookies']['set']>[2] }
+
+function applyAuthCookies(res: NextResponse, pending: CookieToSet[]) {
+  for (const { name, value, options } of pending) {
+    if (value === '') {
+      res.cookies.delete(name)
+    } else {
+      res.cookies.set(name, value, options)
+    }
+  }
+  return res
+}
 
 const schema = z.object({
   name: z.string().min(2, 'Nombre demasiado corto'),
@@ -9,18 +22,34 @@ const schema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const pendingCookies: CookieToSet[] = []
+
   try {
     const body = await request.json()
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0].message },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     const { name, email, password } = parsed.data
-    const supabase = await createServerSupabaseClient()
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            pendingCookies.push(...cookiesToSet)
+          },
+        },
+      },
+    )
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -38,15 +67,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 400 })
     }
 
-    return NextResponse.json({
+    if (data.session) {
+      await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      })
+    }
+
+    const res = NextResponse.json({
       data: {
         user_id: data.user?.id,
         email: data.user?.email,
         name,
-        // If email confirmation is disabled, session is returned immediately
-        session: data.session ? true : false,
+        session: !!data.session,
       },
     })
+    return applyAuthCookies(res, pendingCookies)
   } catch {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }

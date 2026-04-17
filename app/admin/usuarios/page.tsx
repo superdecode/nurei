@@ -233,12 +233,13 @@ export default function UsuariosPage() {
     setDeletingUser(true)
     try {
       const res = await fetch(`/api/admin/users/${deleteUserConfirm.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
+      const json = await res.json().catch(() => ({})) as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'No se pudo eliminar el usuario')
       toast.success('Usuario eliminado')
       setDeleteUserConfirm(null)
       fetchUsers()
-    } catch {
-      toast.error('Error al eliminar usuario')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar usuario')
     } finally {
       setDeletingUser(false)
     }
@@ -355,7 +356,7 @@ export default function UsuariosPage() {
             Usuarios y Roles
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {users.length} usuarios · {roles.length} roles
+            Equipo con acceso al administrador ({users.length} usuarios · {roles.length} roles). Los clientes de la tienda se gestionan en Clientes.
           </p>
         </div>
       </div>
@@ -496,7 +497,7 @@ export default function UsuariosPage() {
                             {formatDate(user.last_login_at)}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1 justify-end">
                               <button
                                 onClick={() => toggleUserActive(user)}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
@@ -886,14 +887,14 @@ export default function UsuariosPage() {
       {/* ── Delete User Confirm ─────────────────────────────────────────────── */}
       <Dialog open={!!deleteUserConfirm} onOpenChange={() => setDeleteUserConfirm(null)}>
         <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <div className="bg-gradient-to-br from-red-500 to-red-600 px-5 py-4">
+          <div className="bg-gradient-to-br from-rose-50 via-rose-100 to-amber-50 px-5 py-4 border-b border-rose-100">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                <Trash2 className="w-4 h-4 text-white" />
+              <div className="w-9 h-9 rounded-xl bg-white/80 border border-rose-200 flex items-center justify-center shadow-sm">
+                <Trash2 className="w-4 h-4 text-rose-500" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white">Eliminar usuario</h2>
-                <p className="text-xs text-white/70">Esta acción no se puede deshacer</p>
+                <h2 className="text-sm font-bold text-gray-900">Eliminar usuario</h2>
+                <p className="text-xs text-gray-500">Esta acción no se puede deshacer</p>
               </div>
             </div>
           </div>
@@ -914,7 +915,7 @@ export default function UsuariosPage() {
               <Button
                 onClick={handleDeleteUser}
                 disabled={deletingUser}
-                className="flex-1 bg-red-500 text-white hover:bg-red-600 font-semibold rounded-xl"
+                className="flex-1 bg-rose-500 text-white hover:bg-rose-600 font-semibold rounded-xl"
               >
                 {deletingUser ? 'Eliminando…' : 'Sí, eliminar'}
               </Button>

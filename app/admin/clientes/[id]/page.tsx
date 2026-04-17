@@ -20,6 +20,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
+import { customerDisplayName } from '@/lib/utils/customer-display'
 import { toast } from 'sonner'
 import type {
   Customer, CustomerAddress, CustomerNoteKind,
@@ -127,7 +129,7 @@ export default function ClienteDetailPage({
   const fetchCustomer = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/customers/${id}`)
+      const res = await fetchWithCredentials(`/api/admin/customers/${id}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Error')
       setCustomer(json.data)
@@ -144,7 +146,7 @@ export default function ClienteDetailPage({
     if (!noteText.trim()) return
     setNoteSaving(true)
     try {
-      const res = await fetch(`/api/admin/customers/${id}/notes`, {
+      const res = await fetchWithCredentials(`/api/admin/customers/${id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: noteText.trim(), kind: noteKind, is_pinned: false }),
@@ -162,7 +164,7 @@ export default function ClienteDetailPage({
 
   const handleDeleteNote = async (noteId: string) => {
     try {
-      const res = await fetch(`/api/admin/customers/${id}/notes/${noteId}`, { method: 'DELETE' })
+      const res = await fetchWithCredentials(`/api/admin/customers/${id}/notes/${noteId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
       toast.success('Nota eliminada')
       fetchCustomer()
@@ -218,7 +220,7 @@ export default function ClienteDetailPage({
         ? `/api/admin/customers/${id}/addresses/${editingAddr.id}`
         : `/api/admin/customers/${id}/addresses`
       const method = editingAddr ? 'PATCH' : 'POST'
-      const res = await fetch(url, {
+      const res = await fetchWithCredentials(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -236,7 +238,7 @@ export default function ClienteDetailPage({
 
   const handleDeleteAddress = async (addressId: string) => {
     try {
-      const res = await fetch(`/api/admin/customers/${id}/addresses/${addressId}`, { method: 'DELETE' })
+      const res = await fetchWithCredentials(`/api/admin/customers/${id}/addresses/${addressId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
       toast.success('Dirección eliminada')
       fetchCustomer()
@@ -264,7 +266,7 @@ export default function ClienteDetailPage({
     )
   }
 
-  const name = customer.full_name ?? customer.first_name ?? customer.email ?? 'Sin nombre'
+  const name = customerDisplayName(customer)
 
   return (
     <div className="space-y-6">

@@ -743,30 +743,49 @@ export default function PedidosAdminPage() {
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
               className="fixed right-0 top-0 bottom-0 z-[70] w-full max-w-md bg-white shadow-2xl flex flex-col overflow-hidden"
             >
-              {/* Row 1: Order ID + X close */}
-              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              {/* Header: order ID + status left, actions right */}
+              <div className="flex items-start justify-between border-b border-gray-100 px-5 py-3.5">
                 <div>
-                  <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Pedido</p>
-                  <p className="text-base font-bold text-primary-dark font-mono">{drawerOrder?.short_id ?? '—'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Pedido</p>
+                  <p className="text-xl font-black text-primary-dark font-mono leading-tight mt-0.5">
+                    {drawerOrder?.short_id ?? '—'}
+                  </p>
+                  {drawerOrder && (
+                    <div className="mt-1.5">
+                      <StatusBadge status={drawerOrder.status} />
+                    </div>
+                  )}
                 </div>
-                <button type="button" onClick={() => setDrawerOpen(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Row 2: Surtido action button */}
-              {drawerOrder && (
-                <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-2.5 bg-gray-50/60">
+                <div className="flex items-center gap-1.5 ml-3 shrink-0">
+                  {drawerOrder && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => window.open(`/admin/pedidos/print?ids=${drawerOrder.id}&type=ticket`, '_blank')}
+                        className="flex items-center gap-1 h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition shadow-sm"
+                        title="Imprimir ticket"
+                      >
+                        <Printer className="h-3.5 w-3.5" /> Ticket
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open(`/admin/pedidos/print?ids=${drawerOrder.id}&type=surtido`, '_blank')}
+                        className="flex items-center gap-1 h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition shadow-sm"
+                        title="Hoja de surtido"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Surtido
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
-                    onClick={() => { window.location.href = `/admin/pedidos/print?ids=${drawerOrder.id}` }}
-                    className="flex items-center gap-1.5 h-8 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition shadow-sm"
+                    onClick={() => setDrawerOpen(false)}
+                    className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition ml-1"
                   >
-                    <FileText className="h-3.5 w-3.5" /> Surtido
+                    <X className="h-4 w-4" />
                   </button>
-                  <StatusBadge status={drawerOrder.status} />
                 </div>
-              )}
+              </div>
 
               {/* Drawer body */}
               <div className="flex-1 overflow-y-auto p-5 space-y-5">

@@ -15,8 +15,8 @@ import { useAuthStore } from '@/lib/stores/auth'
 import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice, formatDate } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
-import { MOCK_USER_ORDERS, MOCK_ORDER_UPDATES, MOCK_USER_COUPONS } from '@/lib/data/mockOrders'
-import type { Order, OrderStatus, Address, UserCoupon } from '@/types'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
+import type { Order, OrderStatus, OrderUpdate, Address, UserCoupon } from '@/types'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -48,6 +48,38 @@ const STATUS_TAB_ITEMS: { value: OrderStatus | 'all'; label: string }[] = [
 
 const STATUS_FLOW: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered']
 
+/** Timeline from real order timestamps (no mock data). */
+function buildSyntheticOrderUpdates(order: Order): OrderUpdate[] {
+  const out: OrderUpdate[] = []
+  const mk = (status: OrderStatus, at: string | null, message: string | null) => {
+    if (!at) return
+    out.push({
+      id: `${order.id}-${status}-${at}`,
+      order_id: order.id,
+      status,
+      message,
+      updated_by: null,
+      metadata: null,
+      created_at: at,
+    })
+  }
+  if (order.status === 'cancelled' || order.status === 'refunded' || order.status === 'failed') {
+    mk(
+      order.status,
+      order.cancelled_at ?? order.updated_at ?? order.created_at,
+      order.cancellation_reason ?? order.failure_reason ?? null,
+    )
+    return out
+  }
+  mk('pending', order.created_at, 'Pedido registrado')
+  if (order.paid_at) mk('paid', order.paid_at, 'Pago recibido')
+  if (order.confirmed_at) mk('confirmed', order.confirmed_at, null)
+  else if (order.paid_at) mk('confirmed', order.paid_at, 'Pedido confirmado')
+  mk('shipped', order.shipped_at, order.operator_notes ?? null)
+  mk('delivered', order.delivered_at, null)
+  return out.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+}
+
 const STATUS_ICONS: Partial<Record<OrderStatus, React.ReactNode>> = {
   pending: <Clock className="w-4 h-4" />,
   pending_payment: <Clock className="w-4 h-4" />,
@@ -65,7 +97,7 @@ const STATUS_ICONS: Partial<Record<OrderStatus, React.ReactNode>> = {
 // ─── Order Detail Panel/Modal ────────────────────────────────────────────────
 
 function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) {
-  const updates = MOCK_ORDER_UPDATES[order.id] || []
+  const updates = buildSyntheticOrderUpdates(order)
   const statusInfo = ORDER_STATUS_MAP[order.status]
   const isCancelled = order.status === 'cancelled' || order.status === 'failed'
 
@@ -243,27 +275,22 @@ function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) 
 
 // ─── Tab: Pedidos ─────────────────────────────────────────────────────────────
 
-function TabPedidos() {
+function TabPedidos({
+  orders,
+  loading,
+}: {
+  orders: Order[]
+  loading: boolean
+}) {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [isMobile, setIsMobile] = useState(false)
-  const [orders, setOrders] = useState<Order[]>(MOCK_USER_ORDERS)
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
-  }, [])
-
-  useEffect(() => {
-    setLoading(true)
-    fetch('/api/orders')
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => { if (json?.data?.length) setOrders(json.data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
   }, [])
 
   const filtered = orders.filter((o) =>
@@ -279,8 +306,8 @@ function TabPedidos() {
       <div className="flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-hide">
         {STATUS_TAB_ITEMS.map((tab) => {
           const count = tab.value === 'all'
-            ? MOCK_USER_ORDERS.length
-            : MOCK_USER_ORDERS.filter((o) => o.status === tab.value).length
+            ? orders.length
+            : orders.filter((o) => o.status === tab.value).length
           return (
             <button
               key={tab.value}
@@ -673,12 +700,14 @@ function TabDirecciones() {
 
 function TabCupones() {
   const [copied, setCopied] = useState<string | null>(null)
-  const [userCoupons, setUserCoupons] = useState<UserCoupon[]>(MOCK_USER_COUPONS)
+  const [userCoupons, setUserCoupons] = useState<UserCoupon[]>([])
 
   useEffect(() => {
-    fetch('/api/profile/coupons')
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => { if (json?.data?.length) setUserCoupons(json.data) })
+    fetchWithCredentials('/api/profile/coupons')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.data) setUserCoupons(json.data)
+      })
       .catch(() => {})
   }, [])
 
@@ -758,7 +787,7 @@ function TabCupones() {
               <Check className="w-3.5 h-3.5 text-green-400" />
               Usado el {formatDateShort(uc.used_at!)}
               {uc.order_id && (
-                <span className="text-gray-300">· {MOCK_USER_ORDERS.find((o) => o.id === uc.order_id)?.short_id}</span>
+                <span className="text-gray-300">· Pedido asociado</span>
               )}
             </div>
           ) : isExpired ? (
@@ -804,7 +833,7 @@ function TabCupones() {
         </div>
       )}
 
-      {MOCK_USER_COUPONS.length === 0 && (
+      {active.length === 0 && used.length === 0 && (
         <div className="text-center py-14">
           <Ticket className="w-10 h-10 text-gray-200 mx-auto mb-3" />
           <p className="text-sm font-bold text-gray-400">Sin cupones disponibles</p>
@@ -822,12 +851,95 @@ function TabCuenta() {
   const [name, setName] = useState(user?.full_name || '')
   const [phone, setPhone] = useState(user?.phone || '')
   const [saving, setSaving] = useState(false)
+  const [termsAcceptedAt, setTermsAcceptedAt] = useState<string | null>(null)
+  const [acceptingTerms, setAcceptingTerms] = useState(false)
+  const termsConsentRef = useRef<HTMLInputElement>(null)
+  const [acceptsMarketing, setAcceptsMarketing] = useState(false)
+  const [acceptsEmail, setAcceptsEmail] = useState(false)
+  const [acceptsSms, setAcceptsSms] = useState(false)
+  const [acceptsWhatsapp, setAcceptsWhatsapp] = useState(false)
+  const [prefsLoading, setPrefsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchWithCredentials('/api/profile')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled || !json?.data) return
+        const d = json.data as {
+          full_name?: string | null
+          phone?: string | null
+          customer?: {
+            first_name?: string | null
+            last_name?: string | null
+            full_name?: string | null
+            accepts_marketing?: boolean
+            accepts_email_marketing?: boolean
+            accepts_sms_marketing?: boolean
+            accepts_whatsapp_marketing?: boolean
+          } | null
+          legal_terms_accepted_at?: string | null
+        }
+        const c = d.customer
+        if (c) {
+          setAcceptsMarketing(!!c.accepts_marketing)
+          setAcceptsEmail(!!c.accepts_email_marketing)
+          setAcceptsSms(!!c.accepts_sms_marketing)
+          setAcceptsWhatsapp(!!c.accepts_whatsapp_marketing)
+        }
+        const profileName = (d.full_name ?? '').trim()
+        const fromCustomer = [c?.first_name, c?.last_name].filter(Boolean).join(' ').trim()
+          || (c?.full_name ?? '').trim()
+        if (profileName) setName(profileName)
+        else if (fromCustomer) setName(fromCustomer)
+        if (d.phone !== undefined) setPhone(d.phone ?? '')
+        const ta = d.legal_terms_accepted_at
+        setTermsAcceptedAt(typeof ta === 'string' ? ta : null)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setPrefsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    setName(user?.full_name || '')
+    setPhone(user?.phone || '')
+  }, [user?.full_name, user?.phone])
 
   const handleSave = async () => {
     setSaving(true)
-    await updateProfile({ full_name: name, phone: phone || null })
-    toast.success('Perfil actualizado', { icon: '✅' })
-    setSaving(false)
+    try {
+      await updateProfile({
+        full_name: name,
+        phone: phone || null,
+        accepts_marketing: acceptsMarketing,
+        accepts_email_marketing: acceptsEmail,
+        accepts_sms_marketing: acceptsSms,
+        accepts_whatsapp_marketing: acceptsWhatsapp,
+      })
+      toast.success('Perfil actualizado', { icon: '✅' })
+    } catch {
+      toast.error('No se pudo guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAcceptTerms = async (): Promise<boolean> => {
+    try {
+      const res = await fetchWithCredentials('/api/profile/accept-terms', { method: 'POST' })
+      if (!res.ok) throw new Error()
+      setTermsAcceptedAt(new Date().toISOString())
+      toast.success('Gracias. Preferencias y envíos se rigen por nuestros documentos legales.')
+      return true
+    } catch {
+      toast.error('No se pudo registrar la aceptación')
+      return false
+    }
   }
 
   const handleLogout = async () => {
@@ -869,6 +981,66 @@ function TabCuenta() {
           </div>
         </div>
 
+        <div className="pt-2 border-t border-gray-100 space-y-3">
+          <p className="text-xs font-bold text-gray-500">Comunicaciones (LFPDPPP)</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Puedes retirar tu consentimiento en cualquier momento desde aquí. Los envíos transaccionales (pedido, envío) pueden seguir enviándose según la ley.
+          </p>
+          {prefsLoading ? (
+            <p className="text-xs text-gray-400">Cargando preferencias…</p>
+          ) : (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" className="rounded border-gray-300" checked={acceptsMarketing} onChange={(e) => setAcceptsMarketing(e.target.checked)} />
+                Acepto recibir novedades y promociones (marketing general)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" className="rounded border-gray-300" checked={acceptsEmail} onChange={(e) => setAcceptsEmail(e.target.checked)} />
+                Email
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" className="rounded border-gray-300" checked={acceptsSms} onChange={(e) => setAcceptsSms(e.target.checked)} />
+                SMS
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" className="rounded border-gray-300" checked={acceptsWhatsapp} onChange={(e) => setAcceptsWhatsapp(e.target.checked)} />
+                WhatsApp
+              </label>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-gray-100">
+          {termsAcceptedAt ? (
+            <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+              Términos y política de privacidad aceptados el {formatDateShort(termsAcceptedAt)}.
+            </p>
+          ) : (
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-gray-600">
+              <input
+                ref={termsConsentRef}
+                type="checkbox"
+                disabled={acceptingTerms}
+                className="mt-1 rounded border-gray-300 disabled:opacity-50"
+                onChange={async (e) => {
+                  if (!e.target.checked) return
+                  setAcceptingTerms(true)
+                  const ok = await handleAcceptTerms()
+                  setAcceptingTerms(false)
+                  if (!ok && termsConsentRef.current) termsConsentRef.current.checked = false
+                }}
+              />
+              <span className="leading-snug">
+                Confirmo que he leído y acepto los{' '}
+                <Link href="/legal/terminos" target="_blank" rel="noopener noreferrer" className="text-nurei-cta font-bold underline-offset-2 hover:underline">términos y condiciones</Link>
+                {' '}y el{' '}
+                <Link href="/legal/privacidad" target="_blank" rel="noopener noreferrer" className="text-nurei-cta font-bold underline-offset-2 hover:underline">aviso de privacidad</Link>
+                {' '}de {typeof window !== 'undefined' ? window.location.hostname : 'nurei'}.
+              </span>
+            </label>
+          )}
+        </div>
+
         <motion.button whileTap={{ scale: 0.98 }} onClick={handleSave} disabled={saving}
           className="w-full py-3 bg-nurei-cta text-gray-900 font-bold rounded-xl shadow-lg shadow-nurei-cta/25 transition-all hover:shadow-xl disabled:opacity-60">
           {saving ? 'Guardando...' : 'Guardar cambios'}
@@ -900,28 +1072,46 @@ export default function PerfilPage() {
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
   const [activeTab, setActiveTab] = useState<TabId>('pedidos')
   const [mounted, setMounted] = useState(false)
-  const [activeOrderCount, setActiveOrderCount] = useState(2)
+  const [activeOrderCount, setActiveOrderCount] = useState(0)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(true)
+  const [couponActiveCount, setCouponActiveCount] = useState(0)
 
   useEffect(() => { setMounted(true) }, [])
+
+  const loadOrders = useCallback(() => {
+    setOrdersLoading(true)
+    fetchWithCredentials('/api/orders')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const list = (json?.data ?? []) as Order[]
+        setOrders(list)
+        setActiveOrderCount(
+          list.filter((o) => ['pending', 'confirmed', 'shipped', 'paid', 'preparing', 'ready_to_ship'].includes(o.status)).length,
+        )
+      })
+      .catch(() => {
+        setOrders([])
+        setActiveOrderCount(0)
+      })
+      .finally(() => setOrdersLoading(false))
+  }, [])
 
   useEffect(() => {
     if (mounted && !isAuthenticated) { router.push('/login'); return }
     if (mounted && isAuthenticated) {
       refreshUser()
       loadAddresses()
-      // Fetch active orders count
-      fetch('/api/orders')
-        .then((r) => r.ok ? r.json() : null)
+      loadOrders()
+      fetchWithCredentials('/api/profile/coupons')
+        .then((r) => (r.ok ? r.json() : null))
         .then((json) => {
-          if (json?.data) {
-            setActiveOrderCount(json.data.filter((o: { status: string }) =>
-              ['pending', 'confirmed', 'shipped'].includes(o.status)
-            ).length)
-          }
+          const arr = (json?.data ?? []) as UserCoupon[]
+          setCouponActiveCount(arr.filter((uc) => !uc.used_at).length)
         })
-        .catch(() => {})
+        .catch(() => setCouponActiveCount(0))
     }
-  }, [mounted, isAuthenticated, router, refreshUser, loadAddresses])
+  }, [mounted, isAuthenticated, router, refreshUser, loadAddresses, loadOrders])
 
   if (!mounted || !isAuthenticated || !user) return null
 
@@ -949,7 +1139,7 @@ export default function PerfilPage() {
           {/* Quick stats */}
           <div className="grid grid-cols-3 gap-3 mt-5">
             <div className="bg-gray-50 rounded-2xl p-3 text-center">
-              <p className="text-xl font-black text-gray-900">{MOCK_USER_ORDERS.length}</p>
+              <p className="text-xl font-black text-gray-900">{orders.length}</p>
               <p className="text-[11px] text-gray-400 font-bold mt-0.5">Pedidos</p>
             </div>
             <div className="bg-gray-50 rounded-2xl p-3 text-center">
@@ -960,7 +1150,7 @@ export default function PerfilPage() {
             </div>
             <div className="bg-gray-50 rounded-2xl p-3 text-center">
               <p className="text-xl font-black text-nurei-cta">
-                {MOCK_USER_COUPONS.filter((c) => !c.used_at).length}
+                {couponActiveCount}
               </p>
               <p className="text-[11px] text-gray-400 font-bold mt-0.5">Cupones</p>
             </div>
@@ -1007,7 +1197,9 @@ export default function PerfilPage() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
-            {activeTab === 'pedidos' && <TabPedidos />}
+            {activeTab === 'pedidos' && (
+              <TabPedidos orders={orders} loading={ordersLoading} />
+            )}
             {activeTab === 'cupones' && <TabCupones />}
             {activeTab === 'direcciones' && <TabDirecciones />}
             {activeTab === 'cuenta' && <TabCuenta />}

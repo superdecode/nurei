@@ -107,9 +107,9 @@ export default function RegistroPage() {
 
           <p className="text-center text-xs text-gray-400">
             Al registrarte aceptas nuestros{' '}
-            <Link href="#" className="underline">Términos de servicio</Link>
+            <Link href="/legal/terminos" className="underline font-medium text-nurei-cta">Términos de servicio</Link>
             {' '}y{' '}
-            <Link href="#" className="underline">Política de privacidad</Link>
+            <Link href="/legal/privacidad" className="underline font-medium text-nurei-cta">Política de privacidad</Link>
           </p>
 
           <p className="text-center text-sm text-gray-500">

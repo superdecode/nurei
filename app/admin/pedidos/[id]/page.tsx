@@ -6,7 +6,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Package,
   Phone, Mail, MapPin, Copy, Send, Printer, Loader2,
   Clock, CreditCard, Truck, CheckCircle2, XCircle, AlertTriangle,
-  RotateCcw, Ban, MessageSquare, ArrowRight, CalendarDays,
+  RotateCcw, Ban, MessageSquare,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -125,6 +125,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
 
+  const [orderCopied, setOrderCopied] = useState(false)
+  const orderCopyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const fetchOrder = useCallback(async () => {
     setLoading(true)
     try {
@@ -197,6 +200,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     toast.success('Dirección copiada')
   }
 
+  const copyOrderNumber = () => {
+    if (!order) return
+    void navigator.clipboard.writeText(order.short_id)
+    if (orderCopyResetRef.current) clearTimeout(orderCopyResetRef.current)
+    setOrderCopied(true)
+    orderCopyResetRef.current = setTimeout(() => {
+      setOrderCopied(false)
+      orderCopyResetRef.current = null
+    }, 2000)
+  }
+
+  useEffect(() => () => {
+    if (orderCopyResetRef.current) clearTimeout(orderCopyResetRef.current)
+  }, [])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -253,43 +271,65 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Header bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-gray-100 bg-white shadow-sm px-5 py-3.5">
-        <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge status={order.status} size="md" />
-          <span className="text-xs text-gray-400 flex items-center gap-1">
-            <CalendarDays className="h-3.5 w-3.5" />
-            {createdDateStr} · {createdTimeStr}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <a href={`/admin/pedidos/print?ids=${order.id}`} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-            <Printer className="h-4 w-4" /> Imprimir
-          </a>
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm px-5 py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="group inline-flex min-w-0 items-center gap-2">
+                <span className="font-mono text-xl font-semibold tracking-tight text-primary-dark sm:text-2xl">
+                  {order.short_id}
+                </span>
+                <button
+                  type="button"
+                  onClick={copyOrderNumber}
+                  className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 text-gray-400 opacity-100 transition hover:bg-gray-100 hover:text-gray-700 sm:opacity-0 sm:group-hover:opacity-100"
+                  title="Copiar número de pedido"
+                  aria-label="Copiar número de pedido"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+                {orderCopied && (
+                  <span className="text-xs font-medium text-emerald-600 tabular-nums" role="status">
+                    Copiado ✓
+                  </span>
+                )}
+              </div>
+              <StatusBadge status={order.status} size="md" />
+            </div>
+            <p className="mt-1 text-sm text-gray-400">
+              {createdDateStr} · {createdTimeStr}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto sm:shrink-0">
+            <a href={`/admin/pedidos/print?ids=${order.id}`} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+              <Printer className="h-4 w-4" /> Imprimir
+            </a>
 
-          {nextStatus && (
-            <button
-              type="button"
-              onClick={() => { void confirmOrder(nextStatus) }}
-              disabled={confirmLoading}
-              className="inline-flex items-center gap-1.5 h-9 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white hover:bg-primary-dark/90 transition disabled:opacity-60"
-            >
-              {confirmLoading
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <>{sIcon(nextStatus)} Confirmar pedido</>
-              }
-            </button>
-          )}
+            {nextStatus && (
+              <button
+                type="button"
+                onClick={() => { void confirmOrder(nextStatus) }}
+                disabled={confirmLoading}
+                className="inline-flex items-center gap-1.5 h-9 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white hover:bg-primary-dark/90 transition disabled:opacity-60"
+              >
+                {confirmLoading
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <>{sIcon(nextStatus)} Confirmar pedido</>
+                }
+              </button>
+            )}
 
-          {canCancel && (
-            <button
-              type="button"
-              onClick={() => { setCancelReason(''); setCancelOpen(true) }}
-              className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition"
-            >
-              <Ban className="h-4 w-4" /> Cancelar
-            </button>
-          )}
+            {canCancel && (
+              <button
+                type="button"
+                onClick={() => { setCancelReason(''); setCancelOpen(true) }}
+                className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+              >
+                <Ban className="h-4 w-4" /> Cancelar
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -345,70 +385,78 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
 
-          {/* Client info */}
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-3">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Información del cliente</p>
-            <p className="text-sm font-semibold text-gray-900">{order.customer_name ?? '—'}</p>
-            <div className="flex flex-col gap-2">
-              {order.customer_email && (
-                <a href={`mailto:${order.customer_email}`} className="flex items-center gap-2 text-xs text-gray-600 hover:text-primary-cyan transition">
-                  <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" /> {order.customer_email}
-                </a>
-              )}
-              {order.customer_phone && (
-                <a href={`tel:${order.customer_phone}`} className="flex items-center gap-2 text-xs text-gray-600 hover:text-primary-cyan transition">
-                  <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" /> {formatPhone(order.customer_phone)}
-                </a>
-              )}
+          {/* Cliente, entrega y pago (unificado) */}
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-900">Cliente y entrega</p>
             </div>
-          </div>
-
-          {/* Shipping address */}
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Dirección de envío</p>
-              <button type="button" onClick={copyAddress} className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" title="Copiar dirección">
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <MapPin className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+            <div className="px-5 py-5 space-y-6">
               <div>
-                <p className="text-xs text-gray-700 leading-relaxed">{order.delivery_address ?? '—'}</p>
-                {order.delivery_instructions && <p className="text-[11px] text-gray-400 mt-1 italic">{order.delivery_instructions}</p>}
+                <p className="text-sm font-semibold text-gray-900">{order.customer_name ?? '—'}</p>
+                <div className="mt-2 flex flex-col gap-2">
+                  {order.customer_email && (
+                    <a href={`mailto:${order.customer_email}`} className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-cyan transition">
+                      <Mail className="h-4 w-4 shrink-0 text-gray-400" /> {order.customer_email}
+                    </a>
+                  )}
+                  {order.customer_phone && (
+                    <a href={`tel:${order.customer_phone}`} className="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-cyan transition">
+                      <Phone className="h-4 w-4 shrink-0 text-gray-400" /> {formatPhone(order.customer_phone)}
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-gray-900">Dirección de envío</p>
+                  <button type="button" onClick={copyAddress} className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Copiar dirección">
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <MapPin className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-700 leading-relaxed">{order.delivery_address ?? '—'}</p>
+                    {order.delivery_instructions && <p className="text-xs text-gray-400 mt-1 italic">{order.delivery_instructions}</p>}
+                  </div>
+                </div>
+                {order.shipping_method && (
+                  <p className="mt-2 text-xs text-gray-500"><span className="font-medium text-gray-600">Método:</span> {order.shipping_method}</p>
+                )}
+              </div>
+
+              <Separator />
+
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Método de pago</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {PAYMENT_METHOD_LABELS[order.payment_method ?? ''] ?? order.payment_method ?? '—'}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className={cn(
+                    'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                    order.payment_status === 'paid' ? 'text-emerald-700 bg-emerald-50 border-emerald-300'
+                      : order.payment_status === 'refunded' ? 'text-gray-600 bg-gray-50 border-gray-300'
+                      : 'text-yellow-700 bg-yellow-50 border-yellow-300'
+                  )}>
+                    {order.payment_status === 'paid' ? 'Pagado' : order.payment_status === 'refunded' ? 'Reembolsado' : 'Pendiente'}
+                  </span>
+                  {order.paid_at && <span className="text-[10px] text-gray-400">{formatDate(order.paid_at)}</span>}
+                </div>
+                {order.payment_reference && (
+                  <p className="mt-2 text-xs text-gray-400 font-mono truncate">Ref: {order.payment_reference}</p>
+                )}
+                {order.stripe_payment_intent_id && (
+                  <p className="mt-1 text-xs text-gray-400 font-mono truncate">PI: {order.stripe_payment_intent_id}</p>
+                )}
               </div>
             </div>
-            {order.shipping_method && (
-              <p className="text-xs text-gray-500"><span className="font-medium">Método:</span> {order.shipping_method}</p>
-            )}
-          </div>
-
-          {/* Payment */}
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-3">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Método de pago</p>
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-700">
-                {PAYMENT_METHOD_LABELS[order.payment_method ?? ''] ?? order.payment_method ?? '—'}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                order.payment_status === 'paid' ? 'text-emerald-700 bg-emerald-50 border-emerald-300'
-                  : order.payment_status === 'refunded' ? 'text-gray-600 bg-gray-50 border-gray-300'
-                  : 'text-yellow-700 bg-yellow-50 border-yellow-300'
-              )}>
-                {order.payment_status === 'paid' ? 'Pagado' : order.payment_status === 'refunded' ? 'Reembolsado' : 'Pendiente'}
-              </span>
-              {order.paid_at && <span className="text-[10px] text-gray-400">{formatDate(order.paid_at)}</span>}
-            </div>
-            {order.payment_reference && (
-              <p className="text-[11px] text-gray-400 font-mono truncate">Ref: {order.payment_reference}</p>
-            )}
-            {order.stripe_payment_intent_id && (
-              <p className="text-[11px] text-gray-400 font-mono truncate">PI: {order.stripe_payment_intent_id}</p>
-            )}
           </div>
         </div>
 

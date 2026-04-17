@@ -28,6 +28,8 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
+import { customerDisplayName, customerToFirstLast } from '@/lib/utils/customer-display'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 import { toast } from 'sonner'
 import type {
@@ -97,9 +99,10 @@ const EMPTY_FORM: CustomerForm = {
 }
 
 function customerToForm(c: Customer): CustomerForm {
+  const { first_name, last_name } = customerToFirstLast(c)
   return {
-    first_name: c.first_name ?? '',
-    last_name: c.last_name ?? '',
+    first_name,
+    last_name,
     email: c.email ?? '',
     phone: c.phone ?? '',
     whatsapp: c.whatsapp ?? '',
@@ -180,7 +183,7 @@ export default function ClientesPage() {
       params.set('page', String(page))
       params.set('limit', String(limit))
 
-      const res = await fetch(`/api/admin/customers?${params.toString()}`)
+      const res = await fetchWithCredentials(`/api/admin/customers?${params.toString()}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Error')
       setCustomers(json.data ?? [])
@@ -194,7 +197,7 @@ export default function ClientesPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/customers/stats')
+      const res = await fetchWithCredentials('/api/admin/customers/stats')
       const json = await res.json()
       if (res.ok && json.data) setStats(json.data)
     } catch {
@@ -266,7 +269,7 @@ export default function ClientesPage() {
         : '/api/admin/customers'
       const method = editing ? 'PATCH' : 'POST'
 
-      const res = await fetch(url, {
+      const res = await fetchWithCredentials(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -286,7 +289,7 @@ export default function ClientesPage() {
 
   const handleToggleActive = async (c: Customer) => {
     try {
-      const res = await fetch(`/api/admin/customers/${c.id}`, {
+      const res = await fetchWithCredentials(`/api/admin/customers/${c.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !c.is_active }),
@@ -301,7 +304,7 @@ export default function ClientesPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/customers/${id}`, { method: 'DELETE' })
+      const res = await fetchWithCredentials(`/api/admin/customers/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
       toast.success('Cliente eliminado')
       setDeleteConfirm(null)
@@ -403,7 +406,7 @@ export default function ClientesPage() {
             Clientes
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            CRM, segmentación y gestión de la base de clientes
+            Compradores y cuentas de la tienda (web). El personal interno del panel no aparece aquí.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -749,14 +752,14 @@ export default function ClientesPage() {
                   <TableCell>
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-cyan/30 to-primary-cyan/10 flex items-center justify-center text-[11px] font-bold text-primary-dark">
-                        {(c.full_name ?? c.first_name ?? c.email ?? '?').slice(0, 2).toUpperCase()}
+                        {customerDisplayName(c).slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <Link
                           href={`/admin/clientes/${c.id}`}
                           className="font-medium text-primary-dark hover:text-primary-cyan truncate block"
                         >
-                          {c.full_name ?? c.first_name ?? c.email ?? 'Sin nombre'}
+                          {customerDisplayName(c)}
                         </Link>
                         {c.company_name && (
                           <span className="text-[11px] text-gray-400 truncate block">
@@ -878,11 +881,11 @@ export default function ClientesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-cyan/30 to-primary-cyan/10 flex items-center justify-center text-xs font-bold text-primary-dark shrink-0">
-                      {(c.full_name ?? c.first_name ?? c.email ?? '?').slice(0, 2).toUpperCase()}
+                      {customerDisplayName(c).slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <Link href={`/admin/clientes/${c.id}`} className="font-semibold text-primary-dark hover:text-primary-cyan truncate block">
-                        {c.full_name ?? c.first_name ?? c.email ?? 'Sin nombre'}
+                        {customerDisplayName(c)}
                       </Link>
                       <p className="text-xs text-gray-400 truncate">{c.email ?? c.phone ?? 'Sin contacto'}</p>
                     </div>
@@ -962,6 +965,11 @@ export default function ClientesPage() {
                 <DialogTitle className="text-lg font-bold text-white">
                   {editing ? 'Editar cliente' : 'Nuevo cliente'}
                 </DialogTitle>
+                {editing && (
+                  <p className="text-sm font-semibold text-white/95 truncate max-w-[min(100%,22rem)] mt-0.5" title={customerDisplayName(editing)}>
+                    {customerDisplayName(editing)}
+                  </p>
+                )}
                 <p className="text-xs text-white/60">
                   Datos, contacto, segmento y consentimientos
                 </p>

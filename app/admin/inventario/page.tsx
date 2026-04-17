@@ -600,10 +600,10 @@ export default function InventoryAdminPage() {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* ── Header ── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="shrink-0">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 shrink-0">
           <h1 className="text-2xl font-bold text-primary-dark">Inventario</h1>
           <p className="text-sm text-gray-400 mt-0.5">Control de existencias y trazabilidad</p>
         </div>
@@ -684,7 +684,7 @@ export default function InventoryAdminPage() {
       </div>
 
       {/* ── Search, luego Filtrar + chips ── */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex min-w-0 flex-wrap gap-2 items-center">
         {/* Search */}
         <div className="relative min-w-[min(100%,220px)] flex-1 basis-[220px]">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
@@ -860,11 +860,11 @@ export default function InventoryAdminPage() {
       </AnimatePresence>
 
       {/* ── Table ── */}
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-        <Table>
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-              <TableHead className="w-10">
+              <TableHead className="w-[4%] min-w-0 p-1">
                 <button
                   type="button"
                   onClick={toggleSelectAll}
@@ -876,14 +876,28 @@ export default function InventoryAdminPage() {
                   {allVisibleSelected && <Check className="w-3 h-3 text-gray-900" />}
                 </button>
               </TableHead>
-              <TableHead className="w-12" />
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Producto</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Categoría</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500 text-center">Stock</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Alerta</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Vendidos 30d</TableHead>
-              <TableHead className="w-16 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</TableHead>
+              <TableHead className="w-[5%] min-w-0 p-1" />
+              <TableHead className="w-[30%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Producto
+              </TableHead>
+              <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Categoría
+              </TableHead>
+              <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Stock
+              </TableHead>
+              <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Estado
+              </TableHead>
+              <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Alerta
+              </TableHead>
+              <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Vendidos 30d
+              </TableHead>
+              <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Acciones
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -923,7 +937,7 @@ export default function InventoryAdminPage() {
                       selectedIds.has(product.id) ? 'bg-primary-cyan/5' : 'hover:bg-gray-50/80'
                     )}
                   >
-                    <TableCell>
+                    <TableCell className="min-w-0 p-1">
                       <button
                         type="button"
                         onClick={() => toggleSelect(product.id)}
@@ -935,8 +949,8 @@ export default function InventoryAdminPage() {
                         {selectedIds.has(product.id) && <Check className="w-3 h-3 text-primary-dark" />}
                       </button>
                     </TableCell>
-                    <TableCell>
-                      <div className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden">
+                    <TableCell className="min-w-0 p-1">
+                      <div className="mx-auto h-9 w-9 max-w-full rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
                         {product.images?.[product.primary_image_index ?? 0] ? (
                           <img
                             src={product.images[product.primary_image_index ?? 0]}
@@ -948,17 +962,19 @@ export default function InventoryAdminPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <p className="font-medium text-primary-dark text-sm">{product.name}</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{product.sku}</p>
+                    <TableCell className="min-w-0 p-1.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-primary-dark">{product.name}</p>
+                        <p className="mt-0.5 truncate font-mono text-[11px] text-gray-400">{product.sku}</p>
+                      </div>
                     </TableCell>
-                    <TableCell>
-                      <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-medium', catColor)}>
+                    <TableCell className="min-w-0 p-1.5">
+                      <span className={cn('inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full', catColor)}>
                         {categories.find((c) => c.value === product.category)?.label ?? product.category}
                       </span>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <div className="inline-flex items-center justify-center gap-1">
+                    <TableCell className="min-w-0 p-1.5 text-center">
+                      <div className="inline-flex items-center justify-center gap-0.5">
                         <span
                           className={cn(
                             'text-sm font-semibold tabular-nums',
@@ -970,7 +986,7 @@ export default function InventoryAdminPage() {
                         <button
                           type="button"
                           title="Ajustar inventario"
-                          className="opacity-0 group-hover:opacity-100 rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
+                          className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
                           onClick={() => {
                             setAdjustProduct(product)
                             setAdjustKind('entrada'); setAdjustValue(''); setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota('')
@@ -981,50 +997,41 @@ export default function InventoryAdminPage() {
                         </button>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-medium', STATUS_COLORS[st])}>
+                    <TableCell className="min-w-0 p-1.5">
+                      <span className={cn('inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full', STATUS_COLORS[st])}>
                         {stockStatusLabel(st)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">{product.low_stock_threshold ?? 5}</TableCell>
-                    <TableCell className="text-sm text-gray-500">{product.sold_30d ?? 0}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <TableCell className="min-w-0 p-1.5 text-sm text-gray-500 tabular-nums">{product.low_stock_threshold ?? 5}</TableCell>
+                    <TableCell className="min-w-0 p-1.5 text-sm text-gray-500 tabular-nums">{product.sold_30d ?? 0}</TableCell>
+                    <TableCell className="min-w-0 max-w-full p-1 text-right">
+                      <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5">
                         <button
                           type="button"
                           title="Ajuste manual"
-                          className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                          className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
                           onClick={() => {
                             setAdjustProduct(product); setAdjustKind('entrada'); setAdjustValue('')
                             setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
                           }}
                         >
-                          <Wrench className="h-4 w-4" />
-                          <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
-                            Ajuste
-                          </span>
+                          <Wrench className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
                           title="Alerta mínima"
-                          className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                          className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
                           onClick={() => { setAlertProduct(product); setAlertThreshold(String(product.low_stock_threshold ?? 5)); setAlertOpen(true) }}
                         >
-                          <BellRing className="h-4 w-4" />
-                          <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
-                            Alerta
-                          </span>
+                          <BellRing className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
                           title="Ver movimientos"
-                          className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                          className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
                           onClick={() => openMovementsModal(product)}
                         >
-                          <History className="h-4 w-4" />
-                          <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
-                            Movimientos
-                          </span>
+                          <History className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </TableCell>
@@ -1056,19 +1063,8 @@ export default function InventoryAdminPage() {
 
       {/* Ajuste manual */}
       <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
-        <DialogContent size="sm" className="relative p-0 duration-200" showCloseButton={false}>
-          <button
-            type="button"
-            onClick={() => setAdjustOpen(false)}
-            aria-label="Cerrar"
-            className="absolute right-4 top-4 z-20 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-          <div className="border-b border-gray-100 px-6 py-4">
+        <DialogContent size="sm" className="p-0 duration-200">
+          <div className="border-b border-gray-100 px-6 py-4 pr-12">
             <DialogTitle className="text-base font-semibold">Ajuste de inventario</DialogTitle>
             {adjustProduct && (
               <p className="text-sm text-gray-500 mt-0.5">{adjustProduct.name}</p>
@@ -1314,15 +1310,43 @@ export default function InventoryAdminPage() {
       <Dialog open={movementsModalOpen} onOpenChange={setMovementsModalOpen}>
         <DialogContent
           size="xl"
-          className="p-0 duration-200 data-[closed]:duration-200"
+          className="p-0 overflow-hidden flex flex-col min-h-[70vh] duration-200 data-[closed]:duration-200"
           showCloseButton
         >
-          <div className="border-b border-gray-100 px-6 py-4">
-            <DialogTitle className="text-base font-semibold">
-              Movimientos — {selectedProduct?.name}
-            </DialogTitle>
+          {/* Gradient header with system color + product identity */}
+          <div className="relative overflow-hidden bg-gradient-to-r from-primary-dark to-primary-dark/90 px-6 py-5 border-b border-white/10">
+            <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/5 blur-3xl" />
+            <div className="relative space-y-2">
+              <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary-cyan/80">
+                <History className="h-3.5 w-3.5" />
+                Historial de movimientos
+              </div>
+              <DialogTitle className="sr-only">
+                Movimientos — {selectedProduct?.name}
+              </DialogTitle>
+              {selectedProduct && (
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 border border-white/20 shadow-sm">
+                    <Package className="h-5 w-5 text-primary-cyan" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold text-white leading-tight truncate">{selectedProduct.name}</h2>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/60">
+                      {selectedProduct.sku && (
+                        <span className="font-mono">SKU: <span className="text-white/90 font-semibold">{selectedProduct.sku}</span></span>
+                      )}
+                      <span>Stock actual: <span className="text-white font-semibold tabular-nums">{selectedProduct.stock_quantity ?? 0}</span></span>
+                      {typeof selectedProduct.low_stock_threshold === 'number' && (
+                        <span>Alerta: <span className="text-white font-semibold tabular-nums">{selectedProduct.low_stock_threshold}</span></span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="max-h-[75vh] overflow-y-auto px-6 py-4 space-y-3">
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
             {/* Filters */}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <Input type="date" className="h-9 text-sm rounded-xl border-gray-200" value={movementDateFrom} onChange={(e) => setMovementDateFrom(e.target.value)} />
@@ -1355,65 +1379,79 @@ export default function InventoryAdminPage() {
               </div>
             </div>
 
-            {/* Table */}
-            {modalLoading ? (
-              <p className="text-sm text-gray-500 py-6 text-center">Cargando historial…</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/80">
-                    <TableHead>
-                      <SortHeader active={movementSort.key === 'created_at'} dir={movementSort.dir} onClick={() => toggleSort('created_at')}>
-                        Fecha
-                      </SortHeader>
-                    </TableHead>
-                    <TableHead>
-                      <SortHeader active={movementSort.key === 'type'} dir={movementSort.dir} onClick={() => toggleSort('type')}>
-                        Tipo
-                      </SortHeader>
-                    </TableHead>
-                    <TableHead>
-                      <SortHeader active={movementSort.key === 'quantity'} dir={movementSort.dir} onClick={() => toggleSort('quantity')}>
-                        Cant.
-                      </SortHeader>
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-500">Detalle</TableHead>
-                    <TableHead className="text-xs font-semibold text-gray-500">Referencia</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {productMovementsFiltered.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="py-8 text-center text-sm text-gray-400">
-                        Sin movimientos para los filtros aplicados.
-                      </TableCell>
+            {/* Table — polished card */}
+            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+              {modalLoading ? (
+                <p className="text-sm text-gray-500 py-12 text-center">Cargando historial…</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/80 border-b border-gray-100">
+                      <TableHead className="py-2.5">
+                        <SortHeader active={movementSort.key === 'created_at'} dir={movementSort.dir} onClick={() => toggleSort('created_at')}>
+                          Fecha
+                        </SortHeader>
+                      </TableHead>
+                      <TableHead className="py-2.5">
+                        <SortHeader active={movementSort.key === 'type'} dir={movementSort.dir} onClick={() => toggleSort('type')}>
+                          Tipo
+                        </SortHeader>
+                      </TableHead>
+                      <TableHead className="py-2.5">
+                        <SortHeader active={movementSort.key === 'quantity'} dir={movementSort.dir} onClick={() => toggleSort('quantity')}>
+                          Cant.
+                        </SortHeader>
+                      </TableHead>
+                      <TableHead className="py-2.5 text-xs font-semibold text-gray-500">Detalle</TableHead>
+                      <TableHead className="py-2.5 text-xs font-semibold text-gray-500">Referencia</TableHead>
                     </TableRow>
-                  ) : (
-                    productMovementsFiltered.map((movement) => (
-                      <TableRow key={movement.id} className="border-b">
-                        <TableCell className="whitespace-nowrap text-xs text-gray-500">
-                          {new Date(movement.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </TableCell>
-                        <TableCell>
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
-                            {MOVEMENT_TYPE_LABEL[movement.type]}
-                          </span>
-                        </TableCell>
-                        <TableCell className={cn('font-semibold text-sm tabular-nums', (movement.quantity ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-600')}>
-                          {(movement.quantity ?? 0) >= 0 ? '+' : ''}{movement.quantity}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate text-xs text-gray-500">
-                          {movement.reason ?? '—'}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-gray-400">
-                          {movement.reference ?? '—'}
+                  </TableHeader>
+                  <TableBody>
+                    {productMovementsFiltered.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-16 text-center">
+                          <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <History className="h-8 w-8 opacity-40" />
+                            <p className="text-sm">Sin movimientos para los filtros aplicados.</p>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            )}
+                    ) : (
+                      productMovementsFiltered.map((movement) => {
+                        const qty = movement.quantity ?? 0
+                        const positive = qty >= 0
+                        return (
+                          <TableRow key={movement.id} className="border-b border-gray-50 last:border-0 hover:bg-amber-50/30 transition-colors">
+                            <TableCell className="whitespace-nowrap text-xs text-gray-500">
+                              {new Date(movement.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                                {MOVEMENT_TYPE_LABEL[movement.type]}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={cn(
+                                'inline-flex items-center justify-center min-w-[2.5rem] h-6 px-2 rounded-full text-[11px] font-bold tabular-nums',
+                                positive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              )}>
+                                {positive ? '+' : ''}{qty}
+                              </span>
+                            </TableCell>
+                            <TableCell className="max-w-[240px] truncate text-xs text-gray-600">
+                              {movement.reason ?? '—'}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-gray-400">
+                              {movement.reference ?? '—'}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

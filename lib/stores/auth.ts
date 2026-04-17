@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import type { UserProfile, Address } from '@/types'
 
 interface AuthStore {
@@ -16,7 +17,14 @@ interface AuthStore {
   loginWithGoogle: () => void
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
-  updateProfile: (updates: Partial<Pick<UserProfile, 'full_name' | 'phone' | 'avatar_url'>>) => Promise<void>
+  updateProfile: (
+    updates: Partial<Pick<UserProfile, 'full_name' | 'phone' | 'avatar_url'>> & Partial<{
+      accepts_marketing: boolean
+      accepts_email_marketing: boolean
+      accepts_sms_marketing: boolean
+      accepts_whatsapp_marketing: boolean
+    }>,
+  ) => Promise<void>
   // Address actions
   loadAddresses: () => Promise<void>
   addAddress: (address: Omit<Address, 'id' | 'created_at'>) => Promise<void>
@@ -38,7 +46,7 @@ export const useAuthStore = create<AuthStore>()(
 
       login: async (email, password) => {
         try {
-          const res = await fetch('/api/auth/login', {
+          const res = await fetchWithCredentials('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -59,7 +67,7 @@ export const useAuthStore = create<AuthStore>()(
 
       register: async (name, email, password) => {
         try {
-          const res = await fetch('/api/auth/register', {
+          const res = await fetchWithCredentials('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, password }),
@@ -69,7 +77,7 @@ export const useAuthStore = create<AuthStore>()(
 
           // Auto-login after register if session returned
           if (json.data.session) {
-            const profileRes = await fetch('/api/auth/me')
+            const profileRes = await fetchWithCredentials('/api/auth/me')
             if (profileRes.ok) {
               const profileJson = await profileRes.json()
               set({
@@ -92,14 +100,14 @@ export const useAuthStore = create<AuthStore>()(
 
       logout: async () => {
         try {
-          await fetch('/api/auth/logout', { method: 'POST' })
+          await fetchWithCredentials('/api/auth/logout', { method: 'POST' })
         } catch { /* ignore */ }
         set({ user: null, email: null, isAuthenticated: false, addresses: [] })
       },
 
       refreshUser: async () => {
         try {
-          const res = await fetch('/api/auth/me')
+          const res = await fetchWithCredentials('/api/auth/me')
           if (!res.ok) {
             set({ user: null, email: null, isAuthenticated: false })
             return
@@ -115,14 +123,24 @@ export const useAuthStore = create<AuthStore>()(
 
       updateProfile: async (updates) => {
         try {
-          const res = await fetch('/api/profile', {
+          const res = await fetchWithCredentials('/api/profile', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates),
           })
           if (!res.ok) throw new Error('Failed to update')
           const json = await res.json()
-          set({ user: json.data })
+          const row = json.data as Record<string, unknown>
+          const {
+            email: newEmail,
+            customer: _c,
+            legal_terms_accepted_at: _l,
+            ...profile
+          } = row
+          set({
+            user: profile as unknown as UserProfile,
+            email: typeof newEmail === 'string' ? newEmail : get().email,
+          })
         } catch {
           // Optimistic update fallback
           const current = get().user
@@ -135,7 +153,7 @@ export const useAuthStore = create<AuthStore>()(
       loadAddresses: async () => {
         set({ isLoadingAddresses: true })
         try {
-          const res = await fetch('/api/profile/addresses')
+          const res = await fetchWithCredentials('/api/profile/addresses')
           if (!res.ok) return
           const json = await res.json()
           set({ addresses: json.data ?? [] })
@@ -146,7 +164,7 @@ export const useAuthStore = create<AuthStore>()(
 
       addAddress: async (addressData) => {
         try {
-          const res = await fetch('/api/profile/addresses', {
+          const res = await fetchWithCredentials('/api/profile/addresses', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(addressData),
@@ -184,7 +202,7 @@ export const useAuthStore = create<AuthStore>()(
           ),
         }))
         try {
-          await fetch(`/api/profile/addresses/${id}`, {
+          await fetchWithCredentials(`/api/profile/addresses/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates),
@@ -201,7 +219,7 @@ export const useAuthStore = create<AuthStore>()(
         }
         set({ addresses: filtered })
         try {
-          await fetch(`/api/profile/addresses/${id}`, { method: 'DELETE' })
+          await fetchWithCredentials(`/api/profile/addresses/${id}`, { method: 'DELETE' })
         } catch { /* keep optimistic */ }
       },
 
@@ -210,7 +228,7 @@ export const useAuthStore = create<AuthStore>()(
           addresses: state.addresses.map((a) => ({ ...a, is_default: a.id === id })),
         }))
         try {
-          await fetch(`/api/profile/addresses/${id}/default`, { method: 'POST' })
+          await fetchWithCredentials(`/api/profile/addresses/${id}/default`, { method: 'POST' })
         } catch { /* keep optimistic */ }
       },
     }),

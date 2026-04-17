@@ -15,6 +15,7 @@ export async function getAllUsers(supabase: SupabaseClient): Promise<(UserProfil
   const { data, error } = await supabase
     .from('user_profiles')
     .select('*, admin_role:admin_roles(*)')
+    .eq('role', 'admin')
     .order('created_at', { ascending: false })
   if (error) throw error
 

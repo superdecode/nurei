@@ -134,6 +134,35 @@
     background-color: rgba(255, 193, 7, 0.3);
     color: #111827;
   }
+
+  /* ==========================================================
+     Global soft-yellow scrollbar (system-wide, discreet)
+     ========================================================== */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 193, 7, 0.35) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 193, 7, 0.28);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 200ms ease;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 193, 7, 0.55);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 /* ========================================================================
