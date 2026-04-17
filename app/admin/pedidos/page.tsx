@@ -681,6 +681,9 @@ export default function PedidosAdminPage() {
                         <Link href={`/admin/pedidos/${order.id}`} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Detalle completo">
                           <FileText className="h-4 w-4" />
                         </Link>
+                        <a href={`/admin/pedidos/print?ids=${order.id}&type=ticket`} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Ticket">
+                          <Printer className="h-4 w-4" />
+                        </a>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -740,11 +743,31 @@ export default function PedidosAdminPage() {
                   <p className="text-xs text-gray-400 font-medium">Pedido</p>
                   <p className="text-lg font-bold text-primary-dark font-mono">{drawerOrder?.short_id ?? '—'}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {drawerOrder && (
-                    <Link href={`/admin/pedidos/${drawerOrder.id}`} className="flex items-center gap-1.5 rounded-xl bg-primary-dark px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-dark/90">
-                      Ver detalle <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
+                    <>
+                      <a
+                        href={`/admin/pedidos/print?ids=${drawerOrder.id}&type=ticket`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 h-7 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
+                        title="Imprimir ticket"
+                      >
+                        <Printer className="h-3.5 w-3.5" /> Ticket
+                      </a>
+                      <a
+                        href={`/admin/pedidos/print?ids=${drawerOrder.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 h-7 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
+                        title="Hoja de surtido"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Surtido
+                      </a>
+                      <Link href={`/admin/pedidos/${drawerOrder.id}`} className="flex items-center gap-1.5 rounded-xl bg-primary-dark px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-dark/90">
+                        Ver detalle <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </>
                   )}
                   <button type="button" onClick={() => setDrawerOpen(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100">
                     <X className="h-4 w-4" />

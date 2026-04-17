@@ -1,5 +1,5 @@
 import { Header } from '@/components/layout/Header'
-import { Footer } from '@/components/layout/Footer'
+import { ConditionalFooter } from '@/components/layout/ConditionalFooter'
 import { CartDrawer } from '@/components/carrito/CartDrawer'
 
 export default function PublicLayout({
@@ -11,7 +11,7 @@ export default function PublicLayout({
     <>
       <Header />
       <main className="flex-1">{children}</main>
-      <Footer />
+      <ConditionalFooter />
       <CartDrawer />
     </>
   )

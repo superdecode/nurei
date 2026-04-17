@@ -78,16 +78,16 @@ export function CartItem({ item, onRemove }: CartItemProps) {
         {/* Product image */}
         <motion.div
           whileTap={{ scale: 0.95 }}
-          className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gray-50 flex-shrink-0 flex items-center justify-center text-3xl border border-gray-100"
+          className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
         >
-          {item.product.image_thumbnail_url ? (
+          {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
             <img
-              src={item.product.image_thumbnail_url}
+              src={item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
               alt={item.product.name}
               className="w-full h-full object-cover rounded-xl"
             />
           ) : (
-            <span>🍘</span>
+            <span className="text-2xl opacity-30">🍘</span>
           )}
         </motion.div>
 

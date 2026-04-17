@@ -78,10 +78,14 @@ function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selec
 
       {/* Image */}
       <div className="w-14 h-14 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
-        {item.product.image_thumbnail_url ? (
-          <img src={item.product.image_thumbnail_url} alt={item.product.name} className="w-full h-full object-cover" />
+        {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
+          <img
+            src={item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
+            alt={item.product.name}
+            className="w-full h-full object-cover"
+          />
         ) : (
-          <span className="text-2xl flex items-center justify-center w-full h-full opacity-40">🍘</span>
+          <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xl opacity-30">🍘</div>
         )}
       </div>
 
