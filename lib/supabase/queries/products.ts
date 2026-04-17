@@ -1,7 +1,17 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Product, ProductVariant } from '@/types'
+import { computeStorefrontStockStatus } from '@/lib/inventory/stock-status'
 
 // ─── Helpers ────────────────────────────────────────────────────────────
+
+function getStockStatus(row: Record<string, unknown>): Product['stock_status'] {
+  return computeStorefrontStockStatus({
+    track_inventory: row.track_inventory as boolean | null | undefined,
+    allow_backorder: row.allow_backorder as boolean | null | undefined,
+    stock_quantity: row.stock_quantity as number | string | null | undefined,
+    low_stock_threshold: row.low_stock_threshold as number | string | null | undefined,
+  })
+}
 
 function mapRow(row: Record<string, unknown>): Product {
   return {
@@ -20,6 +30,7 @@ function mapRow(row: Record<string, unknown>): Product {
     low_stock_threshold: (row.low_stock_threshold as number) ?? 5,
     track_inventory: (row.track_inventory as boolean) ?? true,
     allow_backorder: (row.allow_backorder as boolean) ?? false,
+    stock_status: getStockStatus(row),
   } as Product
 }
 
@@ -36,6 +47,9 @@ interface ListFilters {
 export async function listProducts(filters: ListFilters = {}) {
   const supabase = createServiceClient()
   let query = supabase.from('products').select('*')
+  const normalizedSearch = filters.search
+    ? filters.search.replace(/[(),]/g, '').replace(/\./g, ' ').trim()
+    : undefined
 
   if (filters.status) {
     query = query.eq('status', filters.status)
@@ -49,8 +63,8 @@ export async function listProducts(filters: ListFilters = {}) {
   if (filters.hasVariants !== undefined) {
     query = query.eq('has_variants', filters.hasVariants)
   }
-  if (filters.search) {
-    query = query.or(`name.ilike.%${filters.search}%,slug.ilike.%${filters.search}%,sku.ilike.%${filters.search}%`)
+  if (normalizedSearch) {
+    query = query.or(`name.ilike.%${normalizedSearch}%,slug.ilike.%${normalizedSearch}%,sku.ilike.%${normalizedSearch}%`)
   }
 
   query = query.order('created_at', { ascending: false })
@@ -234,7 +248,7 @@ export async function upsertVariants(productId: string, variants: Partial<Produc
       .from('product_variants')
       .delete()
       .eq('product_id', productId)
-      .not('id', 'in', `(${existingIds.join(',')})`)
+      .not('id', 'in', `(${existingIds.map((id) => `"${id}"`).join(',')})`)
   } else {
     await supabase
       .from('product_variants')

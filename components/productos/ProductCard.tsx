@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Plus, Heart } from 'lucide-react'
 import { toast } from 'sonner'
@@ -38,21 +38,38 @@ function SpiceDots({ level }: { level: number }) {
 
 export function ProductCard({ product }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
+  const currentCartQuantity = useCartStore((s) => s.items.find((item) => item.product.id === product.id)?.quantity ?? 0)
   const { isFavorite, toggleFavorite } = useFavoritesStore()
   const [added, setAdded] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [stockFeedback, setStockFeedback] = useState<string | null>(null)
+  const fav = isFavorite(product.id)
 
-  useEffect(() => { setMounted(true) }, [])
-
-  const fav = mounted ? isFavorite(product.id) : false
-
-  const handleAdd = (e: React.MouseEvent) => {
+  const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    addItem(product)
-    setAdded(true)
-    toast.success(`${product.name} agregado`, { icon: '🍘', duration: 2000 })
-    setTimeout(() => setAdded(false), 1400)
+    try {
+      const response = await fetch(`/api/products/${product.id}/stock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: 1, currentCartQuantity }),
+      })
+      const payload = await response.json()
+      if (!response.ok || !payload?.can_add) {
+        const message = payload?.message ?? 'No hay stock suficiente por ahora.'
+        setStockFeedback(message)
+        toast.error(message)
+        return
+      }
+      setStockFeedback(null)
+      addItem(product)
+      setAdded(true)
+      toast.success(`${product.name} agregado`, { icon: '🍘', duration: 2000 })
+      setTimeout(() => setAdded(false), 1400)
+    } catch {
+      const message = 'No se pudo validar inventario en este momento.'
+      setStockFeedback(message)
+      toast.error(message)
+    }
   }
 
   const handleToggleFav = (e: React.MouseEvent) => {
@@ -65,7 +82,8 @@ export function ProductCard({ product }: ProductCardProps) {
     })
   }
 
-  const lowAvailability = product.availability_score < 40
+  const isOutOfStock = product.stock_status === 'out_of_stock'
+  const isLowStock = product.stock_status === 'low_stock'
   const price = product.base_price ?? product.price
   const discountPercent = product.compare_at_price && product.compare_at_price > price
     ? Math.round((1 - price / product.compare_at_price) * 100) : 0
@@ -131,12 +149,19 @@ export function ProductCard({ product }: ProductCardProps) {
           </motion.button>
 
           {/* Low stock warning */}
-          {lowAvailability && (
+          {isLowStock && (
             <div className="absolute bottom-3 left-3 right-3">
               <div className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-center shadow-sm">
                 <span className="text-[10px] font-bold text-nurei-promo animate-pulse">
                   ¡Últimas unidades!
                 </span>
+              </div>
+            </div>
+          )}
+          {isOutOfStock && (
+            <div className="absolute bottom-3 left-3 right-3">
+              <div className="px-3 py-1.5 bg-gray-900/85 rounded-full text-center shadow-sm">
+                <span className="text-[10px] font-bold text-white uppercase tracking-wide">Agotado</span>
               </div>
             </div>
           )}
@@ -185,11 +210,11 @@ export function ProductCard({ product }: ProductCardProps) {
               whileTap={{ scale: 0.88 }}
               whileHover={{ scale: 1.05 }}
               onClick={handleAdd}
-              disabled={lowAvailability && !added}
+              disabled={isOutOfStock}
               className={`flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold rounded-full transition-all duration-300 ${
                 added
                   ? 'bg-nurei-stock text-white shadow-lg shadow-nurei-stock/25'
-                  : lowAvailability
+                  : isOutOfStock
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/30 hover:scale-105'
               }`}
@@ -219,6 +244,9 @@ export function ProductCard({ product }: ProductCardProps) {
               </AnimatePresence>
             </motion.button>
           </div>
+          {stockFeedback && (
+            <p className="mt-2 text-[11px] text-red-600 font-medium">{stockFeedback}</p>
+          )}
         </div>
       </motion.div>
     </Link>

@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 
 export function Header() {
-  const getItemCount = useCartStore((s) => s.getItemCount)
+  const items = useCartStore((s) => s.items)
   const openCart = useUIStore((s) => s.openCart)
   const isMobileMenuOpen = useUIStore((s) => s.isMobileMenuOpen)
   const openMobileMenu = useUIStore((s) => s.openMobileMenu)
@@ -22,6 +22,17 @@ export function Header() {
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
   const [scrolled, setScrolled] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isBumping, setIsBumping] = useState(false)
+
+  const itemCount = mounted ? items.reduce((sum, item) => sum + item.quantity, 0) : 0
+  const favoritesCount = mounted ? favCount : 0
+
+  useEffect(() => {
+    if (itemCount === 0 || !mounted) return
+    setIsBumping(true)
+    const timeout = setTimeout(() => setIsBumping(false), 300)
+    return () => clearTimeout(timeout)
+  }, [itemCount, mounted])
 
   useEffect(() => {
     setMounted(true)
@@ -29,9 +40,6 @@ export function Header() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
-
-  const itemCount = mounted ? getItemCount() : 0
-  const favoritesCount = mounted ? favCount : 0
 
   return (
     <>
@@ -99,6 +107,8 @@ export function Header() {
             {/* Cart */}
             <motion.button
               whileTap={{ scale: 0.9 }}
+              animate={isBumping ? { scale: [1, 1.2, 0.9, 1.1, 1] } : { scale: 1 }}
+              transition={{ duration: 0.3 }}
               onClick={openCart}
               className="relative flex items-center justify-center w-11 h-11 rounded-2xl text-gray-500 hover:text-gray-900 hover:bg-yellow-50 transition-all duration-200"
               aria-label="Abrir carrito"

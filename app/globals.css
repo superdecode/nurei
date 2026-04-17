@@ -418,3 +418,129 @@
     transform: rotate(360deg);
   }
 }
+
+@keyframes checkout-progress-fill {
+  0% {
+    filter: brightness(0.95);
+  }
+  50% {
+    filter: brightness(1.08);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+@keyframes checkout-slide-in-right {
+  0% {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes checkout-slide-in-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes checkout-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes checkout-stagger-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes checkout-check-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  65% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes checkout-loading-bar {
+  0% {
+    width: 12%;
+    transform: translateX(-10%);
+  }
+  45% {
+    width: 45%;
+    transform: translateX(70%);
+  }
+  100% {
+    width: 20%;
+    transform: translateX(260%);
+  }
+}
+
+.checkout-progress-fill {
+  animation: checkout-progress-fill 900ms ease;
+}
+
+.checkout-slide-in-right {
+  animation: checkout-slide-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.checkout-slide-in-left {
+  animation: checkout-slide-in-left 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.checkout-shake {
+  animation: checkout-shake 360ms ease;
+}
+
+.checkout-stagger-in {
+  animation: checkout-stagger-in 360ms ease both;
+}
+
+.checkout-check-pop {
+  animation: checkout-check-pop 420ms ease both;
+}
+
+.checkout-confirm-check {
+  animation: checkout-check-pop 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.checkout-loading-bar {
+  background: linear-gradient(90deg, #FFC107 0%, #FFD54F 100%);
+  animation: checkout-loading-bar 1.2s ease-in-out infinite;
+}

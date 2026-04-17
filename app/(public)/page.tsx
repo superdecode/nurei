@@ -302,9 +302,11 @@ export default function LandingPage() {
                 Si lo ves disponible, es tuyo. Sin sorpresas.
               </p>
               <div className="pt-4">
-                <Button className="btn-cta h-12 px-8">
-                  Hacer mi pedido ahora
-                </Button>
+                <Link href="/menu">
+                  <Button className="btn-cta h-12 px-8">
+                    Hacer mi pedido ahora
+                  </Button>
+                </Link>
               </div>
             </div>
 

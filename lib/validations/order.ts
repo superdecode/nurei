@@ -17,11 +17,17 @@ export type CheckoutFormData = z.infer<typeof checkoutFormSchema>
 
 export const updateStatusSchema = z.object({
   status: z.enum([
-    'pending',
-    'confirmed',
+    'pending_payment',
+    'paid',
+    'preparing',
+    'ready_to_ship',
     'shipped',
     'delivered',
     'cancelled',
+    'refunded',
+    // Legacy
+    'pending',
+    'confirmed',
     'failed',
   ]),
   notes: z.string().optional(),

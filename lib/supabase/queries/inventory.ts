@@ -1,19 +1,35 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import type { InventoryMovement } from '@/types'
+import { computeStockStatus } from '@/lib/inventory/stock-status'
 
 export async function getInventoryMovements(
   supabase: SupabaseClient,
-  productId?: string,
-  limit = 50
+  options: {
+    productId?: string
+    type?: InventoryMovement['type']
+    limit?: number
+    from?: string
+    to?: string
+  } = {}
 ): Promise<InventoryMovement[]> {
+  const limit = options.limit ?? 50
   let query = supabase
     .from('inventory_movements')
-    .select('*, product:products(id, name, slug, sku, image_url)')
+    .select('*, product:products(id, name, slug, sku, image_url, stock_quantity, low_stock_threshold)')
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (productId) {
-    query = query.eq('product_id', productId)
+  if (options.productId) {
+    query = query.eq('product_id', options.productId)
+  }
+  if (options.type) {
+    query = query.eq('type', options.type)
+  }
+  if (options.from) {
+    query = query.gte('created_at', options.from)
+  }
+  if (options.to) {
+    query = query.lte('created_at', options.to)
   }
 
   const { data, error } = await query
@@ -42,7 +58,9 @@ export async function createInventoryMovement(
   // Update product stock
   const delta = ['entrada', 'devolucion'].includes(movement.type)
     ? Math.abs(movement.quantity)
-    : -Math.abs(movement.quantity)
+    : movement.type === 'ajuste'
+      ? movement.quantity
+      : -Math.abs(movement.quantity)
 
   try {
     await supabase.rpc('increment_stock', {
@@ -65,6 +83,29 @@ export async function createInventoryMovement(
   }
 
   return data as InventoryMovement
+}
+
+export async function getInventoryProductsSnapshot(
+  supabase: SupabaseClient,
+  options: { search?: string; lowStockOnly?: boolean; limit?: number } = {}
+) {
+  let query = supabase
+    .from('products')
+    .select(
+      'id, name, sku, category, base_price, price, stock_quantity, low_stock_threshold, track_inventory, allow_backorder, updated_at, is_active, status, images, primary_image_index'
+    )
+    .order('updated_at', { ascending: false })
+    .limit(options.limit ?? 500)
+
+  if (options.search) {
+    query = query.or(`name.ilike.%${options.search}%,sku.ilike.%${options.search}%`)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  const rows = data ?? []
+  if (!options.lowStockOnly) return rows
+  return rows.filter((row) => computeStockStatus(row) !== 'available')
 }
 
 export async function bulkUpdateStock(

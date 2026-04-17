@@ -4,7 +4,19 @@
 
 export type ProductCategory = string
 
-export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' | 'failed'
+export type OrderStatus =
+  | 'pending_payment'
+  | 'paid'
+  | 'preparing'
+  | 'ready_to_ship'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled'
+  | 'refunded'
+  // Legacy compat — kept for existing rows
+  | 'pending'
+  | 'confirmed'
+  | 'failed'
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 
@@ -13,6 +25,7 @@ export type CouponType = 'percentage' | 'fixed'
 export type NotificationType = 'order_confirmed' | 'order_shipped' | 'order_delivered' | 'payment_failed' | 'coupon_received' | 'general'
 
 export type ProductStatus = 'draft' | 'active' | 'archived'
+export type StockStatus = 'available' | 'low_stock' | 'out_of_stock'
 
 export type UnitOfMeasure = 'ml' | 'g' | 'kg' | 'L' | 'oz' | 'units' | 'box' | 'pack'
 
@@ -63,6 +76,7 @@ export interface Product {
   low_stock_threshold: number
   track_inventory: boolean
   allow_backorder: boolean
+  stock_status?: StockStatus
   views_count: number
   purchases_count: number
   meta_title: string | null
@@ -103,9 +117,12 @@ export interface Category {
 
 export interface OrderItem {
   product_id: string
+  sku?: string
   name: string
+  image_url?: string | null
   quantity: number
   unit_price: number
+  discount?: number
   subtotal: number
 }
 
@@ -118,14 +135,18 @@ export interface Order {
   customer_email: string | null
   delivery_address: string
   delivery_instructions: string | null
+  shipping_method?: string | null
   items: OrderItem[]
   subtotal: number
   shipping_fee: number
   coupon_code: string | null
   coupon_discount: number
   discount: number
+  tax?: number
   total: number
   status: OrderStatus
+  payment_method?: string | null
+  payment_reference?: string | null
   confirmed_at: string | null
   shipped_at: string | null
   delivered_at: string | null
@@ -140,6 +161,8 @@ export interface Order {
   source: string
   created_at: string
   updated_at: string
+  // Joined
+  updates?: OrderUpdate[]
 }
 
 export interface OrderUpdate {
@@ -307,6 +330,153 @@ export interface Notification {
   read_at: string | null
   data: Record<string, unknown> | null
   created_at: string
+}
+
+// ============================================
+// CUSTOMERS (CRM)
+// ============================================
+
+export type CustomerType = 'individual' | 'business'
+
+export type CustomerSource =
+  | 'web' | 'admin' | 'import' | 'whatsapp' | 'referral'
+  | 'social' | 'pos' | 'marketplace' | 'other'
+
+export type CustomerSegment =
+  | 'new' | 'regular' | 'vip' | 'at_risk' | 'lost' | 'blacklist'
+
+export type CustomerGender = 'male' | 'female' | 'other' | 'prefer_not_to_say'
+
+export type CustomerRiskLevel = 'normal' | 'low' | 'medium' | 'high'
+
+export type CustomerNoteKind =
+  | 'note' | 'call' | 'email' | 'whatsapp'
+  | 'visit' | 'complaint' | 'compliment' | 'system'
+
+export interface Customer {
+  id: string
+  user_id: string | null
+
+  first_name: string | null
+  last_name: string | null
+  full_name: string | null
+  email: string | null
+  phone: string | null
+  whatsapp: string | null
+  avatar_url: string | null
+
+  customer_type: CustomerType
+  company_name: string | null
+  tax_id: string | null
+  tax_regime: string | null
+  billing_email: string | null
+
+  birthday: string | null
+  gender: CustomerGender | null
+  preferred_language: string
+
+  source: CustomerSource
+  referral_code: string | null
+  referred_by: string | null
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+
+  segment: CustomerSegment
+  tags: string[]
+
+  accepts_marketing: boolean
+  accepts_email_marketing: boolean
+  accepts_sms_marketing: boolean
+  accepts_whatsapp_marketing: boolean
+  consent_updated_at: string | null
+
+  loyalty_points: number
+  store_credit_cents: number
+
+  is_active: boolean
+  is_verified: boolean
+  risk_level: CustomerRiskLevel
+  internal_notes: string | null
+
+  orders_count: number
+  completed_orders_count: number
+  cancelled_orders_count: number
+  total_spent_cents: number
+  avg_order_value_cents: number
+  first_order_at: string | null
+  last_order_at: string | null
+
+  created_at: string
+  updated_at: string
+
+  // Joined
+  addresses?: CustomerAddress[]
+  notes?: CustomerNote[]
+  recent_orders?: Order[]
+}
+
+export interface CustomerAddress {
+  id: string
+  customer_id: string
+  label: string
+  recipient_name: string
+  phone: string | null
+  street: string
+  exterior_number: string | null
+  interior_number: string | null
+  colonia: string | null
+  city: string
+  state: string
+  country: string
+  zip_code: string
+  instructions: string | null
+  latitude: number | null
+  longitude: number | null
+  is_default_shipping: boolean
+  is_default_billing: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerNote {
+  id: string
+  customer_id: string
+  author_id: string | null
+  author_name?: string | null
+  note: string
+  kind: CustomerNoteKind
+  is_pinned: boolean
+  created_at: string
+}
+
+export interface CustomerStats {
+  total: number
+  active: number
+  vip: number
+  new_count: number
+  at_risk: number
+  lost: number
+  business: number
+  marketable: number
+  gmv_cents: number
+  avg_ltv_cents: number
+  new_last_30d: number
+}
+
+export interface CustomerListFilters {
+  search?: string
+  segment?: CustomerSegment | 'all'
+  type?: CustomerType | 'all'
+  tag?: string
+  has_orders?: boolean
+  is_active?: boolean
+  accepts_marketing?: boolean
+  min_spent_cents?: number
+  page?: number
+  limit?: number
+  sort?: 'created_at' | 'last_order_at' | 'total_spent_cents' | 'orders_count' | 'full_name'
+  order?: 'asc' | 'desc'
 }
 
 export interface MediaItem {

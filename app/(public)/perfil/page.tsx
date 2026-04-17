@@ -7,7 +7,7 @@ import {
   User, Mail, Phone, LogOut, Heart, Package, ChevronRight,
   MapPin, Plus, Edit2, Trash2, Star, Check, X, Ticket,
   ArrowLeft, Clock, Truck, CheckCircle2, XCircle, AlertCircle,
-  Copy, ExternalLink, ShoppingBag, Calendar, Tag,
+  Copy, ExternalLink, ShoppingBag, Calendar, Tag, CreditCard, RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -48,12 +48,17 @@ const STATUS_TAB_ITEMS: { value: OrderStatus | 'all'; label: string }[] = [
 
 const STATUS_FLOW: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered']
 
-const STATUS_ICONS: Record<OrderStatus, React.ReactNode> = {
+const STATUS_ICONS: Partial<Record<OrderStatus, React.ReactNode>> = {
   pending: <Clock className="w-4 h-4" />,
+  pending_payment: <Clock className="w-4 h-4" />,
+  paid: <CreditCard className="w-4 h-4" />,
   confirmed: <CheckCircle2 className="w-4 h-4" />,
+  preparing: <Package className="w-4 h-4" />,
+  ready_to_ship: <Truck className="w-4 h-4" />,
   shipped: <Truck className="w-4 h-4" />,
   delivered: <CheckCircle2 className="w-4 h-4" />,
   cancelled: <XCircle className="w-4 h-4" />,
+  refunded: <RotateCcw className="w-4 h-4" />,
   failed: <AlertCircle className="w-4 h-4" />,
 }
 

@@ -254,7 +254,7 @@ export default function TrackingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          <StatusIcon status={order.status} icon={statusInfo.icon} />
+          <StatusIcon status={order.status} icon={statusInfo.icon ?? '📦'} />
 
           <motion.h1
             className={`text-2xl sm:text-3xl font-bold mt-3 ${statusInfo.color}`}

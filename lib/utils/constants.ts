@@ -1,3 +1,5 @@
+import type { OrderStatus } from '@/types'
+
 export const APP_NAME = 'nurei'
 export const APP_TAGLINE = 'Premium Asian Snacks — Curated from Tokyo to CDMX'
 export const APP_DESCRIPTION = 'Curaduría premium de snacks asiáticos importados. Envíos a todo México desde CDMX.'
@@ -10,27 +12,65 @@ export const CATEGORIES = [
   { value: 'drinks', label: 'Drinks' },
 ] as const
 
-export const ORDER_STATUS_MAP = {
-  pending: { label: 'Procesando', color: 'text-nurei-muted', bgColor: 'bg-nurei-muted/10', icon: '⏳' },
-  confirmed: { label: 'Confirmado', color: 'text-nurei-cta', bgColor: 'bg-nurei-cta/10', icon: '✅' },
-  shipped: { label: 'Enviado', color: 'text-nurei-accent', bgColor: 'bg-nurei-accent/10', icon: '📦' },
-  delivered: { label: 'Entregado', color: 'text-nurei-stock', bgColor: 'bg-nurei-stock/10', icon: '✅' },
-  cancelled: { label: 'Cancelado', color: 'text-error', bgColor: 'bg-error/10', icon: '❌' },
-  failed: { label: 'Fallido', color: 'text-error', bgColor: 'bg-error/10', icon: '⚠️' },
-} as const
+// ── Order statuses ───────────────────────────────────────────────────────
 
-export const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['confirmed', 'cancelled'],
-  confirmed: ['shipped', 'cancelled'],
-  shipped: ['delivered', 'cancelled', 'failed'],
-  delivered: [],
-  cancelled: [],
-  failed: [],
+export interface StatusMeta {
+  label: string
+  color: string
+  bgColor: string
+  borderColor: string
+  icon?: string
 }
 
-export const DEFAULT_SHIPPING_FEE = 9900 // $99 MXN en centavos
-export const FREE_SHIPPING_THRESHOLD = 59900 // $599 MXN — envío gratis
-export const MIN_ORDER_AMOUNT = 19900 // $199 MXN en centavos
+export const ORDER_STATUS_MAP: Record<OrderStatus, StatusMeta> = {
+  pending_payment: { label: 'Pendiente de pago', color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-300', icon: '⏳' },
+  paid:            { label: 'Pago confirmado',   color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '💳' },
+  preparing:       { label: 'En preparación',    color: 'text-indigo-700', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-300', icon: '📦' },
+  ready_to_ship:   { label: 'Listo para envío',  color: 'text-purple-700', bgColor: 'bg-purple-50', borderColor: 'border-purple-300', icon: '🚚' },
+  shipped:         { label: 'En camino',          color: 'text-sky-700',    bgColor: 'bg-sky-50',    borderColor: 'border-sky-300', icon: '📦' },
+  delivered:       { label: 'Entregado',          color: 'text-emerald-700',bgColor: 'bg-emerald-50',borderColor: 'border-emerald-300', icon: '✅' },
+  cancelled:       { label: 'Cancelado',          color: 'text-red-700',    bgColor: 'bg-red-50',    borderColor: 'border-red-300', icon: '❌' },
+  refunded:        { label: 'Reembolsado',        color: 'text-gray-600',   bgColor: 'bg-gray-50',   borderColor: 'border-gray-300', icon: '↩️' },
+  // Legacy compat
+  pending:   { label: 'Procesando',   color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-300', icon: '⏳' },
+  confirmed: { label: 'Confirmado',   color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '✅' },
+  failed:    { label: 'Fallido',      color: 'text-red-700',    bgColor: 'bg-red-50',    borderColor: 'border-red-300', icon: '⚠️' },
+}
+
+export const VALID_STATUS_TRANSITIONS: Record<string, OrderStatus[]> = {
+  pending_payment: ['paid', 'cancelled'],
+  paid:            ['preparing', 'cancelled', 'refunded'],
+  preparing:       ['ready_to_ship', 'cancelled'],
+  ready_to_ship:   ['shipped', 'cancelled'],
+  shipped:         ['delivered'],
+  delivered:       ['refunded'],
+  cancelled:       [],
+  refunded:        [],
+  // Legacy
+  pending:   ['confirmed', 'cancelled'],
+  confirmed: ['shipped', 'cancelled'],
+  failed:    [],
+}
+
+export const CANCELLABLE_STATUSES: OrderStatus[] = [
+  'pending_payment', 'paid', 'preparing', 'ready_to_ship', 'pending', 'confirmed',
+]
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  card: 'Tarjeta',
+  oxxo: 'OXXO',
+  transfer: 'Transferencia',
+  cash_on_delivery: 'Contra entrega',
+  stripe: 'Stripe',
+}
+
+// ── Shipping & fees ─────────────────────────────────────────────────────
+
+export const DEFAULT_SHIPPING_FEE = 9900
+export const FREE_SHIPPING_THRESHOLD = 59900
+export const MIN_ORDER_AMOUNT = 19900
+
+// ── Contact ─────────────────────────────────────────────────────────────
 
 export const SUPPORT_EMAIL = 'hola@nurei.mx'
 export const SUPPORT_PHONE = '5555555555'

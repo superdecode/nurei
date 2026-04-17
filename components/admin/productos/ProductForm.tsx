@@ -53,6 +53,7 @@ interface ProductFormData {
   allow_backorder: boolean
   is_featured: boolean
   is_limited: boolean
+  inventory_note: string
 }
 
 interface VariantFormData {
@@ -65,6 +66,12 @@ interface VariantFormData {
   attributes: Record<string, string>
   image: string
   status: 'active' | 'inactive'
+}
+
+interface CategoryOption {
+  slug: string
+  name: string
+  emoji?: string | null
 }
 
 interface ProductFormProps {
@@ -116,6 +123,7 @@ const emptyForm: ProductFormData = {
   has_variants: false, dimensions_cm: { length: '', width: '', height: '' },
   stock_quantity: '0', low_stock_threshold: '5', track_inventory: true,
   allow_backorder: false, is_featured: false, is_limited: false,
+  inventory_note: '',
 }
 
 function productToForm(p: Product): ProductFormData {
@@ -146,6 +154,7 @@ function productToForm(p: Product): ProductFormData {
     allow_backorder: p.allow_backorder ?? false,
     is_featured: p.is_featured ?? false,
     is_limited: p.is_limited ?? false,
+    inventory_note: '',
   }
 }
 
@@ -250,7 +259,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       .then(res => res.json())
       .then(json => {
         if (json.data) {
-          setCategories(json.data.map((c: any) => ({
+          setCategories((json.data as CategoryOption[]).map((c) => ({
             value: c.slug,
             label: c.name,
             emoji: c.emoji || '📦'
@@ -394,6 +403,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         is_featured: form.is_featured,
         is_limited: form.is_limited,
         availability_score: 100,
+        inventory_note: form.inventory_note.trim() || undefined,
       }
 
       let productId: string
@@ -615,6 +625,150 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                   className="min-h-[80px]"
                 />
               </div>
+
+              {/* Precios (Merged) */}
+              <div className="sm:col-span-2 pt-2 border-t border-gray-100 mt-4">
+                <h4 className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-4">Precios &amp; Descuentos</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Precio base (MXN) *</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <Input
+                        type="number" step="0.01"
+                        value={form.base_price}
+                        onChange={(e) => update({ base_price: e.target.value })}
+                        placeholder="0.00"
+                        className="h-10 pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">
+                      Precio tachado
+                      {discountPercent > 0 && (
+                        <span className="ml-2 text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+                          -{discountPercent}%
+                        </span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <Input
+                        type="number" step="0.01"
+                        value={form.compare_at_price}
+                        onChange={(e) => update({ compare_at_price: e.target.value })}
+                        placeholder="0.00"
+                        className="h-10 pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Costo estimado</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <Input
+                        type="number" step="0.01"
+                        value={form.cost_estimate}
+                        onChange={(e) => update({ cost_estimate: e.target.value })}
+                        placeholder="0.00"
+                        className="h-10 pl-7"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {discountPercent > 0 && (
+                  <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-2.5 flex items-center gap-3 mt-4">
+                    <span className="text-2xl font-black text-red-500">-{discountPercent}%</span>
+                    <div>
+                      <p className="text-xs font-bold text-red-700">Descuento activo</p>
+                      <p className="text-[10px] text-red-500">
+                        El cliente vera ${form.compare_at_price} tachado y ${form.base_price} como precio actual
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 mt-4 text-xs">
+                  <Toggle
+                    value={form.has_variants}
+                    onChange={(v) => update({ has_variants: v })}
+                    label="Este producto tiene variantes (sabor, tamano, etc.)"
+                  />
+                  {form.has_variants && (
+                    <p className="text-[11px] text-amber-600 bg-amber-50 px-3 py-2 rounded-lg ml-6 inline-block w-fit">
+                      El precio base se usara como referencia. Cada variante puede tener su propio precio.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Organizacion (Merged) */}
+              <div className="sm:col-span-2 pt-2 border-t border-gray-100 mt-4">
+                <h4 className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-4">Clasificación &amp; Organización</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Categoria</label>
+                    <Select value={form.category || undefined} onValueChange={(v) => { if (v) update({ category: v }) }}>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map(c => (
+                          <SelectItem key={c.value} value={c.value}>
+                            <span className="mr-1.5">{c.emoji}</span>{c.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Subcategoria</label>
+                    <Input
+                      value={form.subcategory}
+                      onChange={(e) => update({ subcategory: e.target.value })}
+                      placeholder="Ej: ramen, galletas"
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Campaña</label>
+                    <Input
+                      value={form.campaign}
+                      onChange={(e) => update({ campaign: e.target.value })}
+                      placeholder="Ej: Verano 2026"
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-500">Tags</label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
+                        placeholder="Agregar tag..."
+                        className="h-10 flex-1"
+                      />
+                      <Button type="button" variant="outline" onClick={addTag} className="h-10 px-3 rounded-xl">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    {form.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {form.tags.map(tag => (
+                          <Badge key={tag} variant="secondary" className="gap-1 text-xs">
+                            {tag}
+                            <button type="button" onClick={() => removeTag(tag)}>
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
             </div>
           </Section>
 
@@ -681,149 +835,6 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                   <p className="text-xs text-gray-400">Haz clic para seleccionar fotos</p>
                 </div>
               )}
-            </div>
-          </Section>
-
-          {/* 3. Prices */}
-          <Section title="Precios" icon={DollarSign} defaultOpen={false}>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">Precio base (MXN) *</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                    <Input
-                      type="number" step="0.01"
-                      value={form.base_price}
-                      onChange={(e) => update({ base_price: e.target.value })}
-                      placeholder="0.00"
-                      className="h-10 pl-7"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">
-                    Precio tachado
-                    {discountPercent > 0 && (
-                      <span className="ml-2 text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
-                        -{discountPercent}%
-                      </span>
-                    )}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                    <Input
-                      type="number" step="0.01"
-                      value={form.compare_at_price}
-                      onChange={(e) => update({ compare_at_price: e.target.value })}
-                      placeholder="0.00"
-                      className="h-10 pl-7"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">Costo estimado</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                    <Input
-                      type="number" step="0.01"
-                      value={form.cost_estimate}
-                      onChange={(e) => update({ cost_estimate: e.target.value })}
-                      placeholder="0.00"
-                      className="h-10 pl-7"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {discountPercent > 0 && (
-                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-2.5 flex items-center gap-3">
-                  <span className="text-2xl font-black text-red-500">-{discountPercent}%</span>
-                  <div>
-                    <p className="text-xs font-bold text-red-700">Descuento activo</p>
-                    <p className="text-[10px] text-red-500">
-                      El cliente vera ${form.compare_at_price} tachado y ${form.base_price} como precio actual
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <Separator />
-
-              <Toggle
-                value={form.has_variants}
-                onChange={(v) => update({ has_variants: v })}
-                label="Este producto tiene variantes (sabor, tamano, etc.)"
-              />
-              {form.has_variants && (
-                <p className="text-[11px] text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
-                  El precio base se usara como referencia. Cada variante puede tener su propio precio.
-                </p>
-              )}
-            </div>
-          </Section>
-
-          {/* 4. Organization */}
-          <Section title="Organizacion" icon={Tag} defaultOpen={false}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Categoria</label>
-                <Select value={form.category || undefined} onValueChange={(v) => { if (v) update({ category: v }) }}>
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map(c => (
-                      <SelectItem key={c.value} value={c.value}>
-                        <span className="mr-1.5">{c.emoji}</span>{c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Subcategoria</label>
-                <Input
-                  value={form.subcategory}
-                  onChange={(e) => update({ subcategory: e.target.value })}
-                  placeholder="Ej: ramen, galletas, chips"
-                  className="h-10"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Campana</label>
-                <Input
-                  value={form.campaign}
-                  onChange={(e) => update({ campaign: e.target.value })}
-                  placeholder="Ej: Verano 2026, Black Friday"
-                  className="h-10"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Tags</label>
-                <div className="flex gap-2">
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
-                    placeholder="Agregar tag..."
-                    className="h-10 flex-1"
-                  />
-                  <Button type="button" variant="outline" onClick={addTag} className="h-10 px-3 rounded-xl">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {form.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {form.tags.map(tag => (
-                      <Badge key={tag} variant="secondary" className="gap-1 text-xs">
-                        {tag}
-                        <button type="button" onClick={() => removeTag(tag)}>
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </Section>
 
@@ -1040,6 +1051,15 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                 <Toggle value={form.track_inventory} onChange={(v) => update({ track_inventory: v })} label="Control de inventario" />
                 <Toggle value={form.allow_backorder} onChange={(v) => update({ allow_backorder: v })} label="Permitir backorder" />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Nota de ajuste (trazabilidad)</label>
+                <Input
+                  value={form.inventory_note}
+                  onChange={(e) => update({ inventory_note: e.target.value })}
+                  placeholder="Ej: Conteo físico, recepción de proveedor, merma..."
+                  className="h-10"
+                />
+              </div>
             </div>
           </Section>
         </div>
@@ -1132,25 +1152,35 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
             </div>
 
             {/* Actions */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex gap-2">
               <Button
-                onClick={() => handleSave(false)}
-                disabled={saving}
-                className="w-full bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-11 shadow-md"
+                variant="outline"
+                onClick={() => router.push('/admin/productos')}
+                className="flex-1 rounded-xl h-11 font-bold text-gray-500"
               >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                {isEdit ? 'Guardar cambios' : 'Crear producto'}
+                Volver
               </Button>
-              {!isEdit && (
+              <div className="flex flex-col sm:flex-row flex-1 gap-2 pl-4 border-l border-gray-100">
                 <Button
-                  variant="outline"
-                  onClick={() => handleSave(true)}
+                  onClick={() => handleSave(false)}
                   disabled={saving}
-                  className="w-full rounded-xl h-10 font-bold"
+                  className="w-full bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-11 shadow-md"
                 >
-                  <Plus className="w-4 h-4 mr-2" /> Guardar y crear otro
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  {isEdit ? 'Guardar' : 'Crear'}
                 </Button>
-              )}
+                {!isEdit && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSave(true)}
+                    disabled={saving}
+                    className="w-full bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border-yellow-200 rounded-xl h-11 font-bold"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Crear otro
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

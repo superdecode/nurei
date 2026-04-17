@@ -1,17 +1,9 @@
 'use client'
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { CATEGORIES } from '@/lib/utils/constants'
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  all: '✨',
-  crunchy: '🍘',
-  spicy: '🌶️',
-  limited_edition: '🍵',
-  drinks: '🥤',
-}
 
 interface CategoryFilterProps {
   selected: string
@@ -21,6 +13,25 @@ interface CategoryFilterProps {
 export function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
+  const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([
+    { value: 'all', label: 'Todo', emoji: '✨' }
+  ])
+
+  useEffect(() => {
+    fetch('/api/admin/categories')
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) {
+          const dbCats = json.data.map((c: any) => ({
+            value: c.slug,
+            label: c.name,
+            emoji: c.emoji || '📦'
+          }))
+          setCategories([{ value: 'all', label: 'Todo', emoji: '✨' }, ...dbCats])
+        }
+      })
+      .catch()
+  }, [])
 
   const scrollToActive = useCallback(() => {
     if (!activeRef.current || !scrollRef.current) return
@@ -48,9 +59,9 @@ export function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
             ref={scrollRef}
             className="flex gap-2 overflow-x-auto scrollbar-none py-3 sm:py-4 px-1"
           >
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const isActive = selected === cat.value
-              const emoji = CATEGORY_EMOJI[cat.value] || '🍘'
+              const emoji = cat.emoji
 
               return (
                 <motion.button
@@ -61,8 +72,8 @@ export function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
                   className={cn(
                     'relative flex-shrink-0 flex items-center gap-1.5 px-4 sm:px-5 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border',
                     isActive
-                      ? 'text-white bg-nurei-cta border-nurei-cta font-bold shadow-md'
-                      : 'text-gray-500 bg-white border-gray-100 hover:text-gray-900 hover:border-orange-200 hover:bg-orange-50'
+                      ? 'text-gray-900 bg-nurei-cta border-nurei-cta font-bold shadow-md'
+                      : 'text-gray-500 bg-white border-gray-100 hover:text-gray-900 hover:border-yellow-300 hover:bg-yellow-50'
                   )}
                 >
                   <span className="text-base leading-none">

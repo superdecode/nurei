@@ -2,10 +2,11 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Heart, ShoppingBag, ArrowLeft, Share2, Check,
-  ChevronLeft, ChevronRight, Eye, ShoppingCart, Flame, Loader2,
+  ChevronLeft, ChevronRight, Flame, Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -66,21 +67,23 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const [variants, setVariants] = useState<ProductVariant[]>([])
   const [related, setRelated] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const currentCartQuantity = useCartStore((s) => s.items.find((item) => item.product.id === product?.id)?.quantity ?? 0)
 
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
   const [primaryIndex, setPrimaryIndex] = useState(0)
   const [added, setAdded] = useState(false)
   const [quantity, setQuantity] = useState(1)
+  const [stockFeedback, setStockFeedback] = useState<string | null>(null)
 
   // Fetch product from Supabase via API
   useEffect(() => {
     async function load() {
       try {
         // Fetch by slug — we need a slug-based endpoint
-        const res = await fetch(`/api/products?search=${encodeURIComponent(slug)}`)
+        const res = await fetch(`/api/products?slug=${encodeURIComponent(slug)}`)
         const json = await res.json()
         const products: Product[] = json.data?.products ?? []
-        const found = products.find(p => p.slug === slug)
+        const found = products[0]
         if (!found) { setLoading(false); return }
 
         setProduct(found)
@@ -131,17 +134,36 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
     ? Math.round((1 - activePrice / activeComparePrice) * 100) : 0
 
   const needsVariantSelection = product.has_variants && variants.length > 0 && !selectedVariant
-  const canAddToCart = !needsVariantSelection
+  const canAddToCart = !needsVariantSelection && product.stock_status !== 'out_of_stock'
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!canAddToCart) {
       toast.error('Selecciona una variante primero')
       return
     }
-    for (let i = 0; i < quantity; i++) addItem(product)
-    setAdded(true)
-    toast.success(`${quantity}x ${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`)
-    setTimeout(() => setAdded(false), 1400)
+    try {
+      const response = await fetch(`/api/products/${product.id}/stock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity, currentCartQuantity }),
+      })
+      const payload = await response.json()
+      if (!response.ok || !payload?.can_add) {
+        const message = payload?.message ?? 'Sin stock suficiente en este momento.'
+        setStockFeedback(message)
+        toast.error(message)
+        return
+      }
+      setStockFeedback(null)
+      for (let i = 0; i < quantity; i++) addItem(product)
+      setAdded(true)
+      toast.success(`${quantity}x ${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`)
+      setTimeout(() => setAdded(false), 1400)
+    } catch {
+      const message = 'No se pudo validar inventario en este momento.'
+      setStockFeedback(message)
+      toast.error(message)
+    }
   }
 
   const handleToggleFavorite = () => {
@@ -233,7 +255,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                     idx === primaryIndex && !selectedVariant?.image ? 'border-nurei-cta shadow-md scale-105' : 'border-transparent opacity-60 hover:opacity-100'
                   }`}
                 >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <Image src={img} alt="" width={80} height={80} unoptimized className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -290,6 +312,10 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               <span className="text-sm font-black text-red-500 bg-red-50 px-2 py-1 rounded-lg">-{discountPercent}%</span>
             )}
           </div>
+
+          <p className="text-xs text-gray-500 mb-4">
+            Stock disponible: <span className="font-semibold text-primary-dark">{product.stock_quantity} unidades</span>
+          </p>
 
           {/* Variant selector */}
           {product.has_variants && variants.length > 0 && (
@@ -353,6 +379,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               )}
             </motion.button>
           </div>
+          {stockFeedback && <p className="text-xs text-red-600 mb-3">{stockFeedback}</p>}
 
           {/* Share */}
           <div>
@@ -368,9 +395,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           <h2 className="text-xl font-black text-gray-900 mb-6">Tambien te puede gustar</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             {related.map((p) => (
-              <Link key={p.id} href={`/producto/${p.slug}`}>
-                <ProductCard product={p} />
-              </Link>
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </div>
