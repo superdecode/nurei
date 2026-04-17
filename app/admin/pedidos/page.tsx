@@ -761,23 +761,19 @@ export default function PedidosAdminPage() {
                     {/* Status + change */}
                     <div className="flex items-center justify-between">
                       <StatusBadge status={drawerOrder.status} />
-                      {(VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).length > 0 && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger>
-                            <span className="inline-flex items-center gap-1 h-7 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition cursor-pointer">
-                              Cambiar estatus <ChevronDown className="h-3 w-3" />
-                            </span>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {(VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).map((ns: OrderStatus) => (
-                              <DropdownMenuItem key={ns} onClick={() => openStatusConfirm(drawerOrder, ns)} className="gap-2 text-sm cursor-pointer">
-                                {statusIcon(ns)}
-                                {statusMeta(ns).label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                      {(VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded').length > 0 && (() => {
+                        const nextStatus = (VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded')[0] as OrderStatus
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => openStatusConfirm(drawerOrder, nextStatus)}
+                            className="inline-flex items-center gap-1.5 h-7 rounded-lg bg-primary-dark px-3 text-xs font-semibold text-white hover:bg-primary-dark/90 transition"
+                          >
+                            {statusIcon(nextStatus)}
+                            Confirmar pedido
+                          </button>
+                        )
+                      })()}
                     </div>
 
                     {/* Customer */}

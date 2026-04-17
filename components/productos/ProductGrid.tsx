@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { ProductCard } from './ProductCard'
+import { MobileProductCard } from './MobileProductCard'
 import type { Product } from '@/types'
 
 interface ProductGridProps {
@@ -80,27 +81,53 @@ export function ProductGrid({ products, category = 'all' }: ProductGridProps) {
           </motion.p>
         </motion.div>
       ) : (
-        <motion.div
-          key={`grid-${category}`}
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6"
-        >
-          <AnimatePresence>
-            {products.map((product) => (
-              <motion.div
-                key={product.id}
-                variants={itemVariants}
-                layout
-                exit="exit"
-              >
-                <ProductCard product={product} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <>
+          {/* Mobile list view */}
+          <motion.div
+            key={`list-${category}`}
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="sm:hidden flex flex-col gap-2"
+          >
+            <AnimatePresence>
+              {products.map((product) => (
+                <motion.div
+                  key={product.id}
+                  variants={itemVariants}
+                  layout
+                  exit="exit"
+                >
+                  <MobileProductCard product={product} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Desktop grid view */}
+          <motion.div
+            key={`grid-${category}`}
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6"
+          >
+            <AnimatePresence>
+              {products.map((product) => (
+                <motion.div
+                  key={product.id}
+                  variants={itemVariants}
+                  layout
+                  exit="exit"
+                >
+                  <ProductCard product={product} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   )

@@ -16,7 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 
 type NotificationPriority = 'alta' | 'media' | 'baja'
-type NotificationType = 'stock_bajo' | 'stock_agotado' | 'movimiento'
+type NotificationType = 'stock_bajo' | 'stock_agotado' | 'movimiento' | 'nuevo_pedido' | 'pedido_pagado'
 
 type NotificationItem = {
   id: string
@@ -49,11 +49,38 @@ function saveReadIds(ids: Set<string>) {
 }
 
 function getIcon(type: NotificationType, priority: NotificationPriority) {
+  if (type === 'nuevo_pedido') return <span className="text-lg leading-none">🛒</span>
+  if (type === 'pedido_pagado') return <span className="text-lg leading-none">💳</span>
   if (type === 'stock_agotado') return <AlertCircle className="h-[18px] w-[18px] text-red-500" />
   if (type === 'stock_bajo') return <AlertTriangle className="h-[18px] w-[18px] text-amber-500" />
   if (type === 'movimiento') return <Package className="h-[18px] w-[18px] text-slate-500" />
   if (priority === 'alta') return <AlertCircle className="h-[18px] w-[18px] text-red-500" />
   return <Bell className="h-[18px] w-[18px] text-primary-cyan" />
+}
+
+function playOrderSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const play = (freq: number, start: number, duration: number, type: OscillatorType = 'sine') => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = type
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
+      gain.gain.setValueAtTime(0, ctx.currentTime + start)
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + start + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + duration)
+    }
+    play(523, 0, 0.12)
+    play(659, 0.13, 0.12)
+    play(784, 0.26, 0.18)
+    play(1047, 0.44, 0.25)
+  } catch {
+    // AudioContext not available
+  }
 }
 
 const PRIORITY_LABELS: Record<NotificationPriority, string> = {
@@ -74,7 +101,7 @@ const POPUP_BORDER: Record<NotificationPriority, string> = {
 
 type PopupItem =
   | ({ popupType: 'individual' } & NotificationItem)
-  | { popupType: 'consolidated'; count: number; id: 'consolidated' }
+  | { popupType: 'consolidated'; count: number; id: 'consolidated'; hasOrders?: boolean; orderCount?: number }
 
 export function AdminNotificationBell() {
   const [open, setOpen] = useState(false)
@@ -126,7 +153,7 @@ export function AdminNotificationBell() {
       const currentRead = getReadIds()
       const newCritical = next.filter(
         (i) =>
-          (i.priority === 'alta' || i.type === 'stock_agotado') &&
+          (i.priority === 'alta' || i.type === 'stock_agotado' || i.type === 'nuevo_pedido' || i.type === 'pedido_pagado') &&
           !currentRead.has(i.id) &&
           !prevItemIdsRef.current.has(i.id)
       )
@@ -135,10 +162,16 @@ export function AdminNotificationBell() {
         if (popupTimerRef.current) clearTimeout(popupTimerRef.current)
         setPopupsClosing(false)
 
+        const hasNewOrder = newCritical.some(i => i.type === 'nuevo_pedido' || i.type === 'pedido_pagado')
+        if (hasNewOrder && prevItemIdsRef.current.size > 0) {
+          playOrderSound()
+        }
+
         if (newCritical.length <= MAX_INDIVIDUAL_POPUPS) {
           setPopups(newCritical.map((n) => ({ ...n, popupType: 'individual' as const })))
         } else {
-          setPopups([{ popupType: 'consolidated', count: newCritical.length, id: 'consolidated' }])
+          const orderCount = newCritical.filter(i => i.type === 'nuevo_pedido' || i.type === 'pedido_pagado').length
+          setPopups([{ popupType: 'consolidated', count: newCritical.length, id: 'consolidated', hasOrders: orderCount > 0, orderCount }])
         }
 
         popupTimerRef.current = setTimeout(() => {
@@ -319,14 +352,15 @@ export function AdminNotificationBell() {
                       return (
                         <Link
                           key={item.id}
-                          href={item.href ?? '/admin/inventario'}
+                          href={item.href ?? (item.type === 'nuevo_pedido' || item.type === 'pedido_pagado' ? '/admin/pedidos' : '/admin/inventario')}
                           onClick={() => {
                             markRead(item.id)
                             setOpen(false)
                           }}
                           className={cn(
                             'group flex cursor-pointer items-start gap-3 px-4 py-3.5 transition hover:bg-slate-50',
-                            item.priority === 'alta' && 'border-l-4 border-l-red-500 pl-3',
+                            (item.type === 'nuevo_pedido' || item.type === 'pedido_pagado') && 'border-l-4 border-l-nurei-cta pl-3 bg-nurei-warm/40',
+                            item.priority === 'alta' && item.type !== 'nuevo_pedido' && item.type !== 'pedido_pagado' && 'border-l-4 border-l-red-500 pl-3',
                             !unread && 'opacity-60'
                           )}
                         >
@@ -400,13 +434,13 @@ export function AdminNotificationBell() {
               </div>
 
               {/* Footer */}
-              <div className="border-t border-slate-100 bg-slate-50/80 px-4 py-2.5 text-center">
-                <Link
-                  href="/admin/inventario"
-                  className="text-xs font-semibold text-primary-dark hover:underline"
-                  onClick={() => setOpen(false)}
-                >
-                  Ver inventario completo
+              <div className="border-t border-slate-100 bg-slate-50/80 px-4 py-2.5 flex items-center justify-center gap-4">
+                <Link href="/admin/pedidos" className="text-xs font-semibold text-primary-dark hover:underline" onClick={() => setOpen(false)}>
+                  Ver pedidos
+                </Link>
+                <span className="text-slate-200">·</span>
+                <Link href="/admin/inventario" className="text-xs font-semibold text-primary-dark hover:underline" onClick={() => setOpen(false)}>
+                  Ver inventario
                 </Link>
               </div>
             </motion.div>
@@ -438,58 +472,54 @@ export function AdminNotificationBell() {
               {popup.popupType === 'consolidated' ? (
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-cyan/10">
-                      <Bell className="h-5 w-5 text-primary-cyan" />
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-full', popup.hasOrders ? 'bg-nurei-cta/20 text-xl' : 'bg-primary-cyan/10')}>
+                      {popup.hasOrders ? '🛒' : <Bell className="h-5 w-5 text-primary-cyan" />}
                     </div>
                     <div>
                       <p className="font-semibold text-slate-900">
-                        Tienes {popup.count} nuevas alertas
+                        {popup.hasOrders && popup.orderCount ? `${popup.orderCount} nuevo${popup.orderCount > 1 ? 's' : ''} pedido${popup.orderCount > 1 ? 's' : ''}` : `${popup.count} nuevas alertas`}
                       </p>
                       <button
                         type="button"
-                        onClick={() => {
-                          setOpen(true)
-                          dismissAllPopups()
-                        }}
+                        onClick={() => { setOpen(true); dismissAllPopups() }}
                         className="mt-0.5 flex items-center gap-1 text-sm font-medium text-primary-cyan"
                       >
-                        Ver todas <ExternalLink className="h-3 w-3" />
+                        Ver {popup.hasOrders ? 'pedidos' : 'todas'} <ExternalLink className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
-                    onClick={() => dismissPopup(popup.id)}
-                  >
+                  <button type="button" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" onClick={() => dismissPopup(popup.id)}>
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
-                <div className="p-4">
+                <div className={cn('p-4', (popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') && 'bg-gradient-to-br from-nurei-warm to-white')}>
+                  {(popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') && (
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-nurei-cta px-2.5 py-0.5 text-[10px] font-black text-gray-900 animate-pulse">
+                        ● NUEVO PEDIDO
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100">
+                    <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg', (popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') ? 'bg-nurei-cta/20' : 'bg-slate-100')}>
                       {getIcon(popup.type, popup.priority)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-slate-900 truncate">{popup.title}</p>
-                      <p className="mt-0.5 text-sm text-slate-500 line-clamp-2">{popup.message}</p>
+                      <p className="font-black text-slate-900 truncate">{popup.title}</p>
+                      <p className="mt-0.5 text-sm text-slate-600 line-clamp-2">{popup.message}</p>
                     </div>
-                    <button
-                      type="button"
-                      className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
-                      onClick={() => dismissPopup(popup.id)}
-                    >
+                    <button type="button" className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" onClick={() => dismissPopup(popup.id)}>
                       <X className="h-4 w-4" />
                     </button>
                   </div>
                   <div className="mt-3 border-t border-slate-100 pt-3 flex justify-end">
                     <Link
-                      href={popup.href ?? '/admin/inventario'}
-                      className="flex items-center gap-1 rounded-lg bg-primary-dark px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-dark/90"
+                      href={popup.href ?? '/admin/pedidos'}
+                      className={cn('flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold', (popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') ? 'bg-nurei-cta text-gray-900 hover:bg-nurei-cta-hover' : 'bg-primary-dark text-white hover:bg-primary-dark/90')}
                       onClick={() => dismissPopup(popup.id)}
                     >
-                      Ir al módulo <ExternalLink className="h-3 w-3" />
+                      {(popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') ? 'Ver pedido' : 'Ir al módulo'} <ExternalLink className="h-3 w-3" />
                     </Link>
                   </div>
                 </div>

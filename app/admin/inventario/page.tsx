@@ -621,7 +621,7 @@ export default function InventoryAdminPage() {
       </div>
 
       {/* ── Summary cards ── */}
-      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           {
             view: 'todos' as const,
@@ -672,16 +672,16 @@ export default function InventoryAdminPage() {
             type="button"
             onClick={() => { setInventoryView(view); setPage(1) }}
             className={cn(
-              'rounded-2xl border-2 p-3.5 text-left transition focus:outline-none',
+              'rounded-xl border-2 px-3 py-2.5 text-left transition focus:outline-none',
               ring,
               inventoryView === view ? active : idle
             )}
           >
-            <p className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide opacity-75">
+            <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide opacity-75">
               {icon} {label}
             </p>
-            <p className={cn('mt-1 text-3xl font-black tabular-nums', numColor)}>{count}</p>
-            <p className="mt-0.5 text-xs font-medium opacity-70">{sub}</p>
+            <p className={cn('mt-0.5 text-2xl font-black tabular-nums', numColor)}>{count}</p>
+            <p className="text-[10px] font-medium opacity-70 truncate">{sub}</p>
           </button>
         ))}
       </div>
