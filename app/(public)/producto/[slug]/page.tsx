@@ -345,11 +345,11 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   return (
     <>
       {/* ── Main content ── */}
-      <div className="pb-28 sm:pb-0">
+      <div className="pb-20 sm:pb-0">
 
         {/* ── Image section — full bleed on mobile ── */}
         <div className="sm:hidden">
-          <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+          <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
             {/* Image */}
             <AnimatePresence mode="wait">
               {activeImage ? (
@@ -432,9 +432,9 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               </div>
             )}
 
-            {/* Dot indicators */}
+            {/* Dot indicators — bottom-center */}
             {allImages.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-1.5">
                 {allImages.map((_, i) => (
                   <button
                     key={i}
@@ -448,6 +448,24 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               </div>
             )}
 
+            {/* Share buttons — image bottom-right */}
+            <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+              <button
+                onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado') }}
+                className="p-2 rounded-xl bg-black/30 backdrop-blur-sm text-white"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Mira ${product.name} en nurei ${typeof window !== 'undefined' ? window.location.href : ''}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 rounded-xl bg-black/30 backdrop-blur-sm text-white"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              </a>
+            </div>
+
             {/* Out of stock overlay */}
             {product.stock_status === 'out_of_stock' && (
               <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
@@ -455,28 +473,11 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               </div>
             )}
           </div>
-
-          {/* Share icons - bottom right of image */}
-          <div className="flex items-center justify-between px-4 pt-3">
-            <div className="flex items-center gap-1.5">
-              {product.stock_status === 'low_stock' && (
-                <span className="text-[11px] font-bold text-nurei-promo animate-pulse">¡Últimas unidades!</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copiado') }} className="p-2 rounded-xl bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors">
-                <Share2 className="w-4 h-4" />
-              </button>
-              <a href={`https://wa.me/?text=${encodeURIComponent(`Mira ${product.name} en nurei ${typeof window !== 'undefined' ? window.location.href : ''}`)}`} target="_blank" rel="noreferrer" className="p-2 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition-colors">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-              </a>
-            </div>
-          </div>
         </div>
 
         {/* ── Info section (mobile) ── */}
-        <div className="sm:hidden px-4 pt-3 pb-4 space-y-4">
-          {/* Meta */}
+        <div className="sm:hidden px-4 pt-3 pb-3 space-y-3">
+          {/* Meta row */}
           <div className="flex items-center gap-1.5 text-[10px] text-gray-400 flex-wrap">
             {product.brand && <><span className="uppercase font-bold tracking-wide">{product.brand}</span><span>·</span></>}
             <span className="uppercase font-bold tracking-wide">{product.origin_country ?? product.origin}</span>
@@ -484,33 +485,23 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
             <span className="uppercase font-bold tracking-wide">{product.weight_g}{product.unit_of_measure ?? 'g'}</span>
           </div>
 
-          {/* Title */}
-          <h1 className="text-xl font-black text-gray-900 leading-tight">{product.name}</h1>
+          {/* Title — compact, try to fit one line */}
+          <h1 className="text-base font-black text-gray-900 leading-snug line-clamp-2">{product.name}</h1>
 
-          {/* Price */}
-          <div className="flex items-center gap-2.5">
-            {activeComparePrice && activeComparePrice > activePrice && (
-              <span className="text-base text-gray-300 line-through font-medium tabular-nums">{formatPrice(activeComparePrice)}</span>
-            )}
-            <span className="text-3xl font-black text-gray-900 tabular-nums">{formatPrice(activePrice)}</span>
-            {discountPercent > 0 && (
-              <span className="text-xs font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-lg">-{discountPercent}%</span>
-            )}
-          </div>
-
-          {/* Description */}
+          {/* Description — gradient fade collapse, no explicit button */}
           {product.description && (
-            <div>
-              <p className={cn('text-sm text-gray-500 leading-relaxed', !descExpanded && descIsLong && 'line-clamp-3')}>
+            <div
+              className="relative cursor-pointer"
+              onClick={() => descIsLong && setDescExpanded(!descExpanded)}
+            >
+              <p
+                className="text-xs text-gray-500 leading-relaxed overflow-hidden transition-all duration-300"
+                style={!descExpanded && descIsLong ? { maxHeight: '3.6em' } : undefined}
+              >
                 {product.description}
               </p>
-              {descIsLong && (
-                <button
-                  onClick={() => setDescExpanded(!descExpanded)}
-                  className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary-cyan"
-                >
-                  {descExpanded ? <><ChevronUp className="w-3.5 h-3.5" /> Ver menos</> : <><ChevronDown className="w-3.5 h-3.5" /> Ver más</>}
-                </button>
+              {!descExpanded && descIsLong && (
+                <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-white to-transparent pointer-events-none" />
               )}
             </div>
           )}
@@ -518,61 +509,61 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           {/* Spice level */}
           {product.spice_level > 0 && (
             <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-nurei-promo" />
-              <div className="flex gap-1">
+              <Flame className="w-3.5 h-3.5 text-nurei-promo" />
+              <div className="flex gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className={cn('w-2 h-2 rounded-full', i < product.spice_level ? 'bg-nurei-promo' : 'bg-gray-200')} />
                 ))}
               </div>
-              <span className="text-xs font-bold text-nurei-promo italic">{SPICE_LABELS[product.spice_level]}</span>
+              <span className="text-[11px] font-bold text-nurei-promo italic">{SPICE_LABELS[product.spice_level]}</span>
             </div>
           )}
 
           {/* Tags */}
           {product.tags && product.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {product.tags.map(tag => (
-                <span key={tag} className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+                <span key={tag} className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 rounded-full">{tag}</span>
               ))}
             </div>
           )}
 
           {/* Variants */}
           {product.has_variants && variants.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
                 Opción {needsVariantSelection && <span className="text-red-500">*</span>}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {variants.filter(v => v.status === 'active').map(v => (
                   <button
                     key={v.id}
                     onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
                     className={cn(
-                      'px-3 py-2 rounded-xl text-sm font-medium border-2 transition-all',
+                      'px-3 py-1.5 rounded-xl text-xs font-semibold border-2 transition-all',
                       selectedVariant?.id === v.id
-                        ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900 shadow-sm'
+                        ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900'
                         : 'border-gray-200 text-gray-600'
                     )}
                   >
-                    <span className="font-bold">{v.name}</span>
+                    {v.name}
                     {v.price !== (product.base_price ?? product.price) && (
-                      <span className="ml-1.5 text-xs text-gray-400">{formatPrice(v.price)}</span>
+                      <span className="ml-1 text-[10px] text-gray-400">{formatPrice(v.price)}</span>
                     )}
                     {v.stock <= 3 && v.stock > 0 && (
-                      <span className="ml-1.5 text-[10px] text-orange-500 font-bold">Ultimas {v.stock}</span>
+                      <span className="ml-1 text-[9px] text-orange-500 font-bold">Últimas {v.stock}</span>
                     )}
-                    {v.stock === 0 && <span className="ml-1.5 text-[10px] text-red-500 font-bold">Agotado</span>}
+                    {v.stock === 0 && <span className="ml-1 text-[9px] text-red-500 font-bold">Agotado</span>}
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Stock */}
-          <p className="text-xs text-gray-400">
-            Disponibles: <span className="font-semibold text-gray-600">{product.stock_quantity} uds.</span>
-          </p>
+          {/* Low stock nudge */}
+          {product.stock_status === 'low_stock' && (
+            <p className="text-[11px] font-bold text-nurei-promo animate-pulse">¡Últimas {product.stock_quantity} unidades!</p>
+          )}
 
           {stockFeedback && <p className="text-xs text-red-600">{stockFeedback}</p>}
         </div>
@@ -757,9 +748,51 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
         </Container>
       </div>
 
-      {/* ── Mobile fixed bottom bar ── */}
-      <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white border-t border-gray-100 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-lg">
-        <AddToCartControls />
+      {/* ── Mobile sticky bottom bar — price + qty + add in one row ── */}
+      <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white border-t border-gray-100 shadow-xl">
+        <div className="flex items-center gap-2 px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
+          {/* Price block */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              {activeComparePrice && activeComparePrice > activePrice && (
+                <span className="text-[11px] text-gray-300 line-through tabular-nums leading-none">{formatPrice(activeComparePrice)}</span>
+              )}
+              <span className="text-base font-black text-gray-900 tabular-nums leading-none">{formatPrice(activePrice)}</span>
+              {discountPercent > 0 && (
+                <span className="text-[10px] font-black text-red-500 bg-red-50 px-1.5 py-0.5 rounded leading-none">-{discountPercent}%</span>
+              )}
+            </div>
+          </div>
+
+          {/* Qty stepper */}
+          <div className="flex items-center rounded-xl border border-gray-200 overflow-hidden shrink-0">
+            <button
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 font-bold text-base"
+            >−</button>
+            <span className="w-7 h-9 flex items-center justify-center text-sm font-bold text-gray-900 border-x border-gray-200 tabular-nums">{quantity}</span>
+            <button
+              onClick={() => setQuantity(quantity + 1)}
+              className="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 font-bold text-base"
+            >+</button>
+          </div>
+
+          {/* Add to cart */}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleAdd}
+            disabled={!canAddToCart}
+            className={cn(
+              'flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl font-bold text-sm transition-all shrink-0',
+              added ? 'bg-green-500 text-white' :
+              !canAddToCart ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
+              'bg-nurei-cta text-gray-900 shadow-md shadow-nurei-cta/25'
+            )}
+          >
+            {added ? <Check className="w-4 h-4" /> : <ShoppingBag className="w-4 h-4" />}
+            <span>{added ? 'Listo' : needsVariantSelection ? 'Elegir' : 'Agregar'}</span>
+          </motion.button>
+        </div>
       </div>
 
       {/* ── Image lightbox ── */}
