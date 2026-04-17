@@ -17,6 +17,7 @@ import type { MediaItem } from '@/types'
 
 type MimeFilter = 'all' | 'image/jpeg' | 'image/png' | 'image/webp' | 'image/svg+xml' | 'image/gif'
 type ViewMode = 'grid' | 'list'
+type GridIconSize = 'sm' | 'md' | 'lg'
 
 const MIME_LABELS: Record<MimeFilter, string> = {
   all: 'Todos',
@@ -53,6 +54,7 @@ export default function MediaPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [gridIconSize, setGridIconSize] = useState<GridIconSize>('md')
   const [filterType, setFilterType] = useState<MimeFilter>('all')
   const [filterOpen, setFilterOpen] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
@@ -250,6 +252,16 @@ export default function MediaPage() {
 
   const filterLabel = MIME_LABELS[filterType]
   const isUploading = uploadingFiles.size > 0
+  const gridColsClass = gridIconSize === 'sm'
+    ? 'grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
+    : gridIconSize === 'lg'
+      ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+      : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+  const gridThumbClass = gridIconSize === 'sm'
+    ? 'aspect-[5/4]'
+    : gridIconSize === 'lg'
+      ? 'aspect-[4/3]'
+      : 'aspect-square'
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -426,6 +438,31 @@ export default function MediaPage() {
               <List className="w-4 h-4" />
             </button>
           </div>
+          {viewMode === 'grid' && (
+            <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1">
+              {([
+                { id: 'sm', label: 'S' },
+                { id: 'md', label: 'M' },
+                { id: 'lg', label: 'L' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setGridIconSize(opt.id)}
+                  className={cn(
+                    'h-7 min-w-7 rounded-md px-2 text-[11px] font-semibold transition-all',
+                    gridIconSize === opt.id
+                      ? 'bg-primary-dark text-white'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  )}
+                  aria-label={`Tamano ${opt.label}`}
+                  title={`Tamano ${opt.label}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -467,7 +504,7 @@ export default function MediaPage() {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+          className={cn('grid gap-4', gridColsClass)}
         >
           <AnimatePresence mode="popLayout">
             {filtered.map((item) => (
@@ -479,7 +516,7 @@ export default function MediaPage() {
                 className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-200 overflow-hidden"
               >
                 {/* Thumbnail */}
-                <div className="relative aspect-square">
+                <div className={cn('relative', gridThumbClass)}>
                   <img
                     src={item.thumbnail_url ?? item.url}
                     alt={item.alt_text ?? item.filename}
@@ -576,7 +613,7 @@ export default function MediaPage() {
                 <button
                   onClick={() => toggleSelect(item.id)}
                   className={cn(
-                    'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 min-w-[44px] min-h-[44px] -m-[9.5px]',
+                    'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0',
                     selectedItems.has(item.id)
                       ? 'bg-primary-cyan border-primary-cyan'
                       : 'border-gray-300 hover:border-gray-400'

@@ -13,10 +13,14 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
-  MoreHorizontal,
   CheckSquare,
   Check,
   Package,
+  Eye,
+  Bell,
+  Wrench,
+  BellRing,
+  History,
 } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
 import { toast } from 'sonner'
@@ -39,13 +43,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { InventoryMovement, InventoryMovementType, Product, StockStatus } from '@/types'
@@ -992,32 +989,44 @@ export default function InventoryAdminPage() {
                     <TableCell className="text-sm text-gray-500">{product.low_stock_threshold ?? 5}</TableCell>
                     <TableCell className="text-sm text-gray-500">{product.sold_30d ?? 0}</TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="min-w-[200px]">
-                          <DropdownMenuItem
-                            className="text-sm py-2"
-                            onClick={() => {
-                              setAdjustProduct(product); setAdjustKind('entrada'); setAdjustValue('')
-                              setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
-                            }}
-                          >
-                            Ajuste manual de inventario
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-sm py-2"
-                            onClick={() => { setAlertProduct(product); setAlertThreshold(String(product.low_stock_threshold ?? 5)); setAlertOpen(true) }}
-                          >
-                            Establecer alerta mínima
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-sm py-2" onClick={() => openMovementsModal(product)}>
-                            Ver movimientos
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          title="Ajuste manual"
+                          className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                          onClick={() => {
+                            setAdjustProduct(product); setAdjustKind('entrada'); setAdjustValue('')
+                            setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
+                          }}
+                        >
+                          <Wrench className="h-4 w-4" />
+                          <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                            Ajuste
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          title="Alerta mínima"
+                          className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                          onClick={() => { setAlertProduct(product); setAlertThreshold(String(product.low_stock_threshold ?? 5)); setAlertOpen(true) }}
+                        >
+                          <BellRing className="h-4 w-4" />
+                          <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                            Alerta
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          title="Ver movimientos"
+                          className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                          onClick={() => openMovementsModal(product)}
+                        >
+                          <History className="h-4 w-4" />
+                          <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                            Movimientos
+                          </span>
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -1047,7 +1056,18 @@ export default function InventoryAdminPage() {
 
       {/* Ajuste manual */}
       <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
-        <DialogContent size="sm" className="p-0 duration-200" showCloseButton>
+        <DialogContent size="sm" className="relative p-0 duration-200" showCloseButton={false}>
+          <button
+            type="button"
+            onClick={() => setAdjustOpen(false)}
+            aria-label="Cerrar"
+            className="absolute right-4 top-4 z-20 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
           <div className="border-b border-gray-100 px-6 py-4">
             <DialogTitle className="text-base font-semibold">Ajuste de inventario</DialogTitle>
             {adjustProduct && (

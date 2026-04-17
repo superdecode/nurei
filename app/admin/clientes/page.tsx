@@ -8,7 +8,7 @@ import {
   AlertTriangle, TrendingUp, Building2, Mail, Phone,
   MoreHorizontal, ToggleLeft, ToggleRight, Trash2, Edit2, Eye,
   DollarSign, Check, Loader2, ChevronLeft, ChevronRight,
-  Filter, X, ChevronDown,
+  Filter, X, ChevronDown, LayoutGrid, List,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -124,6 +124,7 @@ export default function ClientesPage() {
   const [stats, setStats] = useState<CustomerStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
 
   // Filters
   const [search, setSearch] = useState('')
@@ -231,6 +232,10 @@ export default function ClientesPage() {
     }
     if (!form.email.trim() && !form.phone.trim()) {
       toast.error('Email o teléfono es requerido')
+      return
+    }
+    if (form.customer_type === 'business' && !form.company_name.trim()) {
+      toast.error('Empresa es requerida para clientes tipo empresa')
       return
     }
 
@@ -682,9 +687,28 @@ export default function ClientesPage() {
             </div>
           </div>
         )}
+
+        <div className="ml-auto flex gap-1 bg-white rounded-xl p-1 border border-gray-200 shadow-sm shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={cn('p-1.5 rounded-lg transition-all', viewMode === 'table' ? 'bg-primary-dark text-white shadow-sm' : 'text-gray-400 hover:text-gray-600')}
+            title="Vista tabla"
+          >
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('kanban')}
+            className={cn('p-1.5 rounded-lg transition-all', viewMode === 'kanban' ? 'bg-primary-dark text-white shadow-sm' : 'text-gray-400 hover:text-gray-600')}
+            title="Vista kanban"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
+      {viewMode === 'table' ? (
       <div className="rounded-2xl border border-gray-100 shadow-sm bg-white overflow-hidden">
         <Table>
           <TableHeader>
@@ -831,6 +855,68 @@ export default function ClientesPage() {
           </TableBody>
         </Table>
       </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {loading ? (
+            <div className="col-span-full text-center text-gray-400 py-12">
+              <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
+              Cargando clientes…
+            </div>
+          ) : customers.length === 0 ? (
+            <div className="col-span-full text-center text-gray-400 py-12">
+              No se encontraron clientes
+            </div>
+          ) : (
+            customers.map((c, i) => (
+              <motion.div
+                key={c.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                className="rounded-2xl border border-gray-100 shadow-sm bg-white p-4 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-cyan/30 to-primary-cyan/10 flex items-center justify-center text-xs font-bold text-primary-dark shrink-0">
+                      {(c.full_name ?? c.first_name ?? c.email ?? '?').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <Link href={`/admin/clientes/${c.id}`} className="font-semibold text-primary-dark hover:text-primary-cyan truncate block">
+                        {c.full_name ?? c.first_name ?? c.email ?? 'Sin nombre'}
+                      </Link>
+                      <p className="text-xs text-gray-400 truncate">{c.email ?? c.phone ?? 'Sin contacto'}</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={cn('text-[11px] font-medium border', SEGMENT_STYLE[c.segment])}>
+                    {SEGMENT_LABEL[c.segment]}
+                  </Badge>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 px-2.5 py-2">
+                    <p className="text-gray-400">Pedidos</p>
+                    <p className="font-semibold text-primary-dark">{c.orders_count ?? 0}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 px-2.5 py-2">
+                    <p className="text-gray-400">LTV</p>
+                    <p className="font-semibold text-primary-dark">{fmtMXN(c.total_spent_cents ?? 0)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Último pedido: {fmtDate(c.last_order_at)}</span>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => handleToggleActive(c)} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100" title={c.is_active ? 'Desactivar' : 'Activar'}>
+                      {c.is_active ? <ToggleRight className="w-4 h-4 text-emerald-500" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
+                    </button>
+                    <button type="button" onClick={() => openEdit(c)} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100" title="Editar">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Pagination */}
       {total > 0 && (

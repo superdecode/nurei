@@ -260,12 +260,28 @@ export default function CuponesPage() {
                   </td>
                   <td className="py-4 px-4 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon-xs" onClick={() => openEdit(coupon)} className="text-gray-400 hover:text-primary-cyan">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon-xs" onClick={() => deleteCoupon(coupon.id)} className="text-gray-400 hover:text-error">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(coupon)}
+                        className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                        title="Editar"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                        <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                          Editar
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteCoupon(coupon.id)}
+                        className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-500"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                          Eliminar
+                        </span>
+                      </button>
                     </div>
                   </td>
                 </tr>

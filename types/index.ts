@@ -54,6 +54,7 @@ export interface Product {
   unit_of_measure: UnitOfMeasure
   spice_level: number
   weight_g: number
+  shipping_weight_g?: number | null
   base_price: number // centavos MXN
   price: number // centavos MXN (kept for compat)
   compare_at_price: number | null

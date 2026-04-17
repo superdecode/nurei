@@ -194,13 +194,17 @@ export default function LandingPage() {
         const prodJson = await prodRes.json()
         const catJson = await catRes.json()
         
-        setAllProducts(prodJson.data?.products ?? [])
+        const loadedProducts: Product[] = prodJson.data?.products ?? []
+        setAllProducts(loadedProducts)
         if (catJson.data) {
-          const dbCats = catJson.data.map((c: any) => ({
-            value: c.slug,
-            label: c.name,
-            emoji: c.emoji || '📦'
-          }))
+          const used = new Set(loadedProducts.map((p) => p.category))
+          const dbCats = catJson.data
+            .filter((c: any) => used.has(c.slug))
+            .map((c: any) => ({
+              value: c.slug,
+              label: c.name,
+              emoji: c.emoji || '📦'
+            }))
           setCategories([{ value: 'all', label: 'Todo', emoji: '✨' }, ...dbCats])
         }
       } catch { /* ignore */ }

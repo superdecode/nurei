@@ -129,6 +129,8 @@ export async function createCustomer(
   const { addresses, ...rest } = input
   const normalized = {
     ...rest,
+    source: 'admin',
+    user_id: null,
     email: rest.email ? rest.email.toLowerCase().trim() : null,
     phone: rest.phone ?? null,
     consent_updated_at: rest.accepts_marketing

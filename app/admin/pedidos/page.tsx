@@ -35,6 +35,13 @@ import { formatPrice, formatDate, formatRelativeTime, formatPhone } from '@/lib/
 import { cn } from '@/lib/utils'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 
+// ── Status-aware primary action label ───────────────────────────────────
+const STATUS_PRIMARY_ACTION: Partial<Record<OrderStatus, string>> = {
+  paid: 'Confirmar pedido',
+  preparing: 'Marcar en camino',
+  shipped: 'Marcar entregado',
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function statusMeta(status: OrderStatus): StatusMeta {
@@ -69,16 +76,15 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 const ALL_STATUSES: OrderStatus[] = [
-  'pending_payment', 'paid', 'preparing', 'ready_to_ship', 'shipped', 'delivered', 'cancelled', 'refunded',
+  'pending_payment', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled', 'refunded',
 ]
 
 // Tab groups: "active" statuses that need operator attention vs. done/cancelled
 const STATUS_TABS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'all', label: 'Todos' },
   { key: 'pending_payment', label: 'Pendiente pago' },
-  { key: 'paid', label: 'Pagado' },
+  { key: 'paid', label: 'Por procesar' },
   { key: 'preparing', label: 'Preparando' },
-  { key: 'ready_to_ship', label: 'Listo envío' },
   { key: 'shipped', label: 'En camino' },
   { key: 'delivered', label: 'Entregado' },
   { key: 'cancelled', label: 'Cancelado' },
@@ -319,7 +325,7 @@ export default function PedidosAdminPage() {
   const handleBulkPrint = () => {
     if (selectedIds.size === 0) return
     const ids = Array.from(selectedIds).join(',')
-    window.open(`/admin/pedidos/print?ids=${ids}`, '_blank')
+    window.location.href = `/admin/pedidos/print?ids=${ids}`
   }
 
   // ── Date quick chips ──────────────────────────────────────────────
@@ -505,7 +511,7 @@ export default function PedidosAdminPage() {
                       <Package className="h-3 w-3" /> Estado
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {(['pending','confirmed','shipped','delivered','cancelled'] as const).map((s) => {
+                      {(['pending_payment','paid','preparing','shipped','delivered','cancelled'] as const).map((s) => {
                         const m = statusMeta(s)
                         return (
                           <button key={s} type="button" onClick={() => { setStatusFilter(statusFilter === s ? '' : s); setPage(1) }}
@@ -681,9 +687,9 @@ export default function PedidosAdminPage() {
                         <Link href={`/admin/pedidos/${order.id}`} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Detalle completo">
                           <FileText className="h-4 w-4" />
                         </Link>
-                        <a href={`/admin/pedidos/print?ids=${order.id}&type=ticket`} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Ticket">
+                        <button type="button" onClick={() => { window.location.href = `/admin/pedidos/print?ids=${order.id}` }} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Surtido / Imprimir">
                           <Printer className="h-4 w-4" />
-                        </a>
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -737,43 +743,30 @@ export default function PedidosAdminPage() {
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
               className="fixed right-0 top-0 bottom-0 z-[70] w-full max-w-md bg-white shadow-2xl flex flex-col overflow-hidden"
             >
-              {/* Drawer header */}
-              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              {/* Row 1: Order ID + X close */}
+              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Pedido</p>
-                  <p className="text-lg font-bold text-primary-dark font-mono">{drawerOrder?.short_id ?? '—'}</p>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Pedido</p>
+                  <p className="text-base font-bold text-primary-dark font-mono">{drawerOrder?.short_id ?? '—'}</p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {drawerOrder && (
-                    <>
-                      <a
-                        href={`/admin/pedidos/print?ids=${drawerOrder.id}&type=ticket`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 h-7 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
-                        title="Imprimir ticket"
-                      >
-                        <Printer className="h-3.5 w-3.5" /> Ticket
-                      </a>
-                      <a
-                        href={`/admin/pedidos/print?ids=${drawerOrder.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 h-7 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition"
-                        title="Hoja de surtido"
-                      >
-                        <FileText className="h-3.5 w-3.5" /> Surtido
-                      </a>
-                      <Link href={`/admin/pedidos/${drawerOrder.id}`} className="flex items-center gap-1.5 rounded-xl bg-primary-dark px-3 py-2 text-xs font-semibold text-white transition hover:bg-primary-dark/90">
-                        Ver detalle <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </>
-                  )}
-                  <button type="button" onClick={() => setDrawerOpen(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+                <button type="button" onClick={() => setDrawerOpen(false)} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition">
+                  <X className="h-4 w-4" />
+                </button>
               </div>
+
+              {/* Row 2: Surtido action button */}
+              {drawerOrder && (
+                <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-2.5 bg-gray-50/60">
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = `/admin/pedidos/print?ids=${drawerOrder.id}` }}
+                    className="flex items-center gap-1.5 h-8 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition shadow-sm"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> Surtido
+                  </button>
+                  <StatusBadge status={drawerOrder.status} />
+                </div>
+              )}
 
               {/* Drawer body */}
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
@@ -781,24 +774,23 @@ export default function PedidosAdminPage() {
                   <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
                 ) : (
                   <>
-                    {/* Status + change */}
-                    <div className="flex items-center justify-between">
-                      <StatusBadge status={drawerOrder.status} />
-                      {(VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded').length > 0 && (() => {
-                        const nextStatus = (VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded')[0] as OrderStatus
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => openStatusConfirm(drawerOrder, nextStatus)}
-                            className="inline-flex items-center gap-1.5 h-7 rounded-lg bg-primary-dark px-3 text-xs font-semibold text-white hover:bg-primary-dark/90 transition"
-                          >
-                            {statusIcon(nextStatus)}
-                            Confirmar pedido
-                          </button>
-                        )
-                      })()}
-                    </div>
-
+                    {/* Primary action button — status-aware */}
+                    {(() => {
+                      const nextCandidates = (VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded')
+                      if (nextCandidates.length === 0) return null
+                      const nextStatus = nextCandidates[0] as OrderStatus
+                      const actionLabel = STATUS_PRIMARY_ACTION[drawerOrder.status] ?? `Cambiar a ${statusMeta(nextStatus).label}`
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => openStatusConfirm(drawerOrder, nextStatus)}
+                          className="w-full flex items-center justify-center gap-2 h-9 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white hover:bg-primary-dark/90 transition"
+                        >
+                          {statusIcon(nextStatus)}
+                          {actionLabel}
+                        </button>
+                      )
+                    })()}
                     {/* Customer */}
                     <div className="rounded-xl border border-gray-100 p-4 space-y-2">
                       <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Cliente</p>
@@ -888,6 +880,18 @@ export default function PedidosAdminPage() {
                   </>
                 )}
               </div>
+
+              {/* Sticky footer */}
+              {drawerOrder && (
+                <div className="shrink-0 border-t border-gray-100 bg-white px-5 py-3">
+                  <Link
+                    href={`/admin/pedidos/${drawerOrder.id}`}
+                    className="flex items-center justify-center gap-2 w-full h-10 rounded-xl bg-primary-dark text-white text-sm font-semibold hover:bg-primary-dark/90 transition"
+                  >
+                    Ver detalles completos <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              )}
             </motion.div>
           </>
         )}

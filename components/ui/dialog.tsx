@@ -31,7 +31,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-[100] bg-black/20 duration-100 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-[100] bg-black/20 duration-150 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -65,20 +65,19 @@ function DialogContent({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            "pointer-events-auto flex flex-col w-full rounded-3xl bg-popover text-sm text-popover-foreground shadow-2xl duration-200 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 overflow-hidden max-h-[90vh]",
+            "pointer-events-auto flex flex-col w-full rounded-3xl bg-popover text-sm text-popover-foreground shadow-2xl duration-150 outline-none data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-1 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-1 overflow-hidden max-h-[90vh]",
             sizes[size],
             className
           )}
           {...props}
         >
-          {children}
           {showCloseButton && (
             <DialogPrimitive.Close
               data-slot="dialog-close"
               render={
                 <Button
                   variant="ghost"
-                  className="absolute top-4 right-4 z-10 text-muted-foreground hover:text-foreground hover:bg-black/5 rounded-full ring-0 transition-all"
+                  className="absolute top-3 right-3 z-[200] text-muted-foreground hover:text-foreground hover:bg-black/10 rounded-full ring-0 transition-all"
                   size="icon-sm"
                 />
               }
@@ -87,6 +86,7 @@ function DialogContent({
               <span className="sr-only">Close</span>
             </DialogPrimitive.Close>
           )}
+          {children}
         </DialogPrimitive.Popup>
       </div>
     </DialogPortal>

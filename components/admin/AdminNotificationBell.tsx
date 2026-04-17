@@ -271,7 +271,7 @@ export function AdminNotificationBell() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.18 }}
-              className="absolute right-0 top-full z-[70] mt-2 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              className="absolute right-0 top-full z-[300] mt-2 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
               style={{ maxHeight: '600px' }}
             >
               {/* Header */}

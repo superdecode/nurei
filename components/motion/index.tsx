@@ -183,10 +183,10 @@ export function AnimatedCounter({ value, className = '' }: { value: number; clas
 export function PageTransition({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      initial={{ opacity: 0.98 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0.98 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
       className={className}
     >
       {children}

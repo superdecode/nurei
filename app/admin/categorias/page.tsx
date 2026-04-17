@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import {
   Plus, GripVertical, Edit2, Trash2, ChevronRight, Save, X,
-  FolderTree, Search, Eye, EyeOff, Package, AlertTriangle,
+  FolderTree, Search, ToggleLeft, ToggleRight, AlertTriangle, Layers,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface Category {
   id: string
@@ -20,7 +21,7 @@ interface Category {
   color: string
   description: string
   is_active: boolean
-  order: number
+  position?: number
   productCount: number
 }
 
@@ -36,6 +37,8 @@ export default function CategoriesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [reordering, setReordering] = useState(false)
+  const [toggleConfirm, setToggleConfirm] = useState<Category | null>(null)
 
   const [formData, setFormData] = useState({
     name: '', slug: '', emoji: '🍹', color: '#00E5FF', description: '', is_active: true,
@@ -89,7 +92,7 @@ export default function CategoriesPage() {
         await fetch('/api/admin/categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, slug, sort_order: categories.length }),
+          body: JSON.stringify({ ...formData, slug, sort_order: categories.length, position: categories.length }),
         })
       }
       loadCategories()
@@ -111,31 +114,40 @@ export default function CategoriesPage() {
 
   const toggleActive = async (cat: Category) => {
     try {
-      await fetch('/api/admin/categories', {
+      const res = await fetch('/api/admin/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: cat.id, is_active: !cat.is_active }),
       })
+      if (!res.ok) throw new Error('toggle_failed')
       loadCategories()
+      toast.success(cat.is_active ? 'Categoría desactivada' : 'Categoría activada')
     } catch (err) {
       console.error(err)
+      toast.error('No se pudo actualizar el estado')
     }
   }
 
-  const handleReorder = async (newOrder: Category[]) => {
-    const backup = [...categories]
+  const handleReorder = (newOrder: Category[]) => {
     setCategories(newOrder)
+  }
+
+  const persistReorder = async () => {
+    if (search.trim()) return
+    const backup = [...categories]
+    setReordering(true)
     try {
-      await fetch('/api/admin/categories', {
-        method: 'PUT',
+      await fetch('/api/admin/categories/reorder', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reorder: true,
-          orders: newOrder.map((c, i) => ({ id: c.id, sort_order: i }))
-        }),
+        body: JSON.stringify({ ids: categories.map((c) => c.id) }),
       })
+      toast.success('Orden actualizado — así se mostrarán las categorías en el menú')
     } catch (err) {
       setCategories(backup)
+      toast.error('No se pudo actualizar el orden')
+    } finally {
+      setReordering(false)
     }
   }
 
@@ -150,6 +162,12 @@ export default function CategoriesPage() {
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">{categories.length} categorías · Arrastra para reordenar</p>
         </div>
+        {reordering && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+            Guardando orden...
+          </span>
+        )}
         <Button onClick={openCreate} className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold gap-2">
           <Plus className="w-4 h-4" />
           Nueva categoría
@@ -172,6 +190,7 @@ export default function CategoriesPage() {
         axis="y"
         values={filtered}
         onReorder={handleReorder}
+        layoutScroll
         className="space-y-2"
       >
         <AnimatePresence>
@@ -182,6 +201,10 @@ export default function CategoriesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.16 }}
+              dragSnapToOrigin
+              dragListener={!search.trim()}
+              onDragEnd={() => { void persistReorder() }}
               className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all"
             >
               <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
@@ -212,34 +235,40 @@ export default function CategoriesPage() {
                 </div>
 
                 {/* Product count badge */}
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 text-xs text-gray-500">
-                  <Package className="w-3 h-3" />
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-cyan/10 text-xs text-primary-dark border border-primary-cyan/20">
+                  <Layers className="w-3 h-3" />
                   {cat.productCount}
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => toggleActive(cat)}
-                    className={cn(
-                      'p-2 rounded-lg transition-colors',
-                      cat.is_active ? 'text-success hover:bg-success/10' : 'text-gray-300 hover:bg-gray-100'
-                    )}
+                    onClick={() => setToggleConfirm(cat)}
+                    className="group/btn relative p-2 rounded-lg transition-colors text-gray-400 hover:bg-gray-100"
                     title={cat.is_active ? 'Desactivar' : 'Activar'}
                   >
-                    {cat.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    {cat.is_active ? <ToggleRight className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
+                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                      {cat.is_active ? 'Desactivar' : 'Activar'}
+                    </span>
                   </button>
                   <button
                     onClick={() => openEdit(cat)}
-                    className="p-2 rounded-lg text-gray-400 hover:text-primary-cyan hover:bg-primary-cyan/10 transition-colors"
+                    className="group/btn relative p-2 rounded-lg text-gray-400 hover:text-primary-cyan hover:bg-primary-cyan/10 transition-colors"
                   >
                     <Edit2 className="w-4 h-4" />
+                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                      Editar
+                    </span>
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(cat.id)}
-                    className="p-2 rounded-lg text-gray-300 hover:text-error hover:bg-error/10 transition-colors"
+                    className="group/btn relative p-2 rounded-lg text-gray-300 hover:text-error hover:bg-error/10 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
+                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                      Eliminar
+                    </span>
                   </button>
                 </div>
               </div>
@@ -344,24 +373,43 @@ export default function CategoriesPage() {
               />
             </div>
 
-            {/* Active toggle */}
-            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-primary-cyan/30 bg-primary-cyan/5 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-gray-700">Categoría activa</p>
-                <p className="text-xs text-gray-400">Visible en la tienda para los clientes</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary-dark/70 mb-1">Productos asignados</p>
+                <div className="flex items-center gap-2 text-primary-dark">
+                  <Layers className="w-4 h-4" />
+                  <span className="text-sm font-semibold">{editingCategory?.productCount ?? 0}</span>
+                </div>
               </div>
-              <button
-                onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
-                className={cn(
-                  'w-11 h-6 rounded-full transition-colors relative shadow-sm',
-                  formData.is_active ? 'bg-primary-cyan' : 'bg-gray-200'
-                )}
-              >
-                <span className={cn(
-                  'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform',
-                  formData.is_active ? 'left-[22px]' : 'left-1'
-                )} />
-              </button>
+              <div className="text-center sm:text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary-dark/70 mb-1.5">Estado</p>
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, is_active: !prev.is_active }))}
+                  className={cn(
+                    'group relative inline-flex h-8 min-w-[108px] items-center rounded-full border-2 px-1 transition-all duration-300 shadow-md hover:shadow-lg',
+                    formData.is_active
+                      ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100/70'
+                      : 'bg-rose-50 border-rose-200 hover:bg-rose-100/70'
+                  )}
+                  aria-pressed={formData.is_active}
+                >
+                  <span
+                    className={cn(
+                      'h-6 w-6 rounded-full shadow-sm transition-all duration-300',
+                      formData.is_active ? 'translate-x-[74px] bg-emerald-500' : 'translate-x-0 bg-rose-500'
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'absolute text-[11px] font-semibold transition-colors',
+                      formData.is_active ? 'text-emerald-700 left-4' : 'text-rose-700 right-4'
+                    )}
+                  >
+                    {formData.is_active ? 'Activo' : 'Inactivo'}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -419,6 +467,33 @@ export default function CategoriesPage() {
                 className="flex-1 rounded-xl h-10 font-bold shadow-sm"
               >
                 Eliminar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!toggleConfirm} onOpenChange={() => setToggleConfirm(null)}>
+        <DialogContent size="sm" className="p-0">
+          <div className="p-6 space-y-4">
+            <DialogTitle className="text-base font-semibold text-gray-900">
+              {toggleConfirm?.is_active ? 'Desactivar categoría' : 'Activar categoría'}
+            </DialogTitle>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {toggleConfirm?.is_active
+                ? `Se ocultará "${toggleConfirm?.name}" y se desactivarán ${toggleConfirm?.productCount ?? 0} productos del menú.`
+                : `Se activará "${toggleConfirm?.name}" y se reactivarán ${toggleConfirm?.productCount ?? 0} productos relacionados.`}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setToggleConfirm(null)}>Cancelar</Button>
+              <Button
+                onClick={async () => {
+                  if (!toggleConfirm) return
+                  await toggleActive(toggleConfirm)
+                  setToggleConfirm(null)
+                }}
+              >
+                Confirmar
               </Button>
             </div>
           </div>

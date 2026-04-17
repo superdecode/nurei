@@ -236,6 +236,11 @@ export default function CheckoutPage() {
   const [cardErrors, setCardErrors] = useState<Partial<Record<keyof CardForm, string>>>({})
   const [savePaymentMethod, setSavePaymentMethod] = useState(false)
 
+  const [createAccount, setCreateAccount] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [accountCreated, setAccountCreated] = useState(false)
+
   const [processingStage, setProcessingStage] = useState<'creating' | 'paying' | 'confirming' | null>(null)
   const [orderConfirmation, setOrderConfirmation] = useState<OrderConfirmation | null>(null)
   const [orderId, setOrderId] = useState('')
@@ -453,6 +458,10 @@ export default function CheckoutPage() {
       toast.error('Selecciona un método de envío para continuar.')
       return false
     }
+    if (createAccount && newPassword.trim().length < 6) {
+      setPasswordError('La contraseña debe tener al menos 6 caracteres.')
+      return false
+    }
     return true
   }
 
@@ -599,6 +608,26 @@ export default function CheckoutPage() {
       setOrderConfirmation(confirmationPayload.data as OrderConfirmation)
       clearCart()
       setProcessingStage(null)
+
+      if (createAccount && newPassword.trim().length >= 6) {
+        try {
+          const accountResponse = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: shippingForm.email,
+              password: newPassword,
+              name: shippingForm.fullName,
+            }),
+          })
+          if (accountResponse.ok) {
+            setAccountCreated(true)
+          }
+        } catch {
+          // account creation failure is non-blocking
+        }
+      }
+
       goToStep(4)
       toast.success('¡Pedido confirmado!')
     } catch {
@@ -809,9 +838,9 @@ export default function CheckoutPage() {
                         >
                           <div className="flex gap-3">
                             <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-2xl">
-                              {item.product.image_thumbnail_url ? (
+                              {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
                                 <Image
-                                  src={item.product.image_thumbnail_url}
+                                  src={item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
                                   alt={item.product.name}
                                   width={64}
                                   height={64}
@@ -976,6 +1005,44 @@ export default function CheckoutPage() {
                         className="mt-1"
                       />
                       {shippingErrors.phone && <p className="text-xs text-red-600 mt-1">{shippingErrors.phone}</p>}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <button
+                        type="button"
+                        onClick={() => { setCreateAccount((v) => !v); setPasswordError(''); setNewPassword('') }}
+                        className={`w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-all ${
+                          createAccount
+                            ? 'border-primary-cyan bg-primary-cyan/8'
+                            : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-primary-dark">¿Quieres guardar tu pedido en tu cuenta?</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Crea una cuenta para rastrear tus pedidos fácilmente.</p>
+                        </div>
+                        <div className={`flex-shrink-0 w-11 h-6 rounded-full transition-colors relative ${
+                          createAccount ? 'bg-primary-cyan' : 'bg-gray-300'
+                        }`}>
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                            createAccount ? 'left-5' : 'left-0.5'
+                          }`} />
+                        </div>
+                      </button>
+
+                      {createAccount && (
+                        <div className="mt-3">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Contraseña para tu cuenta nueva</label>
+                          <Input
+                            type="password"
+                            value={newPassword}
+                            onChange={(event) => { setNewPassword(event.target.value); setPasswordError('') }}
+                            placeholder="Mínimo 6 caracteres"
+                            className="mt-1"
+                          />
+                          {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
+                        </div>
+                      )}
                     </div>
 
                     <div className="sm:col-span-2">
@@ -1272,6 +1339,18 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                     </div>
+                    {accountCreated && (
+                      <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-emerald-800">¡Cuenta creada!</p>
+                          <p className="text-xs text-emerald-700 mt-0.5">
+                            Inicia sesión con <span className="font-semibold">{shippingForm.email}</span> para ver tus pedidos.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mt-4 space-y-2">
                       <Link href={`/pedido/${orderConfirmation.id}`} className="block">
                         <Button type="button" className="w-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover">

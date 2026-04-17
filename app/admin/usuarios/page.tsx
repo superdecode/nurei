@@ -113,6 +113,10 @@ export default function UsuariosPage() {
   const [editingUser, setEditingUser] = useState<(UserProfile & { email?: string }) | null>(null)
   const [userForm, setUserForm] = useState<UserForm>(EMPTY_USER_FORM)
 
+  // Delete user
+  const [deleteUserConfirm, setDeleteUserConfirm] = useState<(UserProfile & { email?: string }) | null>(null)
+  const [deletingUser, setDeletingUser] = useState(false)
+
   // Roles state
   const [roleDialogOpen, setRoleDialogOpen] = useState(false)
   const [editingRole, setEditingRole] = useState<AdminRole | null>(null)
@@ -221,6 +225,22 @@ export default function UsuariosPage() {
       toast.success(user.is_active ? 'Usuario desactivado' : 'Usuario activado')
     } catch {
       toast.error('Error al cambiar estado')
+    }
+  }
+
+  const handleDeleteUser = async () => {
+    if (!deleteUserConfirm) return
+    setDeletingUser(true)
+    try {
+      const res = await fetch(`/api/admin/users/${deleteUserConfirm.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast.success('Usuario eliminado')
+      setDeleteUserConfirm(null)
+      fetchUsers()
+    } catch {
+      toast.error('Error al eliminar usuario')
+    } finally {
+      setDeletingUser(false)
     }
   }
 
@@ -435,7 +455,7 @@ export default function UsuariosPage() {
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.03 }}
-                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                          className="group border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                         >
                           <TableCell className="font-medium text-primary-dark">
                             {user.full_name ?? 'Sin nombre'}
@@ -476,7 +496,7 @@ export default function UsuariosPage() {
                             {formatDate(user.last_login_at)}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center gap-1 justify-end">
+                            <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => toggleUserActive(user)}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
@@ -492,6 +512,13 @@ export default function UsuariosPage() {
                                 title="Editar"
                               >
                                 <Edit2 className="w-4 h-4 text-gray-500" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteUserConfirm(user)}
+                                className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-400" />
                               </button>
                             </div>
                           </TableCell>
@@ -852,6 +879,46 @@ export default function UsuariosPage() {
               <Check className="w-4 h-4 mr-2" />
               {editingRole ? 'Guardar' : 'Crear'}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete User Confirm ─────────────────────────────────────────────── */}
+      <Dialog open={!!deleteUserConfirm} onOpenChange={() => setDeleteUserConfirm(null)}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                <Trash2 className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Eliminar usuario</h2>
+                <p className="text-xs text-white/70">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-5 space-y-4">
+            <p className="text-sm text-gray-600">
+              ¿Eliminar a <span className="font-semibold text-gray-900">{deleteUserConfirm?.full_name ?? deleteUserConfirm?.email}</span>?
+              <br /><span className="text-xs text-gray-400">El usuario perderá acceso inmediato al panel.</span>
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteUserConfirm(null)}
+                className="flex-1 rounded-xl"
+                disabled={deletingUser}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleDeleteUser}
+                disabled={deletingUser}
+                className="flex-1 bg-red-500 text-white hover:bg-red-600 font-semibold rounded-xl"
+              >
+                {deletingUser ? 'Eliminando…' : 'Sí, eliminar'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

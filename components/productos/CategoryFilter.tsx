@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils'
 interface CategoryFilterProps {
   selected: string
   onChange: (category: string) => void
+  categoriesOverride?: { value: string; label: string; emoji: string }[]
 }
 
-export function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
+export function CategoryFilter({ selected, onChange, categoriesOverride }: CategoryFilterProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([
@@ -18,6 +19,10 @@ export function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
   ])
 
   useEffect(() => {
+    if (categoriesOverride && categoriesOverride.length > 0) {
+      setCategories(categoriesOverride)
+      return
+    }
     fetch('/api/admin/categories')
       .then(r => r.json())
       .then(json => {
@@ -31,7 +36,7 @@ export function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
         }
       })
       .catch()
-  }, [])
+  }, [categoriesOverride])
 
   const scrollToActive = useCallback(() => {
     if (!activeRef.current || !scrollRef.current) return

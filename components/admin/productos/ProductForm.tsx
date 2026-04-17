@@ -37,6 +37,7 @@ interface ProductFormData {
   spice_level: number
   requires_spice_level: boolean
   weight_g: string
+  shipping_weight_g: string
   base_price: string
   compare_at_price: string
   cost_estimate: string
@@ -118,7 +119,7 @@ const emptyForm: ProductFormData = {
   name: '', slug: '', description: '', category: 'crunchy', subcategory: '',
   sku: '', brand: '', origin: '', origin_country: '',
   unit_of_measure: 'g', spice_level: 0, requires_spice_level: false,
-  weight_g: '', base_price: '', compare_at_price: '', cost_estimate: '',
+  weight_g: '', shipping_weight_g: '', base_price: '', compare_at_price: '', cost_estimate: '',
   status: 'draft', campaign: '', tags: [], images: [], primary_image_index: 0,
   has_variants: false, dimensions_cm: { length: '', width: '', height: '' },
   stock_quantity: '0', low_stock_threshold: '5', track_inventory: true,
@@ -136,6 +137,7 @@ function productToForm(p: Product): ProductFormData {
     spice_level: p.spice_level ?? 0,
     requires_spice_level: p.requires_spice_level ?? false,
     weight_g: (p.weight_g ?? '').toString(),
+    shipping_weight_g: (p.shipping_weight_g ?? '').toString(),
     base_price: ((p.base_price ?? p.price ?? 0) / 100).toFixed(2),
     compare_at_price: p.compare_at_price ? (p.compare_at_price / 100).toFixed(2) : '',
     cost_estimate: p.cost_estimate ? (p.cost_estimate / 100).toFixed(2) : '',
@@ -253,6 +255,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
   const [mediaDeleting, setMediaDeleting] = useState<string | null>(null)
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false)
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([])
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetch('/api/admin/categories')
@@ -352,16 +355,31 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
   const handleSave = async (addAnother = false) => {
     // Validation
     const errors: string[] = []
+    const nextFieldErrors: Record<string, string> = {}
     if (!form.name.trim()) errors.push('Nombre del producto')
     if (!form.category) errors.push('Categoría')
     if (!form.base_price || parseFloat(form.base_price) <= 0) errors.push('Precio válido (mayor a $0)')
     if (!form.images.length) errors.push('Al menos una imagen')
     if (form.has_variants && !variants.length) errors.push('Al menos una variante (si está habilitada)')
+    if (!isEdit && form.track_inventory && !form.stock_quantity.trim()) {
+      errors.push('Stock inicial')
+      nextFieldErrors.stock_quantity = 'Stock inicial es obligatorio'
+    }
+    if (!isEdit && !form.unit_of_measure) {
+      errors.push('Unidad de medida')
+      nextFieldErrors.unit_of_measure = 'Selecciona una unidad de medida'
+    }
+    if (!isEdit && !form.weight_g.trim()) {
+      errors.push('Cantidad por unidad')
+      nextFieldErrors.weight_g = 'La cantidad por unidad es obligatoria'
+    }
 
     if (errors.length > 0) {
+      setFieldErrors(nextFieldErrors)
       toast.error(`Datos faltantes:\n${errors.map(e => `• ${e}`).join('\n')}`)
       return
     }
+    setFieldErrors({})
 
     setSaving(true)
     try {
@@ -379,6 +397,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         spice_level: form.spice_level,
         requires_spice_level: form.requires_spice_level,
         weight_g: parseInt(form.weight_g) || 0,
+        shipping_weight_g: form.shipping_weight_g ? parseInt(form.shipping_weight_g) || 0 : null,
         base_price: Math.round(parseFloat(form.base_price) * 100),
         price: Math.round(parseFloat(form.base_price) * 100),
         compare_at_price: form.compare_at_price ? Math.round(parseFloat(form.compare_at_price) * 100) : null,
@@ -453,6 +472,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
 
       if (addAnother) {
         setForm(emptyForm)
+        setFieldErrors({})
         setVariants([])
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } else {
@@ -631,7 +651,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                 <h4 className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-4">Precios &amp; Descuentos</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-500">Precio base (MXN) *</label>
+                    <label className="text-xs font-medium text-gray-500">Precio venta (MXN) *</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
                       <Input
@@ -645,7 +665,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-500">
-                      Precio tachado
+                      Precio original
                       {discountPercent > 0 && (
                         <span className="ml-2 text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
                           -{discountPercent}%
@@ -711,7 +731,9 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-500">Categoria</label>
                     <Select value={form.category || undefined} onValueChange={(v) => { if (v) update({ category: v }) }}>
-                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-11 w-full text-sm">
+                        <SelectValue placeholder="Selecciona una categoría del catálogo" />
+                      </SelectTrigger>
                       <SelectContent>
                         {categories.map(c => (
                           <SelectItem key={c.value} value={c.value}>
@@ -842,7 +864,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           <Section title="Atributos opcionales" icon={Settings2} defaultOpen={false}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Unidad de medida</label>
+                <label className="text-xs font-medium text-gray-500">Unidad de medida {!isEdit && '*'}</label>
                 <div className="flex gap-2 items-center">
                   <Select value={form.unit_of_measure || undefined} onValueChange={(v) => { if (v) update({ unit_of_measure: v as UnitOfMeasure }) }}>
                     <SelectTrigger className="h-10 flex-1"><SelectValue /></SelectTrigger>
@@ -854,13 +876,29 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                     {form.weight_g || '0'} {form.unit_of_measure}
                   </div>
                 </div>
+                {fieldErrors.unit_of_measure && (
+                  <p className="text-[11px] font-medium text-red-500">{fieldErrors.unit_of_measure}</p>
+                )}
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Peso ({form.unit_of_measure})</label>
+                <label className="text-xs font-medium text-gray-500">Cantidad por unidad ({form.unit_of_measure}) {!isEdit && '*'}</label>
                 <Input
                   type="number"
                   value={form.weight_g}
                   onChange={(e) => update({ weight_g: e.target.value })}
+                  placeholder="0"
+                  className="h-10"
+                />
+                {fieldErrors.weight_g && (
+                  <p className="text-[11px] font-medium text-red-500">{fieldErrors.weight_g}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Peso para envío (g) (opcional)</label>
+                <Input
+                  type="number"
+                  value={form.shipping_weight_g}
+                  onChange={(e) => update({ shipping_weight_g: e.target.value })}
                   placeholder="0"
                   className="h-10"
                 />
@@ -993,7 +1031,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-gray-400 uppercase font-bold">Precio tachado</label>
+                        <label className="text-[10px] text-gray-400 uppercase font-bold">Precio original</label>
                         <div className="relative">
                           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
                           <Input
@@ -1024,8 +1062,9 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           <Section title="Inventario" icon={Package} defaultOpen={false}>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
+                {form.track_inventory && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">Stock actual</label>
+                  <label className="text-xs font-medium text-gray-500">{isEdit ? 'Stock actual' : 'Stock inicial'} {!isEdit && form.track_inventory ? '*' : ''}</label>
                   <Input
                     type="number" min="0"
                     value={form.stock_quantity}
@@ -1036,7 +1075,11 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                   {form.has_variants && (
                     <p className="text-[10px] text-gray-400">Stock manejado por variantes ({totalVariantStock} total)</p>
                   )}
+                  {!isEdit && form.track_inventory && fieldErrors.stock_quantity && (
+                    <p className="text-[11px] font-medium text-red-500">{fieldErrors.stock_quantity}</p>
+                  )}
                 </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-500">Alerta stock bajo</label>
                   <Input

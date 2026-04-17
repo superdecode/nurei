@@ -8,18 +8,30 @@ export interface Category {
   color: string | null
   description: string | null
   sort_order: number
+  position?: number
   is_active: boolean
   created_at?: string
 }
 
 export async function listCategories(supabase: SupabaseClient) {
-  const { data, error } = await supabase
+  const withPosition = await supabase
+    .from('categories')
+    .select('*')
+    .order('position', { ascending: true })
+    .order('sort_order', { ascending: true })
+
+  if (!withPosition.error) {
+    return (withPosition.data ?? []) as Category[]
+  }
+
+  // Backward compatibility while migration for `position` is not applied.
+  const fallback = await supabase
     .from('categories')
     .select('*')
     .order('sort_order', { ascending: true })
-  
-  if (error) throw error
-  return data as Category[]
+
+  if (fallback.error) throw fallback.error
+  return (fallback.data ?? []) as Category[]
 }
 
 export async function createCategory(supabase: SupabaseClient, category: Omit<Category, 'id' | 'created_at'>) {
@@ -57,8 +69,8 @@ export async function deleteCategory(supabase: SupabaseClient, id: string) {
 export async function reorderCategories(supabase: SupabaseClient, orders: { id: string, sort_order: number }[]) {
   // Supabase doesn't have a bulk update for multiple rows with different values easily
   // We'll do it in a loop or using a RPC if performance is an issue, but for <20 categories it's fine
-  const promises = orders.map(o => 
-    supabase.from('categories').update({ sort_order: o.sort_order }).eq('id', o.id)
+  const promises = orders.map(o =>
+    supabase.from('categories').update({ sort_order: o.sort_order, position: o.sort_order }).eq('id', o.id)
   )
   await Promise.all(promises)
 }

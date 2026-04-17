@@ -15,14 +15,19 @@ export const customerNoteKindEnum = z.enum([
   'visit', 'complaint', 'compliment', 'system',
 ])
 
-const phoneRegex = /^[0-9\s+()-]{7,20}$/
-const rfcRegex = /^[A-ZÑ&]{3,4}\d{6}[A-Z\d]{2,3}$/i
-
 const emptyToUndef = (v: unknown) =>
   v === '' || v === null ? undefined : v
 
 const optionalEmail = z.preprocess(emptyToUndef, z.string().email('Email inválido').optional())
-const optionalPhone = z.preprocess(emptyToUndef, z.string().regex(phoneRegex, 'Teléfono inválido').optional())
+// Permissive: accept any phone-like string 7-25 chars (digits, spaces, +, -, (), .)
+const optionalPhone = z.preprocess(
+  emptyToUndef,
+  z.string()
+    .min(7, 'Teléfono muy corto (mín 7 caracteres)')
+    .max(25, 'Teléfono muy largo')
+    .regex(/^[\d\s+\-().]+$/, 'Teléfono inválido — solo dígitos, espacios y +()-')
+    .optional(),
+)
 
 export const customerAddressSchema = z.object({
   label: z.string().min(1).max(40).default('Casa'),
@@ -54,7 +59,7 @@ const createCustomerBase = z.object({
   company_name: z.string().max(160).optional().nullable(),
   tax_id: z.preprocess(
     emptyToUndef,
-    z.string().regex(rfcRegex, 'RFC inválido').optional(),
+    z.string().max(20).optional(),
   ),
   tax_regime: z.string().max(80).optional().nullable(),
   billing_email: optionalEmail,
@@ -91,10 +96,15 @@ const createCustomerBase = z.object({
   addresses: z.array(customerAddressSchema).optional(),
 })
 
-export const createCustomerSchema = createCustomerBase.refine(
-  (d) => Boolean(d.email || d.phone),
-  { message: 'Email o teléfono es requerido', path: ['email'] },
-)
+export const createCustomerSchema = createCustomerBase
+  .refine(
+    (d) => Boolean(d.email || d.phone),
+    { message: 'Email o teléfono es requerido', path: ['email'] },
+  )
+  .refine(
+    (d) => d.customer_type !== 'business' || Boolean(d.company_name?.trim()),
+    { message: 'Empresa es requerida para clientes tipo empresa', path: ['company_name'] },
+  )
 
 export const updateCustomerSchema = createCustomerBase.partial()
 

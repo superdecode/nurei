@@ -17,14 +17,10 @@ import { cn } from '@/lib/utils'
 import { useAdminAuthStore } from '@/lib/stores/adminAuth'
 import { useSidebarStore, SIDEBAR_W_EXPANDED, SIDEBAR_W_COLLAPSED } from '@/lib/stores/sidebarStore'
 
-/** Pedidos badge: orders not in a terminal state (entregado / cancelado / reembolsado). */
+/** Pedidos badge: only brand-new orders awaiting confirmation/first processing step. */
 function countOpenOrdersFromStatusMap(counts: Record<string, number>): number {
-  const terminal = new Set(['delivered', 'cancelled', 'refunded'])
-  let n = 0
-  for (const [status, c] of Object.entries(counts)) {
-    if (!terminal.has(status)) n += c
-  }
-  return n
+  const needsAttentionNow = ['paid', 'confirmed']
+  return needsAttentionNow.reduce((sum, status) => sum + (counts[status] ?? 0), 0)
 }
 
 const NAV_ITEMS = [
@@ -392,9 +388,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 sm:p-6 lg:p-8">
           <motion.div
             key={pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0.98 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.18 }}
           >
             {children}
           </motion.div>

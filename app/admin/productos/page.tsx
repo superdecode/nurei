@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plus, Search, LayoutGrid, List, Edit2, Trash2,
-  ChevronUp, ChevronDown, MoreHorizontal, Check, X, Package,
+  Plus, Search, LayoutGrid, List, Trash2,
+  ChevronUp, ChevronDown, Check, X, Package,
   ArrowUpDown, CheckSquare, Filter,
-  Copy, Layers, Pencil,
+  Copy, Layers, Pencil, Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,10 +23,6 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu'
 import { formatPrice } from '@/lib/utils/format'
 import type { Product } from '@/types'
 import { cn } from '@/lib/utils'
@@ -146,6 +142,8 @@ export default function ProductosAdminPage() {
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
+  const [duplicateConfirmOpen, setDuplicateConfirmOpen] = useState(false)
+  const [duplicatingProduct, setDuplicatingProduct] = useState<Product | null>(null)
   const [stockModalOpen, setStockModalOpen] = useState(false)
   const [stockTarget, setStockTarget] = useState<Product | null>(null)
   const [stockAdjustment, setStockAdjustment] = useState('0')
@@ -328,6 +326,13 @@ export default function ProductosAdminPage() {
       toast.error('Error duplicando')
     }
   }, [fetchProducts])
+
+  const handleDuplicateConfirm = useCallback(async () => {
+    if (!duplicatingProduct) return
+    await handleDuplicate(duplicatingProduct)
+    setDuplicateConfirmOpen(false)
+    setDuplicatingProduct(null)
+  }, [duplicatingProduct, handleDuplicate])
 
   const handleBulkDelete = useCallback(async () => {
     const ids = Array.from(selectedIds)
@@ -645,7 +650,7 @@ export default function ProductosAdminPage() {
                       <TableHead><SortHeader field="price">Precio</SortHeader></TableHead>
                       <TableHead><SortHeader field="status">Estado</SortHeader></TableHead>
                       <TableHead className="text-center">Stock</TableHead>
-                      <TableHead className="w-16 text-right">Acciones</TableHead>
+                      <TableHead className="w-24 text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -745,23 +750,44 @@ export default function ProductosAdminPage() {
                               </div>
                             </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="min-w-[140px]">
-                                  <DropdownMenuItem onClick={() => router.push(`/admin/productos/${product.id}/edit`)}>
-                                    <Edit2 className="w-3.5 h-3.5" /> Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDuplicate(product)}>
-                                    <Copy className="w-3.5 h-3.5" /> Duplicar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem variant="destructive" onClick={() => { setDeletingProduct(product); setDeleteDialogOpen(true) }}>
-                                    <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  title="Editar"
+                                  onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
+                                  className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                                    Editar
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Duplicar"
+                                  onClick={() => {
+                                    setDuplicatingProduct(product)
+                                    setDuplicateConfirmOpen(true)
+                                  }}
+                                  className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                                    Duplicar
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Eliminar"
+                                  onClick={() => { setDeletingProduct(product); setDeleteDialogOpen(true) }}
+                                  className="group/btn relative rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-500"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                                    Eliminar
+                                  </span>
+                                </button>
+                              </div>
                             </TableCell>
                           </motion.tr>
                         )
@@ -895,8 +921,48 @@ export default function ProductosAdminPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={duplicateConfirmOpen} onOpenChange={setDuplicateConfirmOpen}>
+        <DialogContent size="sm" className="p-0">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 px-8 py-5">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <Copy className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-white">Duplicar Producto</DialogTitle>
+                <p className="text-xs text-white/70">Se creará una copia editable</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-8 space-y-6">
+            <p className="text-sm text-gray-600">
+              ¿Deseas duplicar <span className="font-bold text-primary-dark">{duplicatingProduct?.name}</span>?
+            </p>
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => setDuplicateConfirmOpen(false)} className="flex-1 rounded-xl h-10 font-bold text-gray-500">
+                Cancelar
+              </Button>
+              <Button onClick={handleDuplicateConfirm} className="flex-1 rounded-xl h-10 font-bold">
+                Duplicar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={stockModalOpen} onOpenChange={setStockModalOpen}>
-        <DialogContent size="sm" className="p-6 duration-300 data-[closed]:duration-200">
+        <DialogContent size="sm" className="relative p-6 duration-300 data-[closed]:duration-200" showCloseButton={false}>
+          <button
+            type="button"
+            onClick={() => setStockModalOpen(false)}
+            aria-label="Cerrar"
+            className="absolute right-4 top-4 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
           <DialogTitle>Ajuste de inventario</DialogTitle>
           <div className="space-y-3 text-sm">
             <p className="text-gray-500">{stockTarget?.name}</p>
