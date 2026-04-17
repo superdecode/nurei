@@ -62,23 +62,22 @@ export async function createInventoryMovement(
       ? movement.quantity
       : -Math.abs(movement.quantity)
 
-  try {
-    await supabase.rpc('increment_stock', {
-      p_product_id: movement.product_id,
-      p_delta: delta,
-    })
-  } catch {
-    // Fallback: manual update if RPC doesn't exist
+  const { error: rpcError } = await supabase.rpc('increment_stock', {
+    p_product_id: movement.product_id,
+    p_delta: delta,
+  })
+  if (rpcError) {
     const { data: prod } = await supabase
       .from('products')
       .select('stock_quantity')
       .eq('id', movement.product_id)
       .single()
     if (prod) {
-      await supabase
+      const { error: updError } = await supabase
         .from('products')
         .update({ stock_quantity: ((prod as { stock_quantity?: number }).stock_quantity ?? 0) + delta })
         .eq('id', movement.product_id)
+      if (updError) throw updError
     }
   }
 

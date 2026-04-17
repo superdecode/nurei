@@ -28,6 +28,7 @@ import { Separator } from '@/components/ui/separator'
 import { formatPrice } from '@/lib/utils/format'
 import type { Product } from '@/types'
 import { cn } from '@/lib/utils'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 import { toast } from 'sonner'
 
@@ -362,8 +363,11 @@ export default function ProductosAdminPage() {
       toast.error('Ingresa un ajuste válido')
       return
     }
+    const prevQty = stockTarget.stock_quantity ?? 0
+    const nextQty = Math.max(0, prevQty + Math.round(delta))
+    setProducts((prev) => prev.map((p) => (p.id === stockTarget.id ? { ...p, stock_quantity: nextQty } : p)))
     try {
-      const res = await fetch('/api/admin/inventory', {
+      const res = await fetchWithCredentials('/api/admin/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -374,14 +378,17 @@ export default function ProductosAdminPage() {
           reference: `INV-AJU-RAP-${Date.now()}`,
         }),
       })
-      if (!res.ok) throw new Error()
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(json.error || 'Error al guardar')
       toast.success('Inventario actualizado')
       setStockModalOpen(false)
       setStockAdjustment('0')
       setStockNote('')
+      setStockTarget(null)
       fetchProducts()
-    } catch {
-      toast.error('No se pudo actualizar stock')
+    } catch (e) {
+      setProducts((prev) => prev.map((p) => (p.id === stockTarget.id ? { ...p, stock_quantity: prevQty } : p)))
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar stock')
     }
   }, [fetchProducts, stockAdjustment, stockNote, stockTarget])
 

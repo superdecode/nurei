@@ -18,8 +18,8 @@ import { cn } from '@/lib/utils'
 
 const MODULES = [
   { icon: LayoutDashboard, label: 'Dashboard' },
-  { icon: Package, label: 'Pedidos' },
-  { icon: ShoppingBag, label: 'Productos' },
+  { icon: ShoppingBag, label: 'Pedidos' },
+  { icon: Package, label: 'Productos' },
   { icon: Boxes, label: 'Inventario' },
   { icon: FolderTree, label: 'Categorías' },
   { icon: ImageIcon, label: 'Multimedia' },

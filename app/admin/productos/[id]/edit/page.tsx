@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { Loader2 } from 'lucide-react'
 import ProductForm from '@/components/admin/productos/ProductForm'
 import type { Product, ProductVariant } from '@/types'
@@ -15,7 +16,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/products/${id}`)
+        const res = await fetchWithCredentials(`/api/products/${id}`)
         if (!res.ok) throw new Error('Producto no encontrado')
         const json = await res.json()
         setProduct(json.data)

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const supabaseService = createServiceClient()
     const { data: dbProducts } = await supabaseService
       .from('products')
-      .select('id, name, price, base_price, is_active, status')
+      .select('id, name, price, base_price, is_active, status, images, primary_image_index, image_thumbnail_url')
       .in('id', productIds)
 
     let subtotal = 0
@@ -56,9 +56,15 @@ export async function POST(request: NextRequest) {
       const unitPrice = product.base_price ?? product.price
       const itemSubtotal = unitPrice * item.quantity
       subtotal += itemSubtotal
+      const imgs = (product as { images?: string[] }).images ?? []
+      const idx = (product as { primary_image_index?: number }).primary_image_index ?? 0
+      const thumb =
+        (product as { image_thumbnail_url?: string | null }).image_thumbnail_url
+        ?? (imgs.length ? imgs[idx] ?? imgs[0] : null)
       return {
         product_id: product.id,
         name: product.name,
+        image_url: thumb,
         quantity: item.quantity,
         unit_price: unitPrice,
         subtotal: itemSubtotal,

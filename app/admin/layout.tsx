@@ -26,8 +26,8 @@ function countOpenOrdersFromStatusMap(counts: Record<string, number>): number {
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/pedidos', label: 'Pedidos', icon: Package, ordersBadge: true as const },
-  { href: '/admin/productos', label: 'Productos', icon: ShoppingBag },
+  { href: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag, ordersBadge: true as const },
+  { href: '/admin/productos', label: 'Productos', icon: Package },
   { href: '/admin/inventario', label: 'Inventario', icon: Boxes },
   { href: '/admin/categorias', label: 'Categorias', icon: FolderTree },
   { href: '/admin/media', label: 'Multimedia', icon: ImageIcon },

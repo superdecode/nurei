@@ -112,6 +112,7 @@ export async function createProduct(product: Partial<Product>) {
     category: product.category ?? 'crunchy',
     subcategory: product.subcategory ?? null,
     sku: product.sku,
+    brand_id: product.brand_id ?? null,
     brand: product.brand ?? null,
     origin: product.origin ?? '',
     origin_country: product.origin_country ?? null,
@@ -159,7 +160,7 @@ export async function updateProduct(id: string, updates: Partial<Product>) {
 
   const fields = [
     'name', 'slug', 'description', 'category', 'subcategory', 'sku',
-    'brand', 'origin', 'origin_country', 'unit_of_measure', 'spice_level',
+    'brand_id', 'brand', 'origin', 'origin_country', 'unit_of_measure', 'spice_level',
     'weight_g', 'shipping_weight_g', 'compare_at_price', 'cost_estimate', 'availability_score',
     'is_featured', 'is_limited', 'has_variants', 'requires_spice_level',
     'status', 'campaign', 'images', 'primary_image_index', 'tags',

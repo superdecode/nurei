@@ -8,6 +8,7 @@ import {
   MapPin, Plus, Edit2, Trash2, Star, Check, X, Ticket,
   ArrowLeft, Clock, Truck, CheckCircle2, XCircle, AlertCircle,
   Copy, ExternalLink, ShoppingBag, Calendar, Tag, CreditCard, RotateCcw,
+  ChevronUp, ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -92,6 +93,27 @@ const STATUS_ICONS: Partial<Record<OrderStatus, React.ReactNode>> = {
   cancelled: <XCircle className="w-4 h-4" />,
   refunded: <RotateCcw className="w-4 h-4" />,
   failed: <AlertCircle className="w-4 h-4" />,
+}
+
+// ─── Order line thumbnail ───────────────────────────────────────────────────
+
+function OrderLineThumb({ url, label }: { url?: string | null; label: string }) {
+  const [failed, setFailed] = useState(false)
+  if (!url || failed) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center text-lg shrink-0" title={label}>
+        🍘
+      </div>
+    )
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      className="w-8 h-8 rounded-lg object-cover shrink-0 bg-gray-50"
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 // ─── Order Detail Panel/Modal ────────────────────────────────────────────────
@@ -211,9 +233,7 @@ function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) 
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center text-lg shrink-0">
-                    🍘
-                  </div>
+                  <OrderLineThumb url={item.image_url} label={item.name} />
                   <div>
                     <p className="text-sm font-bold text-gray-900 leading-tight">{item.name}</p>
                     <p className="text-xs text-gray-400">{item.quantity}x {formatPrice(item.unit_price)}</p>
@@ -1076,6 +1096,7 @@ export default function PerfilPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [couponActiveCount, setCouponActiveCount] = useState(0)
+  const [showAccountSummary, setShowAccountSummary] = useState(true)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -1134,9 +1155,22 @@ export default function PerfilPage() {
               </h1>
               <p className="text-sm text-gray-400 truncate">{email || user.id}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowAccountSummary((v) => !v)}
+              className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg hover:bg-gray-50"
+              aria-expanded={showAccountSummary}
+            >
+              {showAccountSummary ? (
+                <>Ocultar resumen <ChevronUp className="w-3.5 h-3.5" /></>
+              ) : (
+                <>Mostrar resumen <ChevronDown className="w-3.5 h-3.5" /></>
+              )}
+            </button>
           </div>
 
           {/* Quick stats */}
+          {showAccountSummary && (
           <div className="grid grid-cols-3 gap-3 mt-5">
             <div className="bg-gray-50 rounded-2xl p-3 text-center">
               <p className="text-xl font-black text-gray-900">{orders.length}</p>
@@ -1155,6 +1189,7 @@ export default function PerfilPage() {
               <p className="text-[11px] text-gray-400 font-bold mt-0.5">Cupones</p>
             </div>
           </div>
+          )}
         </div>
 
         {/* Tab bar */}

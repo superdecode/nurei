@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Save, Plus, X, ChevronDown, ChevronUp, Package, ImageIcon,
   DollarSign, Tag, Layers, Settings2, Flame, Copy, Trash2,
   ArrowLeft, Loader2, GripVertical, Check, Sparkles, Search,
-  SortDesc, Calendar, Trash, UploadCloud, CheckCircle2, Circle, AlertCircle
+  SortDesc, Calendar, Trash, UploadCloud, CheckCircle2, Circle, AlertCircle, Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,7 +17,9 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { toast } from 'sonner'
 import type { Product, ProductVariant, ProductStatus, UnitOfMeasure } from '@/types'
 
@@ -55,6 +57,7 @@ interface ProductFormData {
   is_featured: boolean
   is_limited: boolean
   inventory_note: string
+  brand_id: string | null
 }
 
 interface VariantFormData {
@@ -112,17 +115,17 @@ function slugify(text: string): string {
 }
 
 function generateSku(): string {
-  return `NUR-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+  return `PNR-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 }
 
 const emptyForm: ProductFormData = {
-  name: '', slug: '', description: '', category: 'crunchy', subcategory: '',
-  sku: '', brand: '', origin: '', origin_country: '',
+  name: '', slug: '', description: '', category: '', subcategory: '',
+  sku: '', brand: '', brand_id: null, origin: '', origin_country: '',
   unit_of_measure: 'g', spice_level: 0, requires_spice_level: false,
   weight_g: '', shipping_weight_g: '', base_price: '', compare_at_price: '', cost_estimate: '',
   status: 'draft', campaign: '', tags: [], images: [], primary_image_index: 0,
   has_variants: false, dimensions_cm: { length: '', width: '', height: '' },
-  stock_quantity: '0', low_stock_threshold: '5', track_inventory: true,
+  stock_quantity: '', low_stock_threshold: '5', track_inventory: true,
   allow_backorder: false, is_featured: false, is_limited: false,
   inventory_note: '',
 }
@@ -131,7 +134,10 @@ function productToForm(p: Product): ProductFormData {
   return {
     name: p.name, slug: p.slug, description: p.description ?? '',
     category: p.category, subcategory: p.subcategory ?? '',
-    sku: p.sku, brand: p.brand ?? '', origin: p.origin ?? 'Japon',
+    sku: p.sku,
+    brand: p.brand ?? '',
+    brand_id: p.brand_id ?? null,
+    origin: p.origin ?? 'Japon',
     origin_country: p.origin_country ?? 'Japon',
     unit_of_measure: p.unit_of_measure ?? 'g',
     spice_level: p.spice_level ?? 0,
@@ -256,9 +262,15 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false)
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [brandSuggestions, setBrandSuggestions] = useState<Array<{ id: string; name: string }>>([])
+  const [brandSuggestOpen, setBrandSuggestOpen] = useState(false)
+  const [brandManageOpen, setBrandManageOpen] = useState(false)
+  const [brandList, setBrandList] = useState<Array<{ id: string; name: string }>>([])
+  const [brandListLoading, setBrandListLoading] = useState(false)
+  const brandDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    fetch('/api/admin/categories')
+    fetchWithCredentials('/api/admin/categories')
       .then(res => res.json())
       .then(json => {
         if (json.data) {
@@ -274,10 +286,12 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
 
   // Auto-detect spice level requirement based on category
   useEffect(() => {
+    if (!form.category) return
     const shouldRequireSpice = SPICE_CATEGORIES.includes(form.category)
-    if (shouldRequireSpice !== form.requires_spice_level) {
-      update({ requires_spice_level: shouldRequireSpice })
-    }
+    setForm((prev) => {
+      if (shouldRequireSpice === prev.requires_spice_level) return prev
+      return { ...prev, requires_spice_level: shouldRequireSpice }
+    })
   }, [form.category])
 
   const update = useCallback((updates: Partial<ProductFormData>) => {
@@ -290,9 +304,75 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
     })
   }, [isEdit])
 
+  const loadBrandSuggestions = useCallback((q: string) => {
+    if (brandDebounceRef.current) clearTimeout(brandDebounceRef.current)
+    brandDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetchWithCredentials(`/api/brands?q=${encodeURIComponent(q)}&limit=30`)
+        const json = await res.json()
+        setBrandSuggestions((json.data ?? []) as Array<{ id: string; name: string }>)
+      } catch {
+        setBrandSuggestions([])
+      }
+    }, 200)
+  }, [])
+
+  const fetchBrandList = useCallback(async () => {
+    setBrandListLoading(true)
+    try {
+      const res = await fetchWithCredentials('/api/brands?limit=200')
+      const json = await res.json()
+      setBrandList((json.data ?? []) as Array<{ id: string; name: string }>)
+    } catch {
+      setBrandList([])
+    } finally {
+      setBrandListLoading(false)
+    }
+  }, [])
+
+  const createBrandInline = useCallback(async () => {
+    const name = form.brand.trim()
+    if (!name) {
+      toast.error('Escribe un nombre de marca')
+      return
+    }
+    try {
+      const res = await fetchWithCredentials('/api/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Error')
+      update({ brand_id: json.data.id as string, brand: json.data.name as string })
+      toast.success('Marca creada y seleccionada')
+      setBrandSuggestOpen(false)
+      setBrandSuggestions([])
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo crear la marca')
+    }
+  }, [form.brand, update])
+
+  const deleteBrand = useCallback(async (id: string) => {
+    if (!confirm('¿Eliminar esta marca? Los productos vinculados quedarán sin marca asignada.')) return
+    try {
+      const res = await fetchWithCredentials(`/api/brands/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      if (form.brand_id === id) update({ brand_id: null })
+      toast.success('Marca eliminada')
+      void fetchBrandList()
+    } catch {
+      toast.error('No se pudo eliminar')
+    }
+  }, [fetchBrandList, form.brand_id, update])
+
+  useEffect(() => {
+    if (brandManageOpen) void fetchBrandList()
+  }, [brandManageOpen, fetchBrandList])
+
   const fetchMedia = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/media')
+      const res = await fetchWithCredentials('/api/admin/media')
       const json = await res.json()
       setMedia(json.data ?? [])
     } catch { /* ignore */ }
@@ -305,7 +385,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       for (const file of Array.from(files)) {
         const fd = new FormData()
         fd.append('file', file)
-        const res = await fetch('/api/admin/media', { method: 'POST', body: fd })
+        const res = await fetchWithCredentials('/api/admin/media', { method: 'POST', body: fd })
         const json = await res.json()
         if (json.data) {
           setMedia(prev => [json.data, ...prev])
@@ -329,7 +409,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
     if (items.length === 1) setMediaDeleting(items[0].id)
 
     try {
-      const res = await fetch('/api/admin/media', {
+      const res = await fetchWithCredentials('/api/admin/media', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(items.length === 1 ? { id: items[0].id, url: items[0].url } : { items }),
@@ -352,7 +432,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
 
   // ─── Save ───────────────────────────────────────────────────────
 
-  const handleSave = async (addAnother = false) => {
+  const handleSave = async (addAnother = false, statusOverride?: ProductStatus) => {
     // Validation
     const errors: string[] = []
     const nextFieldErrors: Record<string, string> = {}
@@ -361,9 +441,18 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
     if (!form.base_price || parseFloat(form.base_price) <= 0) errors.push('Precio válido (mayor a $0)')
     if (!form.images.length) errors.push('Al menos una imagen')
     if (form.has_variants && !variants.length) errors.push('Al menos una variante (si está habilitada)')
-    if (!isEdit && form.track_inventory && !form.stock_quantity.trim()) {
-      errors.push('Stock inicial')
-      nextFieldErrors.stock_quantity = 'Stock inicial es obligatorio'
+    if (form.track_inventory) {
+      const stockRaw = form.stock_quantity.trim()
+      if (!stockRaw) {
+        errors.push('Stock')
+        nextFieldErrors.stock_quantity = 'El stock es obligatorio con inventario activo'
+      } else {
+        const n = parseInt(stockRaw, 10)
+        if (Number.isNaN(n) || n < 0) {
+          errors.push('Stock válido')
+          nextFieldErrors.stock_quantity = 'Indica un número mayor o igual a 0'
+        }
+      }
     }
     if (!isEdit && !form.unit_of_measure) {
       errors.push('Unidad de medida')
@@ -381,8 +470,13 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
     }
     setFieldErrors({})
 
+    const stockQtyParsed = form.track_inventory
+      ? parseInt(form.stock_quantity.trim(), 10)
+      : (form.stock_quantity.trim() === '' ? 0 : parseInt(form.stock_quantity, 10) || 0)
+
     setSaving(true)
     try {
+      const statusToSave = statusOverride ?? form.status
       const body: Record<string, unknown> = {
         name: form.name,
         slug: form.slug || slugify(form.name),
@@ -390,19 +484,20 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         category: form.category,
         subcategory: form.subcategory || null,
         sku: form.sku || generateSku(),
-        brand: form.brand || null,
+        brand_id: form.brand_id,
+        brand: form.brand?.trim() || null,
         origin: form.origin,
         origin_country: form.origin_country || form.origin,
         unit_of_measure: form.unit_of_measure,
         spice_level: form.spice_level,
         requires_spice_level: form.requires_spice_level,
-        weight_g: parseInt(form.weight_g) || 0,
-        shipping_weight_g: form.shipping_weight_g ? parseInt(form.shipping_weight_g) || 0 : null,
+        weight_g: parseInt(form.weight_g, 10) || 0,
+        shipping_weight_g: form.shipping_weight_g ? parseInt(form.shipping_weight_g, 10) || 0 : null,
         base_price: Math.round(parseFloat(form.base_price) * 100),
         price: Math.round(parseFloat(form.base_price) * 100),
         compare_at_price: form.compare_at_price ? Math.round(parseFloat(form.compare_at_price) * 100) : null,
         cost_estimate: form.cost_estimate ? Math.round(parseFloat(form.cost_estimate) * 100) : null,
-        status: form.status,
+        status: statusToSave,
         campaign: form.campaign || null,
         tags: form.tags,
         images: form.images,
@@ -415,8 +510,8 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
               height: parseFloat(form.dimensions_cm.height) || null,
             }
           : null,
-        stock_quantity: parseInt(form.stock_quantity) || 0,
-        low_stock_threshold: parseInt(form.low_stock_threshold) || 5,
+        stock_quantity: stockQtyParsed,
+        low_stock_threshold: parseInt(form.low_stock_threshold, 10) || 5,
         track_inventory: form.track_inventory,
         allow_backorder: form.allow_backorder,
         is_featured: form.is_featured,
@@ -428,7 +523,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       let productId: string
 
       if (isEdit && initialProduct) {
-        const res = await fetch(`/api/products/${initialProduct.id}`, {
+        const res = await fetchWithCredentials(`/api/products/${initialProduct.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -437,7 +532,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         if (!res.ok) throw new Error(json.error)
         productId = initialProduct.id
       } else {
-        const res = await fetch('/api/products', {
+        const res = await fetchWithCredentials('/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -455,13 +550,13 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           sku_suffix: v.sku_suffix || null,
           price: Math.round(parseFloat(v.price || '0') * 100),
           compare_at_price: v.compare_at_price ? Math.round(parseFloat(v.compare_at_price) * 100) : null,
-          stock: parseInt(v.stock) || 0,
+          stock: parseInt(v.stock, 10) || 0,
           attributes: v.attributes,
           image: v.image || null,
           status: v.status,
         }))
 
-        await fetch(`/api/products/${productId}/variants`, {
+        await fetchWithCredentials(`/api/products/${productId}/variants`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: variantData }),
@@ -469,6 +564,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       }
 
       toast.success(isEdit ? 'Producto actualizado' : 'Producto creado')
+      if (isEdit) update({ status: statusToSave })
 
       if (addAnother) {
         setForm(emptyForm)
@@ -550,25 +646,60 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {!isEdit && (
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-gray-400 uppercase hidden sm:inline">Estado</span>
+              <Select value={form.status} onValueChange={(v) => update({ status: v as ProductStatus })}>
+                <SelectTrigger className="h-9 w-[128px] rounded-xl text-xs font-bold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Borrador</SelectItem>
+                  <SelectItem value="active">Activo</SelectItem>
+                  <SelectItem value="archived">Archivado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {!isEdit ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleSave(false, 'draft')}
+                  disabled={saving}
+                  className="rounded-xl h-9 text-xs font-bold"
+                >
+                  Guardar borrador
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSave(false, 'active')}
+                  disabled={saving}
+                  className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-9 px-4 shadow-md text-xs"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-3.5 h-3.5 mr-1.5 inline" /> Guardar y activar</>}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handleSave(true, 'draft')}
+                  disabled={saving}
+                  className="hidden sm:flex rounded-xl h-9 text-xs font-bold"
+                >
+                  Guardar y crear otro
+                </Button>
+              </>
+            ) : (
               <Button
-                variant="outline"
-                onClick={() => handleSave(true)}
+                type="button"
+                onClick={() => void handleSave(false)}
                 disabled={saving}
-                className="hidden sm:flex rounded-xl h-9 text-xs font-bold"
+                className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-9 px-6 shadow-md"
               >
-                Guardar y crear otro
+                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Guardar
               </Button>
             )}
-            <Button
-              onClick={() => handleSave(false)}
-              disabled={saving}
-              className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-9 px-6 shadow-md"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-              {isEdit ? 'Guardar' : 'Crear producto'}
-            </Button>
           </div>
         </div>
       </div>
@@ -604,7 +735,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                   <Input
                     value={form.sku}
                     onChange={(e) => update({ sku: e.target.value })}
-                    placeholder="NUR-XXXX"
+                    placeholder="PNR-XXXX"
                     className="h-10 font-mono text-xs flex-1"
                   />
                   <Button
@@ -618,14 +749,94 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                   </Button>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Marca</label>
+              <div className="sm:col-span-2 space-y-1.5 relative">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-medium text-gray-500">Marca</label>
+                  <button
+                    type="button"
+                    onClick={() => setBrandManageOpen(true)}
+                    className="text-[11px] font-bold text-primary-cyan hover:underline flex items-center gap-1"
+                  >
+                    <Settings className="w-3 h-3" /> Gestionar marcas
+                  </button>
+                </div>
                 <Input
                   value={form.brand}
-                  onChange={(e) => update({ brand: e.target.value })}
-                  placeholder="Ej: Samyang, Glico, Lotte"
+                  onChange={(e) => {
+                    update({ brand: e.target.value, brand_id: null })
+                    loadBrandSuggestions(e.target.value)
+                    setBrandSuggestOpen(true)
+                  }}
+                  onFocus={() => {
+                    loadBrandSuggestions(form.brand)
+                    setBrandSuggestOpen(true)
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setBrandSuggestOpen(false), 180)
+                  }}
+                  placeholder="Buscar o escribir marca…"
+                  className="h-10"
+                  autoComplete="off"
+                />
+                {brandSuggestOpen && (brandSuggestions.length > 0 || (form.brand.trim().length > 0 && !brandSuggestions.some((b) => b.name.toLowerCase() === form.brand.trim().toLowerCase()))) && (
+                  <div className="absolute z-40 left-0 right-0 top-full mt-1 rounded-xl border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
+                    {brandSuggestions.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          update({ brand_id: b.id, brand: b.name })
+                          setBrandSuggestOpen(false)
+                        }}
+                      >
+                        {b.name}
+                      </button>
+                    ))}
+                    {form.brand.trim().length > 0
+                      && !brandSuggestions.some((b) => b.name.toLowerCase() === form.brand.trim().toLowerCase()) && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm font-bold text-primary-cyan hover:bg-gray-50 border-t border-gray-100"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void createBrandInline()}
+                      >
+                        + Crear &apos;{form.brand.trim()}&apos;
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Unidad de medida {!isEdit && '*'}</label>
+                <div className="flex gap-2 items-center">
+                  <Select value={form.unit_of_measure || undefined} onValueChange={(v) => { if (v) update({ unit_of_measure: v as UnitOfMeasure }) }}>
+                    <SelectTrigger className="h-10 flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {UNITS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <div className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg whitespace-nowrap">
+                    {form.weight_g || '—'} {form.unit_of_measure}
+                  </div>
+                </div>
+                {fieldErrors.unit_of_measure && (
+                  <p className="text-[11px] font-medium text-red-500">{fieldErrors.unit_of_measure}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Cantidad por unidad ({form.unit_of_measure}) {!isEdit && '*'}</label>
+                <Input
+                  type="number"
+                  value={form.weight_g}
+                  onChange={(e) => update({ weight_g: e.target.value })}
+                  placeholder="Ej: 150"
                   className="h-10"
                 />
+                {fieldErrors.weight_g && (
+                  <p className="text-[11px] font-medium text-red-500">{fieldErrors.weight_g}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-500">Pais de origen</label>
@@ -730,9 +941,9 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-500">Categoria</label>
-                    <Select value={form.category || undefined} onValueChange={(v) => { if (v) update({ category: v }) }}>
+                    <Select value={form.category ? form.category : undefined} onValueChange={(v) => { if (v) update({ category: v }) }}>
                       <SelectTrigger className="h-11 w-full text-sm">
-                        <SelectValue placeholder="Selecciona una categoría del catálogo" />
+                        <SelectValue placeholder="Escoger categoría" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map(c => (
@@ -863,36 +1074,6 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           {/* 5. Optional Attributes */}
           <Section title="Atributos opcionales" icon={Settings2} defaultOpen={false}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Unidad de medida {!isEdit && '*'}</label>
-                <div className="flex gap-2 items-center">
-                  <Select value={form.unit_of_measure || undefined} onValueChange={(v) => { if (v) update({ unit_of_measure: v as UnitOfMeasure }) }}>
-                    <SelectTrigger className="h-10 flex-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {UNITS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <div className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg whitespace-nowrap">
-                    {form.weight_g || '0'} {form.unit_of_measure}
-                  </div>
-                </div>
-                {fieldErrors.unit_of_measure && (
-                  <p className="text-[11px] font-medium text-red-500">{fieldErrors.unit_of_measure}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Cantidad por unidad ({form.unit_of_measure}) {!isEdit && '*'}</label>
-                <Input
-                  type="number"
-                  value={form.weight_g}
-                  onChange={(e) => update({ weight_g: e.target.value })}
-                  placeholder="0"
-                  className="h-10"
-                />
-                {fieldErrors.weight_g && (
-                  <p className="text-[11px] font-medium text-red-500">{fieldErrors.weight_g}</p>
-                )}
-              </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-500">Peso para envío (g) (opcional)</label>
                 <Input
@@ -1064,18 +1245,19 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
               <div className="grid grid-cols-2 gap-3">
                 {form.track_inventory && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">{isEdit ? 'Stock actual' : 'Stock inicial'} {!isEdit && form.track_inventory ? '*' : ''}</label>
+                  <label className="text-xs font-medium text-gray-500">{isEdit ? 'Stock actual' : 'Stock inicial'} {form.track_inventory ? '*' : ''}</label>
                   <Input
                     type="number" min="0"
                     value={form.stock_quantity}
                     onChange={(e) => update({ stock_quantity: e.target.value })}
+                    placeholder={form.track_inventory ? 'Obligatorio' : ''}
                     className="h-10"
                     disabled={form.has_variants}
                   />
                   {form.has_variants && (
                     <p className="text-[10px] text-gray-400">Stock manejado por variantes ({totalVariantStock} total)</p>
                   )}
-                  {!isEdit && form.track_inventory && fieldErrors.stock_quantity && (
+                  {form.track_inventory && fieldErrors.stock_quantity && (
                     <p className="text-[11px] font-medium text-red-500">{fieldErrors.stock_quantity}</p>
                   )}
                 </div>
@@ -1561,6 +1743,35 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           </div>
         )}
       </AnimatePresence>
+
+      <Dialog open={brandManageOpen} onOpenChange={setBrandManageOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogTitle className="text-base font-bold">Marcas</DialogTitle>
+          <p className="text-xs text-gray-500 mb-3">Elimina marcas que ya no uses. Los productos quedarán sin marca vinculada.</p>
+          {brandListLoading ? (
+            <p className="text-sm text-gray-400 py-6 text-center">Cargando…</p>
+          ) : (
+            <ul className="max-h-64 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-2">
+              {brandList.map((b) => (
+                <li key={b.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50">
+                  <span className="text-sm font-medium text-gray-800 truncate">{b.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => void deleteBrand(b.id)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                    title="Eliminar marca"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </li>
+              ))}
+              {brandList.length === 0 && (
+                <li className="text-xs text-gray-400 text-center py-4">No hay marcas registradas</li>
+              )}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -48,6 +48,7 @@ export interface Product {
   category: ProductCategory
   subcategory: string | null
   sku: string
+  brand_id?: string | null
   brand: string | null
   origin: string
   origin_country: string | null

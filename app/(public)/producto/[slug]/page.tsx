@@ -22,6 +22,17 @@ import { cn } from '@/lib/utils'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+/** Presentación: cantidad + unidad (ej. 150 g, 500 ml). */
+function formatProductPresentation(p: {
+  weight_g?: number | null
+  unit_of_measure?: string | null
+}): string {
+  const u = (p.unit_of_measure ?? 'g').trim()
+  const w = p.weight_g
+  if (w == null || w === 0) return u
+  return `${w} ${u}`
+}
+
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
     crunchy: '🍘', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
@@ -225,6 +236,24 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
     load()
   }, [slug])
 
+  useEffect(() => {
+    if (loading || !product) {
+      setDescHasOverflow(false)
+      return
+    }
+    const el = desktopDescRef.current
+    if (!el) {
+      setDescHasOverflow(false)
+      return
+    }
+    const checkOverflow = () => {
+      setDescHasOverflow(el.scrollHeight > el.clientHeight + 1)
+    }
+    checkOverflow()
+    window.addEventListener('resize', checkOverflow)
+    return () => window.removeEventListener('resize', checkOverflow)
+  }, [loading, product?.id, product?.description, descExpanded])
+
   if (loading) {
     return (
       <Container className="py-20 flex justify-center">
@@ -252,19 +281,6 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
   const needsVariantSelection = product.has_variants && variants.length > 0 && !selectedVariant
   const canAddToCart = !needsVariantSelection && product.stock_status !== 'out_of_stock'
-  useEffect(() => {
-    const el = desktopDescRef.current
-    if (!el) {
-      setDescHasOverflow(false)
-      return
-    }
-    const checkOverflow = () => {
-      setDescHasOverflow(el.scrollHeight > el.clientHeight + 1)
-    }
-    checkOverflow()
-    window.addEventListener('resize', checkOverflow)
-    return () => window.removeEventListener('resize', checkOverflow)
-  }, [product.description, descExpanded])
 
   const openLightbox = (i: number) => {
     if (allImages.length === 0) return
@@ -496,7 +512,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
             {product.brand && <><span className="uppercase font-bold tracking-wide">{product.brand}</span><span>·</span></>}
             <span className="uppercase font-bold tracking-wide">{product.origin_country ?? product.origin}</span>
             <span>·</span>
-            <span className="uppercase font-bold tracking-wide">{product.weight_g}{product.unit_of_measure ?? 'g'}</span>
+            <span className="uppercase font-bold tracking-wide">{formatProductPresentation(product)}</span>
           </div>
 
           {/* Title — compact, try to fit one line */}
@@ -730,7 +746,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 {product.brand && <><span className="uppercase font-bold tracking-wide">{product.brand}</span><span>·</span></>}
                 <span className="uppercase font-bold tracking-wide">{product.origin_country ?? product.origin}</span>
                 <span>·</span>
-                <span className="uppercase font-bold tracking-wide">{product.weight_g}{product.unit_of_measure ?? 'g'}</span>
+                <span className="uppercase font-bold tracking-wide">{formatProductPresentation(product)}</span>
               </div>
 
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight mb-3">{product.name}</h1>
