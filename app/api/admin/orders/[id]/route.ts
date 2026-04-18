@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getOrderDetail, getAdjacentOrderIds, updateOrderStatus } from '@/lib/supabase/queries/adminOrders'
 import { VALID_STATUS_TRANSITIONS } from '@/lib/utils/constants'
+import { sendOrderStatusEmail } from '@/lib/email/send-order-emails'
 import type { OrderStatus } from '@/types'
 
 export async function GET(
@@ -69,6 +70,12 @@ export async function PATCH(
     }
 
     await updateOrderStatus(supabase, id, newStatus, body.note, 'admin')
+
+    if (newStatus === 'preparing' || newStatus === 'ready_to_ship') {
+      void sendOrderStatusEmail(id, 'preparing')
+    } else if (newStatus === 'delivered') {
+      void sendOrderStatusEmail(id, 'delivered')
+    }
 
     const order = await getOrderDetail(supabase, id)
     return NextResponse.json({ data: { order } })

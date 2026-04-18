@@ -875,10 +875,11 @@ function TabCuenta() {
   const [acceptingTerms, setAcceptingTerms] = useState(false)
   const termsConsentRef = useRef<HTMLInputElement>(null)
   const [acceptsMarketing, setAcceptsMarketing] = useState(false)
-  const [acceptsEmail, setAcceptsEmail] = useState(false)
-  const [acceptsSms, setAcceptsSms] = useState(false)
-  const [acceptsWhatsapp, setAcceptsWhatsapp] = useState(false)
   const [prefsLoading, setPrefsLoading] = useState(true)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPwd, setChangingPwd] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -902,10 +903,9 @@ function TabCuenta() {
         }
         const c = d.customer
         if (c) {
-          setAcceptsMarketing(!!c.accepts_marketing)
-          setAcceptsEmail(!!c.accepts_email_marketing)
-          setAcceptsSms(!!c.accepts_sms_marketing)
-          setAcceptsWhatsapp(!!c.accepts_whatsapp_marketing)
+          setAcceptsMarketing(
+            !!(c.accepts_marketing || c.accepts_email_marketing || c.accepts_sms_marketing || c.accepts_whatsapp_marketing)
+          )
         }
         const profileName = (d.full_name ?? '').trim()
         const fromCustomer = [c?.first_name, c?.last_name].filter(Boolean).join(' ').trim()
@@ -937,9 +937,9 @@ function TabCuenta() {
         full_name: name,
         phone: phone || null,
         accepts_marketing: acceptsMarketing,
-        accepts_email_marketing: acceptsEmail,
-        accepts_sms_marketing: acceptsSms,
-        accepts_whatsapp_marketing: acceptsWhatsapp,
+        accepts_email_marketing: acceptsMarketing,
+        accepts_sms_marketing: acceptsMarketing,
+        accepts_whatsapp_marketing: acceptsMarketing,
       })
       toast.success('Perfil actualizado', { icon: '✅' })
     } catch {
@@ -966,6 +966,37 @@ function TabCuenta() {
     await logout()
     toast.success('Sesión cerrada')
     router.push('/')
+  }
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Las contraseñas no coinciden')
+      return
+    }
+    setChangingPwd(true)
+    try {
+      const res = await fetchWithCredentials('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      })
+      if (!res.ok) {
+        const j = await res.json() as { error?: string }
+        throw new Error(j.error || 'Error al cambiar contraseña')
+      }
+      toast.success('Contraseña actualizada')
+      setNewPassword('')
+      setConfirmPassword('')
+      setShowPasswordForm(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al cambiar contraseña')
+    } finally {
+      setChangingPwd(false)
+    }
   }
 
   return (
@@ -1004,28 +1035,23 @@ function TabCuenta() {
         <div className="pt-2 border-t border-gray-100 space-y-3">
           <p className="text-xs font-bold text-gray-500">Comunicaciones (LFPDPPP)</p>
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            Puedes retirar tu consentimiento en cualquier momento desde aquí. Los envíos transaccionales (pedido, envío) pueden seguir enviándose según la ley.
+            Puedes retirar tu consentimiento en cualquier momento. Los envíos transaccionales (confirmación de pedido, envío) pueden continuar conforme a la ley.
           </p>
           {prefsLoading ? (
             <p className="text-xs text-gray-400">Cargando preferencias…</p>
           ) : (
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-300" checked={acceptsMarketing} onChange={(e) => setAcceptsMarketing(e.target.checked)} />
-                Acepto recibir novedades y promociones (marketing general)
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-300" checked={acceptsEmail} onChange={(e) => setAcceptsEmail(e.target.checked)} />
-                Email
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-300" checked={acceptsSms} onChange={(e) => setAcceptsSms(e.target.checked)} />
-                SMS
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-300" checked={acceptsWhatsapp} onChange={(e) => setAcceptsWhatsapp(e.target.checked)} />
-                WhatsApp
-              </label>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+              <div>
+                <p className="text-sm font-medium text-gray-800">Acepto comunicaciones de marketing</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Email, SMS y WhatsApp con novedades y promociones</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAcceptsMarketing((v) => !v)}
+                className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ml-3 ${acceptsMarketing ? 'bg-nurei-cta' : 'bg-gray-200'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${acceptsMarketing ? 'left-5' : 'left-1'}`} />
+              </button>
             </div>
           )}
         </div>
@@ -1058,6 +1084,49 @@ function TabCuenta() {
                 {' '}de {typeof window !== 'undefined' ? window.location.hostname : 'nurei'}.
               </span>
             </label>
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-gray-100 space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowPasswordForm((v) => !v)}
+            className="w-full flex items-center justify-between py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <span>Cambiar contraseña</span>
+            <span className="text-[10px] text-gray-400 font-normal">{showPasswordForm ? 'Cancelar' : 'Modificar →'}</span>
+          </button>
+          {showPasswordForm && (
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">Nueva contraseña</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-nurei-cta/50 focus:border-nurei-cta transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">Confirmar contraseña</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repite la contraseña"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-nurei-cta/50 focus:border-nurei-cta transition-all"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleChangePassword}
+                disabled={changingPwd}
+                className="w-full py-2.5 bg-gray-900 text-white font-bold rounded-xl text-sm disabled:opacity-60 hover:bg-gray-800 transition-colors"
+              >
+                {changingPwd ? 'Actualizando...' : 'Actualizar contraseña'}
+              </button>
+            </div>
           )}
         </div>
 

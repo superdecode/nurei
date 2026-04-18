@@ -266,7 +266,21 @@ export default function ConfigPage() {
     fetch('/api/admin/settings')
       .then((r) => r.json())
       .then((data) => {
-        if (data.settings) setSettings(data.settings)
+        if (data.data && typeof data.data === 'object') {
+          setSettings((prev) => ({
+            store_info: { ...prev.store_info, ...(data.data.store_info ?? {}) },
+            shipping: { ...prev.shipping, ...(data.data.shipping ?? {}) },
+            checkout: { ...prev.checkout, ...(data.data.checkout ?? {}) },
+            notifications: { ...prev.notifications, ...(data.data.notifications ?? {}) },
+            appearance: {
+              ...prev.appearance,
+              ...(data.data.appearance ?? {}),
+              social_links: { ...prev.appearance.social_links, ...(data.data.appearance?.social_links ?? {}) },
+            },
+            seo: { ...prev.seo, ...(data.data.seo ?? {}) },
+            legal: { ...prev.legal, ...(data.data.legal ?? {}) },
+          }))
+        }
       })
       .catch(() => toast.error('Error al cargar configuración'))
       .finally(() => setLoading(false))

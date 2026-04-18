@@ -2,14 +2,16 @@
 
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Menu, X, Heart, User, LogIn } from 'lucide-react'
+import { ShoppingBag, Menu, X, Heart, User, LogIn, LogOut, Settings, ChevronRight } from 'lucide-react'
 import { Container } from './Container'
 import { useCartStore } from '@/lib/stores/cart'
 import { useUIStore } from '@/lib/stores/ui'
 import { useAuthStore } from '@/lib/stores/auth'
 import { useFavoritesStore } from '@/lib/stores/favorites'
 import { cn } from '@/lib/utils'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 export function Header() {
   const items = useCartStore((s) => s.items)
@@ -19,10 +21,22 @@ export function Header() {
   const closeMobileMenu = useUIStore((s) => s.closeMobileMenu)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
+  const userEmail = useAuthStore((s) => s.email)
+  const logout = useAuthStore((s) => s.logout)
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
   const [scrolled, setScrolled] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isBumping, setIsBumping] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    setUserMenuOpen(false)
+    await logout()
+    toast.success('Sesión cerrada')
+    router.push('/')
+  }
 
   const itemCount = mounted ? items.reduce((sum, item) => sum + item.quantity, 0) : 0
   const favoritesCount = mounted ? favCount : 0
@@ -40,6 +54,17 @@ export function Header() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [userMenuOpen])
 
   return (
     <>
@@ -131,13 +156,61 @@ export function Header() {
 
             {/* Auth */}
             {mounted && isAuthenticated ? (
-              <Link
-                href="/perfil"
-                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-2xl text-sm font-bold text-gray-500 hover:text-gray-900 hover:bg-yellow-50 transition-all duration-200"
-              >
-                <User className="w-4 h-4" />
-                <span className="max-w-[80px] truncate">{user?.full_name || 'Perfil'}</span>
-              </Link>
+              <div className="relative hidden sm:block" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-2xl text-sm font-bold text-gray-500 hover:text-gray-900 hover:bg-yellow-50 transition-all duration-200"
+                >
+                  <div className="w-7 h-7 rounded-full bg-nurei-cta flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-gray-900" />
+                  </div>
+                  <span className="max-w-[80px] truncate">{user?.full_name?.split(' ')[0] || 'Perfil'}</span>
+                </button>
+                <AnimatePresence>
+                  {userMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50"
+                    >
+                      <div className="px-4 py-3 border-b border-gray-100 bg-yellow-50/50">
+                        <p className="text-sm font-bold text-gray-900 truncate">{user?.full_name || 'Mi cuenta'}</p>
+                        <p className="text-xs text-gray-400 truncate mt-0.5">{userEmail || ''}</p>
+                      </div>
+                      <div className="py-1.5">
+                        <Link
+                          href="/perfil"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-yellow-50 transition-colors"
+                        >
+                          <span className="flex items-center gap-2.5"><User className="w-4 h-4 text-gray-400" /> Mi perfil</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                        </Link>
+                        <Link
+                          href="/perfil?tab=cuenta"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-yellow-50 transition-colors"
+                        >
+                          <span className="flex items-center gap-2.5"><Settings className="w-4 h-4 text-gray-400" /> Configuración</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                        </Link>
+                      </div>
+                      <div className="py-1.5 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" /> Cerrar sesión
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ) : mounted ? (
               <Link
                 href="/login"
