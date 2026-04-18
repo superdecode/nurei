@@ -29,6 +29,14 @@ export const metadata: Metadata = {
     'Curaduría premium de snacks asiáticos importados. De Tokyo a tu puerta en CDMX. Real-time stock sync.',
   keywords: ['snacks asiáticos', 'importación', 'japonés', 'coreano', 'premium', 'CDMX', 'nurei'],
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/logo.png', type: 'image/png', sizes: '64x64' },
+    ],
+    apple: [{ url: '/logo.png', sizes: '180x180', type: 'image/png' }],
+    shortcut: '/favicon.ico',
+  },
   openGraph: {
     title: 'nurei — Premium Asian Snacks',
     description: 'Curaduría premium de snacks asiáticos. De Tokyo a CDMX.',
