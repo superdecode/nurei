@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       .maybeSingle(),
     supabase
       .from('coupons')
-      .select('id, code, discount_type, type, value, used_count, max_uses, starts_at, expires_at, is_active, is_paused')
+      .select('*')
       .eq('affiliate_id', id)
       .order('created_at', { ascending: false }),
     (() => {
@@ -57,15 +57,37 @@ export async function GET(req: NextRequest, { params }: Params) {
     })(),
   ])
 
+  let couponRows = couponsRes.data ?? []
+  if (couponsRes.error && couponRows.length === 0) {
+    const retry = await supabase.from('coupons').select('*').eq('affiliate_id', id)
+    couponRows = retry.data ?? []
+  }
+
   const now = Date.now()
-  const coupons = (couponsRes.data ?? []).map((coupon) => {
+  const coupons = couponRows.map((coupon: Record<string, unknown>) => {
+    const isActive = Boolean(coupon.is_active)
+    const isPaused = Boolean(coupon.is_paused)
+    const usedCount = Number(coupon.used_count ?? 0)
+    const maxUses = coupon.max_uses != null ? Number(coupon.max_uses) : null
+    const startsAt = coupon.starts_at ? new Date(String(coupon.starts_at)).getTime() : null
+    const expiresAt = coupon.expires_at ? new Date(String(coupon.expires_at)).getTime() : null
     let computed_status: 'active' | 'paused' | 'expired' | 'exhausted' = 'active'
-    const startsAt = coupon.starts_at ? new Date(coupon.starts_at).getTime() : null
-    const expiresAt = coupon.expires_at ? new Date(coupon.expires_at).getTime() : null
-    if (!coupon.is_active || coupon.is_paused || (startsAt && startsAt > now)) computed_status = 'paused'
+    if (!isActive || isPaused || (startsAt && startsAt > now)) computed_status = 'paused'
     else if (expiresAt && expiresAt < now) computed_status = 'expired'
-    else if (coupon.max_uses && coupon.used_count >= coupon.max_uses) computed_status = 'exhausted'
-    return { ...coupon, computed_status, type: coupon.discount_type ?? coupon.type }
+    else if (maxUses != null && usedCount >= maxUses) computed_status = 'exhausted'
+    const dtype = (coupon.discount_type ?? coupon.type) as string | undefined
+    const valueNum = Number(coupon.value ?? 0)
+    return {
+      id: coupon.id as string,
+      code: coupon.code as string,
+      type: dtype ?? 'percentage',
+      value: valueNum,
+      used_count: usedCount,
+      max_uses: maxUses,
+      starts_at: (coupon.starts_at as string | null) ?? null,
+      expires_at: (coupon.expires_at as string | null) ?? null,
+      computed_status,
+    }
   })
 
   const attributions = attrsBase.data ?? []

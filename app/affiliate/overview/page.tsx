@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  BarChart as WeeklyBarChart,
+  Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import {
   TrendingUp, ShoppingBag, MousePointer2, Wallet, DollarSign,
   Tag, Copy, Check, ExternalLink, ChevronRight, Percent,
-  Clock,
+  Clock, BarChart2,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { formatPrice } from '@/lib/utils/format'
@@ -22,8 +23,8 @@ interface StatsData {
   total_orders: number
   total_clicks: number
   conversion_rate: number
-  weekly_sales: WeeklySale[]
-  top_products: TopProduct[]
+  weekly_sales?: WeeklySale[]
+  top_products?: TopProduct[]
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────
@@ -184,14 +185,14 @@ export default function AffiliateOverviewPage() {
         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
           Comisiones — últimas 8 semanas
         </h2>
-        {stats.weekly_sales.every((w) => w.amount_cents === 0) ? (
+        {(stats.weekly_sales ?? []).every((w) => w.amount_cents === 0) ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
-            <BarChart className="w-8 h-8 text-gray-200" />
+            <BarChart2 className="w-8 h-8 text-gray-200" />
             <p className="text-xs text-gray-400">Aún no tienes comisiones registradas</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={stats.weekly_sales} barSize={18}>
+            <WeeklyBarChart data={stats.weekly_sales ?? []} barSize={18}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis hide />
@@ -200,7 +201,7 @@ export default function AffiliateOverviewPage() {
                 contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6', fontSize: 11 }}
               />
               <Bar dataKey="amount_cents" fill="#00C4CC" radius={[6, 6, 0, 0]} />
-            </BarChart>
+            </WeeklyBarChart>
           </ResponsiveContainer>
         )}
       </div>
@@ -327,11 +328,11 @@ export default function AffiliateOverviewPage() {
       </div>
 
       {/* ── Top products (if any) ── */}
-      {stats.top_products.length > 0 && (
+      {(stats.top_products ?? []).length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top productos referidos</h2>
           <div className="space-y-2.5">
-            {stats.top_products.map((p, i) => (
+            {(stats.top_products ?? []).map((p, i) => (
               <div key={p.product_name} className="flex items-center gap-3">
                 <span className="text-xs font-bold text-gray-300 w-4 shrink-0">#{i + 1}</span>
                 <p className="text-sm font-medium text-primary-dark flex-1 truncate">{p.product_name}</p>

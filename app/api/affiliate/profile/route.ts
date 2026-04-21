@@ -11,11 +11,7 @@ export async function GET() {
 
   const { data: profile, error: profileErr } = await supabase
     .from('affiliate_profiles')
-    .select(`
-      handle, bio, first_name, last_name, phone,
-      payment_method, bank_name, bank_clabe, bank_account, bank_holder, payment_notes,
-      notify_on_sale, notify_on_payment, notify_weekly_summary
-    `)
+    .select('*')
     .eq('id', affiliateId)
     .single()
 
@@ -27,19 +23,42 @@ export async function GET() {
     supabase.from('referral_links').select('slug').eq('affiliate_id', affiliateId).maybeSingle(),
     supabase
       .from('coupons')
-      .select('id, code, discount_type, type, value, used_count, max_uses, starts_at, expires_at, is_active, is_paused')
+      .select('*')
       .eq('affiliate_id', affiliateId)
       .order('created_at', { ascending: false }),
   ])
 
+  let couponRows = couponsRes.data ?? []
+  if (couponsRes.error && couponRows.length === 0) {
+    const retry = await supabase.from('coupons').select('*').eq('affiliate_id', affiliateId)
+    couponRows = retry.data ?? []
+  }
+
   const now = Date.now()
-  const coupons = (couponsRes.data ?? []).map((c) => {
+  const coupons = couponRows.map((c: Record<string, unknown>) => {
+    const isActive = Boolean(c.is_active)
+    const isPaused = Boolean(c.is_paused)
+    const usedCount = Number(c.used_count ?? 0)
+    const maxUses = c.max_uses != null ? Number(c.max_uses) : null
+    const expiresAt = c.expires_at ? new Date(String(c.expires_at)).getTime() : null
     let status: 'active' | 'paused' | 'expired' | 'exhausted' = 'active'
-    const expiresAt = c.expires_at ? new Date(c.expires_at).getTime() : null
-    if (!c.is_active || c.is_paused) status = 'paused'
+    if (!isActive || isPaused) status = 'paused'
     else if (expiresAt && expiresAt < now) status = 'expired'
-    else if (c.max_uses && c.used_count >= c.max_uses) status = 'exhausted'
-    return { ...c, type: c.discount_type ?? c.type, status }
+    else if (maxUses != null && usedCount >= maxUses) status = 'exhausted'
+    const dtype = (c.discount_type ?? c.type) as string | undefined
+    return {
+      id: c.id as string,
+      code: c.code as string,
+      type: dtype ?? 'percentage',
+      value: Number(c.value ?? 0),
+      used_count: usedCount,
+      max_uses: maxUses,
+      starts_at: (c.starts_at as string | null) ?? null,
+      expires_at: (c.expires_at as string | null) ?? null,
+      is_active: isActive,
+      is_paused: isPaused,
+      status,
+    }
   })
 
   return NextResponse.json({

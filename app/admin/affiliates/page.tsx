@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, Users2, Trash2, ToggleLeft, ToggleRight,
-  X, Filter, ChevronDown, Tag, TrendingUp, CreditCard,
+  X, Filter, ChevronDown, Tag, TrendingUp, CreditCard, Eye,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -485,6 +485,14 @@ export default function AdminAffiliatesPage() {
 
                   <TableCell className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={`/admin/affiliates/${a.id}`}
+                        className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-dark transition-colors"
+                        title="Ver detalle"
+                        aria-label="Ver detalle del afiliado"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Link>
                       <button
                         type="button"
                         onClick={(e) => toggleActive(a.id, a.is_active, e)}

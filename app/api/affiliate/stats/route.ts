@@ -79,6 +79,13 @@ export async function GET(request: NextRequest) {
     }
   })
 
+  /** Shape expected by `/affiliate/overview` (Recharts BarChart uses week + amount_cents). */
+  const weekly_sales = chartData.map((c) => ({
+    week: c.label,
+    amount_cents: c.sales,
+    orders: c.orders,
+  }))
+
   return NextResponse.json({
     data: {
       total_earned_cents: profile?.total_earned_cents ?? 0,
@@ -90,6 +97,8 @@ export async function GET(request: NextRequest) {
       unique_clicks: uniqueClicks,
       conversion_rate: conversionRate,
       chartData,
+      weekly_sales,
+      top_products: [] as { product_name: string; units: number }[],
     },
   })
 }

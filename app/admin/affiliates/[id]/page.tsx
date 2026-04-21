@@ -7,7 +7,7 @@ import {
   Save, ArrowLeft, Copy, Check, ExternalLink, TrendingUp, ShoppingBag,
   DollarSign, Wallet, MousePointer2, BarChart2, CreditCard, Edit3,
   ChevronLeft, ChevronRight, X, Clock, RefreshCcw, Tag, Link2, Users,
-  AlertCircle, Percent,
+  AlertCircle, Percent, Mail, Phone,
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -50,6 +50,9 @@ interface Attribution {
 interface DetailData {
   profile: {
     id: string; handle: string; bio: string | null; email: string
+    first_name?: string | null
+    last_name?: string | null
+    phone?: string | null
     commission_coupon_pct: number; commission_cookie_pct: number
     total_earned_cents: number; pending_payout_cents: number; is_active: boolean
     created_at: string
@@ -356,6 +359,42 @@ export default function AdminAffiliateDetailPage() {
             + Crear cupón
           </Button>
         </Link>
+      </div>
+
+      {/* ── Contact summary ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-wrap items-start gap-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-12 h-12 rounded-full bg-primary-cyan/10 flex items-center justify-center text-sm font-bold text-primary-cyan shrink-0 uppercase">
+            {profile.first_name || profile.last_name
+              ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
+              : profile.handle.slice(0, 2).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-base font-black text-primary-dark truncate">
+              {profile.first_name || profile.last_name
+                ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+                : `@${profile.handle}`}
+            </p>
+            <p className="text-xs text-gray-400">@{profile.handle}</p>
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-gray-600 flex items-center gap-2 min-w-0">
+                <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <span className="truncate">{profile.email || '—'}</span>
+              </p>
+              {profile.phone ? (
+                <p className="text-xs text-gray-600 flex items-center gap-2">
+                  <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  {profile.phone}
+                </p>
+              ) : (
+                <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                  <Phone className="w-3 h-3 shrink-0" />
+                  Sin teléfono registrado
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── KPIs ── */}
