@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/server/require-admin'
+import { resolveAffiliateFirstLast } from '@/lib/server/affiliate-display-name'
 
 export async function GET(req: NextRequest) {
   const guard = await requireAdmin()
@@ -42,6 +43,28 @@ export async function GET(req: NextRequest) {
   const slugMap = new Map((linksRes.data ?? []).map((l) => [l.affiliate_id, { slug: l.slug, clicks: l.clicks_count }]))
   const emailMap = new Map((usersRes.data?.users ?? []).map((u) => [u.id, u.email ?? '']))
 
+  const { data: userProfilesRows } =
+    affiliateIds.length > 0
+      ? await supabase.from('user_profiles').select('id, full_name').in('id', affiliateIds)
+      : { data: [] as Array<{ id: string; full_name: string | null }> }
+  const userProfileById = new Map((userProfilesRows ?? []).map((r) => [r.id, r]))
+
+  const { data: customerRows } =
+    affiliateIds.length > 0
+      ? await supabase
+          .from('customers')
+          .select('user_id, first_name, last_name, full_name')
+          .in('user_id', affiliateIds)
+      : { data: [] as Array<{
+          user_id: string | null
+          first_name: string | null
+          last_name: string | null
+          full_name: string | null
+        }> }
+  const customerByUserId = new Map(
+    (customerRows ?? []).filter((c) => c.user_id).map((c) => [c.user_id as string, c])
+  )
+
   // coupon count per affiliate
   const couponCountMap = new Map<string, number>()
   for (const c of couponsRes.data ?? []) {
@@ -60,27 +83,39 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  let enriched = (profiles ?? []).map((p) => ({
-    ...p,
-    email: emailMap.get(p.id) ?? '',
-    referral_slug: slugMap.get(p.id)?.slug ?? null,
-    clicks_count: slugMap.get(p.id)?.clicks ?? 0,
-    coupon_count: couponCountMap.get(p.id) ?? 0,
-    total_orders: attrsMap.get(p.id)?.orders ?? 0,
+  let enriched = (profiles ?? []).map((p) => {
+    const resolved = resolveAffiliateFirstLast(
+      p,
+      userProfileById.get(p.id) ?? null,
+      customerByUserId.get(p.id) ?? null
+    )
+    return {
+      ...p,
+      first_name: resolved.first_name || null,
+      last_name: resolved.last_name || null,
+      email: emailMap.get(p.id) ?? '',
+      referral_slug: slugMap.get(p.id)?.slug ?? null,
+      clicks_count: slugMap.get(p.id)?.clicks ?? 0,
+      coupon_count: couponCountMap.get(p.id) ?? 0,
+      total_orders: attrsMap.get(p.id)?.orders ?? 0,
       has_payment_info: Boolean(
         (p as Record<string, unknown>).payment_method ||
-        (p as Record<string, unknown>).bank_name ||
-        (p as Record<string, unknown>).bank_clabe
+          (p as Record<string, unknown>).bank_name ||
+          (p as Record<string, unknown>).bank_clabe
       ),
-  }))
+    }
+  })
 
   // Filters
   if (search) {
-    enriched = enriched.filter(
-      (a) =>
+    enriched = enriched.filter((a) => {
+      const displayName = [a.first_name, a.last_name].filter(Boolean).join(' ').toLowerCase()
+      return (
         a.handle.toLowerCase().includes(search) ||
-        a.email.toLowerCase().includes(search)
-    )
+        a.email.toLowerCase().includes(search) ||
+        displayName.includes(search)
+      )
+    })
   }
   if (statusFilter === 'active') enriched = enriched.filter((a) => a.is_active)
   if (statusFilter === 'inactive') enriched = enriched.filter((a) => !a.is_active)

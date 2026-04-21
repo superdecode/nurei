@@ -190,8 +190,13 @@ export default function AdminAffiliatesPage() {
   )
 
   const applyCandidate = (candidate: Candidate) => {
-    const handleSeed = (candidate.full_name || candidate.email.split('@')[0] || 'afiliado')
-      .toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24)
+    const nameSource = candidate.full_name?.trim()
+    const handleSeed = (nameSource || 'afiliado')
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '')
+      .slice(0, 24) || `afiliado${Math.random().toString(36).slice(-5)}`
     setForm((prev) => ({
       ...prev,
       existing_user_id: candidate.id,
@@ -582,7 +587,9 @@ export default function AdminAffiliatesPage() {
                 </>
               ) : (
                 <div className="group inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700">
-                  <span className="font-semibold">{selectedCandidate.full_name || selectedCandidate.email}</span>
+                  <span className="font-semibold">
+                    {selectedCandidate.full_name?.trim() ? selectedCandidate.full_name : 'Sin nombre en perfil'}
+                  </span>
                   <span className="text-blue-500">{selectedCandidate.email}</span>
                   <button
                     type="button"

@@ -21,12 +21,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Container } from '@/components/layout/Container'
 import { useCartStore } from '@/lib/stores/cart'
-import { FREE_SHIPPING_THRESHOLD, MIN_ORDER_AMOUNT } from '@/lib/utils/constants'
+import { useAuthStore } from '@/lib/stores/auth'
 import { formatPrice } from '@/lib/utils/format'
+import type { CheckoutBootstrapResponse } from '@/lib/store/normalize-checkout-settings'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 type CheckoutStep = 1 | 2 | 3 | 4
 type Direction = 'forward' | 'backward'
-type PaymentMethod = 'card' | 'oxxo' | 'transfer' | 'wallet'
 
 type ShippingForm = {
   fullName: string
@@ -48,17 +54,12 @@ type CardForm = {
 }
 
 type ShippingMethod = {
-  id: 'standard' | 'express' | 'same_day'
+  id: string
   label: string
   description: string
   price: number
   etaLabel: string
   estimatedDate: string
-}
-
-type LocationOption = {
-  value: string
-  code?: string
 }
 
 type CouponState = {
@@ -124,6 +125,10 @@ function getFieldError(field: keyof ShippingForm, value: string) {
   return ''
 }
 
+function isCardLikePayment(slug: string) {
+  return slug === 'card' || slug === 'stripe_card' || slug.endsWith('_card')
+}
+
 function cardTypeLabel(number: string) {
   const digits = number.replace(/\D/g, '')
   if (/^4/.test(digits)) return 'Visa'
@@ -183,6 +188,7 @@ export default function CheckoutPage() {
   const removeItem = useCartStore((state) => state.removeItem)
   const getSubtotal = useCartStore((state) => state.getSubtotal)
   const clearCart = useCartStore((state) => state.clearCart)
+  const getItemCount = useCartStore((state) => state.getItemCount)
 
   const [mounted, setMounted] = useState(false)
   const [activeStep, setActiveStep] = useState<CheckoutStep>(1)
@@ -211,20 +217,15 @@ export default function CheckoutPage() {
     country: 'México',
   })
   const [shippingErrors, setShippingErrors] = useState<Partial<Record<keyof ShippingForm, string>>>({})
-  const [addressValidating, setAddressValidating] = useState(false)
-  const [locationLoading, setLocationLoading] = useState<'state' | 'city' | null>(null)
-  const [stateSearch, setStateSearch] = useState('')
-  const [citySearch, setCitySearch] = useState('')
-  const [stateOptions, setStateOptions] = useState<LocationOption[]>([])
-  const [cityOptions, setCityOptions] = useState<LocationOption[]>([])
-  const [isStateSelected, setIsStateSelected] = useState(false)
-  const [isCitySelected, setIsCitySelected] = useState(false)
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false)
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([])
   const [shippingLoading, setShippingLoading] = useState(false)
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<string>('standard')
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
+  const [storeBootstrap, setStoreBootstrap] = useState<CheckoutBootstrapResponse | null>(null)
+  const [storeBootstrapLoading, setStoreBootstrapLoading] = useState(true)
+
+  const [paymentMethod, setPaymentMethod] = useState<string>('stripe_card')
   const [cardForm, setCardForm] = useState<CardForm>({
     number: '',
     name: '',
@@ -245,8 +246,59 @@ export default function CheckoutPage() {
   const [cartLastUpdatedAt, setCartLastUpdatedAt] = useState(new Date().toISOString())
   const [stockConflict, setStockConflict] = useState<Array<{ product_id: string; product_name: string }>>([])
 
+  const [loginOpen, setLoginOpen] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loginBusy, setLoginBusy] = useState(false)
+
+  const authUser = useAuthStore((s) => s.user)
+  const authEmail = useAuthStore((s) => s.email)
+  const authOk = useAuthStore((s) => s.isAuthenticated)
+  const authLogin = useAuthStore((s) => s.login)
+  const refreshUser = useAuthStore((s) => s.refreshUser)
+
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    void refreshUser()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- session sync once on checkout mount
+  }, [])
+
+  useEffect(() => {
+    if (!authOk || !authUser) return
+    setShippingForm((prev) => ({
+      ...prev,
+      fullName: prev.fullName.trim() ? prev.fullName : authUser.full_name ?? '',
+      email: prev.email.trim() ? prev.email : authEmail ?? '',
+      phone: prev.phone.trim() ? prev.phone : authUser.phone ?? '',
+    }))
+  }, [authOk, authUser, authEmail])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/store/checkout')
+        const json = await res.json()
+        if (!cancelled && res.ok && json?.data) {
+          setStoreBootstrap(json.data as CheckoutBootstrapResponse)
+          const methods = (json.data as CheckoutBootstrapResponse).payment_methods ?? []
+          if (methods.length > 0) {
+            setPaymentMethod(methods[0].slug)
+          }
+        }
+      } catch {
+        /* fallback below */
+      } finally {
+        if (!cancelled) setStoreBootstrapLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -255,12 +307,15 @@ export default function CheckoutPage() {
   }, [items, mounted])
 
   const subtotal = mounted ? getSubtotal() : 0
-  const totalWeight = useMemo(
-    () => items.reduce((sum, item) => sum + item.product.weight_g * item.quantity, 0),
-    [items]
-  )
+
+  const minOrderCents = storeBootstrap?.checkout.min_order_cents ?? 19900
+  const freeShipMin = storeBootstrap?.shipping.free_shipping_min_cents
+
+  const qualifiesFreeShipping =
+    typeof freeShipMin === 'number' && freeShipMin > 0 ? subtotal >= freeShipMin : false
 
   const selectedMethod = shippingMethods.find((method) => method.id === selectedShippingMethod)
+  const standardMethod = shippingMethods.find((m) => m.id === 'standard')
   const shippingFee = selectedMethod?.price ?? 0
   const effectiveCouponDiscount = couponState.discountAmount
   const total = Math.max(0, subtotal + shippingFee - effectiveCouponDiscount)
@@ -292,8 +347,6 @@ export default function CheckoutPage() {
         const query = new URLSearchParams({
           country: shippingForm.country || 'MX',
           state: shippingForm.state || 'CDMX',
-          postalCode: shippingForm.zipCode || '01000',
-          totalWeight: `${totalWeight}`,
           subtotal: `${subtotal}`,
         })
 
@@ -319,71 +372,13 @@ export default function CheckoutPage() {
     mounted,
     shippingForm.country,
     shippingForm.state,
-    shippingForm.zipCode,
-    totalWeight,
     subtotal,
     items.length,
   ])
 
-  const fetchLocationOptions = useCallback(
-    async (type: 'states' | 'cities', query: string) => {
-      setLocationLoading(type === 'states' ? 'state' : 'city')
-      try {
-        const params = new URLSearchParams({
-          type,
-          country: shippingForm.country,
-          query,
-        })
-        if (type === 'cities') {
-          params.set('state', shippingForm.state)
-        }
-        const response = await fetch(`/api/location/options?${params.toString()}`)
-        const payload = await response.json()
-        const options = (payload?.data ?? []) as LocationOption[]
-        if (type === 'states') {
-          setStateOptions(options)
-        } else {
-          setCityOptions(options)
-        }
-      } catch {
-        if (type === 'states') {
-          setStateOptions([])
-        } else {
-          setCityOptions([])
-        }
-      } finally {
-        setLocationLoading(null)
-      }
-    },
-    [shippingForm.country, shippingForm.state]
-  )
-
-  useEffect(() => {
-    if (!mounted) return
-    const timeout = window.setTimeout(() => {
-      fetchLocationOptions('states', stateSearch)
-    }, 180)
-    return () => window.clearTimeout(timeout)
-  }, [mounted, fetchLocationOptions, stateSearch, shippingForm.country])
-
-  useEffect(() => {
-    if (!mounted || !shippingForm.state) {
-      setCityOptions([])
-      return
-    }
-    const timeout = window.setTimeout(() => {
-      fetchLocationOptions('cities', citySearch)
-    }, 180)
-    return () => window.clearTimeout(timeout)
-  }, [mounted, fetchLocationOptions, citySearch, shippingForm.state])
-
   const updateShippingField = (field: keyof ShippingForm, value: string) => {
     setShippingForm((prev) => ({ ...prev, [field]: value }))
     setShippingErrors((prev) => ({ ...prev, [field]: getFieldError(field, value) }))
-    if (['address', 'neighborhood', 'zipCode', 'city', 'state'].includes(field)) {
-      setAddressValidating(true)
-      window.setTimeout(() => setAddressValidating(false), 240)
-    }
   }
 
   const applyCoupon = async () => {
@@ -455,10 +450,6 @@ export default function CheckoutPage() {
 
     setShippingErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return false
-    if (!isStateSelected || !isCitySelected) {
-      toast.error('Selecciona estado y ciudad desde el listado sugerido.')
-      return false
-    }
     if (!selectedMethod) {
       toast.error('Selecciona un método de envío para continuar.')
       return false
@@ -471,7 +462,7 @@ export default function CheckoutPage() {
   }
 
   const validatePaymentStep = () => {
-    if (paymentMethod !== 'card') return true
+    if (!isCardLikePayment(paymentMethod)) return true
 
     const nextErrors: Partial<Record<keyof CardForm, string>> = {}
     if (!luhnCheck(cardForm.number)) nextErrors.number = 'Número de tarjeta inválido.'
@@ -491,8 +482,8 @@ export default function CheckoutPage() {
         triggerPanelShake()
         return
       }
-      if (subtotal < MIN_ORDER_AMOUNT) {
-        toast.error(`El pedido mínimo es ${formatPrice(MIN_ORDER_AMOUNT)}.`)
+      if (subtotal < minOrderCents) {
+        toast.error(`El pedido mínimo es ${formatPrice(minOrderCents)}.`)
         triggerPanelShake()
         return
       }
@@ -581,7 +572,7 @@ export default function CheckoutPage() {
           saveMethod: savePaymentMethod,
           cartLastUpdatedAt,
           card:
-            paymentMethod === 'card'
+            isCardLikePayment(paymentMethod)
               ? {
                   token: `tok_${Date.now()}_${normalizedCardNumber.slice(-4)}`,
                   holderName: cardForm.name,
@@ -736,15 +727,16 @@ export default function CheckoutPage() {
         <h1 className="text-3xl font-bold text-primary-dark mb-2">Crear pedido</h1>
         <p className="text-gray-500 mb-5">Completa estos pasos y tu snack estará en camino.</p>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4 mb-6 overflow-hidden">
+          <div className="flex flex-nowrap items-center gap-1 sm:gap-1.5 mb-3 overflow-x-auto pb-1 -mx-0.5 px-0.5 scrollbar-none">
             {STEP_META.map((step) => {
-              const isActive = step.id === activeStep
-              const isDone = step.id < activeStep
+              const onConfirmScreen = activeStep === 4
+              const isDone = step.id < activeStep || (onConfirmScreen && step.id === 4)
+              const isActive = step.id === activeStep && !onConfirmScreen
               return (
                 <div
                   key={step.id}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+                  className={`inline-flex shrink-0 items-center gap-1 sm:gap-1.5 rounded-full border px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[11px] md:text-xs font-semibold transition-all whitespace-nowrap ${
                     isActive
                       ? 'border-primary-cyan bg-primary-cyan/20 text-primary-dark'
                       : isDone
@@ -753,11 +745,11 @@ export default function CheckoutPage() {
                   }`}
                 >
                   <span
-                    className={`inline-flex w-4 h-4 items-center justify-center rounded-full ${
+                    className={`inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 items-center justify-center rounded-full text-[9px] sm:text-[10px] ${
                       isDone ? 'bg-emerald-500 text-white checkout-check-pop' : 'bg-white text-gray-600'
                     }`}
                   >
-                    {isDone ? <Check className="w-3 h-3" /> : step.id}
+                    {isDone ? <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : step.id}
                   </span>
                   {step.title}
                 </div>
@@ -771,8 +763,10 @@ export default function CheckoutPage() {
               style={{ width: `${PROGRESS_BY_STEP[activeStep]}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            {PROGRESS_BY_STEP[activeStep]}% completado · Ya casi terminas ✨
+          <p className="text-[10px] sm:text-xs text-gray-500 mt-2">
+            {activeStep === 4
+              ? 'Pedido completado · ¡gracias por tu compra!'
+              : `${PROGRESS_BY_STEP[activeStep]}% · Paso ${activeStep} de 4`}
           </p>
         </div>
 
@@ -811,10 +805,10 @@ export default function CheckoutPage() {
                             const remainingSubtotal = items
                               .filter((item) => !stockConflict.some((conflict) => conflict.product_id === item.product.id))
                               .reduce((sum, item) => sum + item.product.price * item.quantity, 0)
-                            if (remainingSubtotal >= MIN_ORDER_AMOUNT) {
+                            if (remainingSubtotal >= minOrderCents) {
                               goToStep(2)
                             } else {
-                              toast.error(`El pedido mínimo es ${formatPrice(MIN_ORDER_AMOUNT)}.`)
+                              toast.error(`El pedido mínimo es ${formatPrice(minOrderCents)}.`)
                             }
                           }}
                         >
@@ -967,19 +961,34 @@ export default function CheckoutPage() {
               )}
 
               {activeStep === 2 && (
-                <div>
-                  <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="relative">
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
                       <h2 className="text-xl font-semibold text-primary-dark">Paso 2 · Datos de envío</h2>
-                      <p className="text-sm text-gray-500">Validamos cada campo en tiempo real.</p>
+                      <p className="text-sm text-gray-500">Completa tu dirección de entrega.</p>
                     </div>
-                    {addressValidating && (
-                      <span className="text-xs text-gray-500 inline-flex items-center gap-1">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Validando dirección…
-                      </span>
+                    {!authOk && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="text-xs sm:text-sm border-gray-200 bg-gray-50 text-primary-dark hover:bg-gray-100 shrink-0"
+                        onClick={() => {
+                          setLoginOpen(true)
+                          setLoginError('')
+                        }}
+                      >
+                        Iniciar sesión
+                      </Button>
                     )}
                   </div>
+
+                  {typeof freeShipMin === 'number' && freeShipMin > 0 && !qualifiesFreeShipping && (
+                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                      Agrega{' '}
+                      <span className="font-bold">{formatPrice(freeShipMin - subtotal)}</span> más en productos para
+                      desbloquear <span className="font-semibold">envío gratis</span> en envío estándar.
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
@@ -1012,52 +1021,92 @@ export default function CheckoutPage() {
                       {shippingErrors.phone && <p className="text-xs text-red-600 mt-1">{shippingErrors.phone}</p>}
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <button
-                        type="button"
-                        onClick={() => { setCreateAccount((v) => !v); setPasswordError(''); setNewPassword('') }}
-                        className={`w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-all ${
-                          createAccount
-                            ? 'border-primary-cyan bg-primary-cyan/8'
-                            : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                        }`}
-                      >
-                        <div className="text-left">
-                          <p className="text-sm font-semibold text-primary-dark">¿Quieres guardar tu pedido en tu cuenta?</p>
-                          <p className="text-xs text-gray-500 mt-0.5">Crea una cuenta para rastrear tus pedidos fácilmente.</p>
-                        </div>
-                        <div className={`flex-shrink-0 w-11 h-6 rounded-full transition-colors relative ${
-                          createAccount ? 'bg-primary-cyan' : 'bg-gray-300'
-                        }`}>
-                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
-                            createAccount ? 'left-5' : 'left-0.5'
-                          }`} />
-                        </div>
-                      </button>
+                    {!authOk && (
+                      <div className="sm:col-span-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreateAccount((v) => !v)
+                            setPasswordError('')
+                            setNewPassword('')
+                          }}
+                          className={`w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-all ${
+                            createAccount
+                              ? 'border-primary-cyan bg-primary-cyan/8'
+                              : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="text-left">
+                            <p className="text-sm font-semibold text-primary-dark">¿Quieres guardar tu pedido en tu cuenta?</p>
+                            <p className="text-xs text-gray-500 mt-0.5">Crea una cuenta para rastrear tus pedidos fácilmente.</p>
+                          </div>
+                          <div
+                            className={`flex-shrink-0 w-11 h-6 rounded-full transition-colors relative ${
+                              createAccount ? 'bg-primary-cyan' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                                createAccount ? 'left-5' : 'left-0.5'
+                              }`}
+                            />
+                          </div>
+                        </button>
 
-                      {createAccount && (
-                        <div className="mt-3">
-                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Contraseña para tu cuenta nueva</label>
-                          <Input
-                            type="password"
-                            value={newPassword}
-                            onChange={(event) => { setNewPassword(event.target.value); setPasswordError('') }}
-                            placeholder="Mínimo 6 caracteres"
-                            className="mt-1"
-                          />
-                          {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
-                        </div>
-                      )}
+                        {createAccount && (
+                          <div className="mt-3">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                              Contraseña para tu cuenta nueva
+                            </label>
+                            <Input
+                              type="password"
+                              value={newPassword}
+                              onChange={(event) => {
+                                setNewPassword(event.target.value)
+                                setPasswordError('')
+                              }}
+                              placeholder="Mínimo 6 caracteres"
+                              className="mt-1"
+                            />
+                            {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="sm:col-span-2 border-t border-gray-100 pt-4 mt-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Dirección de entrega</p>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Dirección</label>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">País</label>
                       <Input
-                        value={shippingForm.address}
-                        onChange={(event) => updateShippingField('address', event.target.value)}
+                        value={shippingForm.country}
+                        onChange={(event) => updateShippingField('country', event.target.value)}
                         className="mt-1"
                       />
-                      {shippingErrors.address && <p className="text-xs text-red-600 mt-1">{shippingErrors.address}</p>}
+                      {shippingErrors.country && <p className="text-xs text-red-600 mt-1">{shippingErrors.country}</p>}
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</label>
+                      <Input
+                        value={shippingForm.state}
+                        onChange={(event) => updateShippingField('state', event.target.value)}
+                        placeholder="Ej: CDMX"
+                        className="mt-1"
+                      />
+                      {shippingErrors.state && <p className="text-xs text-red-600 mt-1">{shippingErrors.state}</p>}
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ciudad</label>
+                      <Input
+                        value={shippingForm.city}
+                        onChange={(event) => updateShippingField('city', event.target.value)}
+                        className="mt-1"
+                      />
+                      {shippingErrors.city && <p className="text-xs text-red-600 mt-1">{shippingErrors.city}</p>}
                     </div>
 
                     <div>
@@ -1071,97 +1120,6 @@ export default function CheckoutPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">País</label>
-                      <Input
-                        value={shippingForm.country}
-                        onChange={(event) => {
-                          updateShippingField('country', event.target.value)
-                          setStateSearch('')
-                          setCitySearch('')
-                          setIsStateSelected(false)
-                          setIsCitySelected(false)
-                          setShippingForm((prev) => ({ ...prev, state: '', city: '' }))
-                        }}
-                        className="mt-1"
-                      />
-                      {shippingErrors.country && <p className="text-xs text-red-600 mt-1">{shippingErrors.country}</p>}
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Estado (buscar y seleccionar)</label>
-                      <Input
-                        value={stateSearch}
-                        onChange={(event) => {
-                          setStateSearch(event.target.value)
-                          setIsStateSelected(false)
-                          setIsCitySelected(false)
-                          setShippingForm((prev) => ({ ...prev, state: '', city: '' }))
-                        }}
-                        placeholder="Escribe para buscar estado"
-                        className="mt-1"
-                      />
-                      {locationLoading === 'state' && <p className="text-xs text-gray-500 mt-1">Buscando estados…</p>}
-                      {!isStateSelected && stateSearch && stateOptions.length > 0 && (
-                        <div className="mt-1 rounded-xl border border-gray-200 bg-white max-h-40 overflow-auto">
-                          {stateOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                              onClick={() => {
-                                updateShippingField('state', option.value)
-                                setStateSearch(option.value)
-                                setIsStateSelected(true)
-                                setCitySearch('')
-                                setCityOptions([])
-                                setIsCitySelected(false)
-                                setShippingForm((prev) => ({ ...prev, city: '' }))
-                              }}
-                            >
-                              {option.value}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {shippingErrors.state && <p className="text-xs text-red-600 mt-1">{shippingErrors.state}</p>}
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ciudad (buscar y seleccionar)</label>
-                      <Input
-                        value={citySearch}
-                        onChange={(event) => {
-                          setCitySearch(event.target.value)
-                          setIsCitySelected(false)
-                          setShippingForm((prev) => ({ ...prev, city: '' }))
-                        }}
-                        placeholder={shippingForm.state ? 'Escribe para buscar ciudad' : 'Selecciona estado primero'}
-                        className="mt-1"
-                        disabled={!shippingForm.state}
-                      />
-                      {locationLoading === 'city' && <p className="text-xs text-gray-500 mt-1">Buscando ciudades…</p>}
-                      {!isCitySelected && citySearch && cityOptions.length > 0 && (
-                        <div className="mt-1 rounded-xl border border-gray-200 bg-white max-h-40 overflow-auto">
-                          {cityOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                              onClick={() => {
-                                updateShippingField('city', option.value)
-                                setCitySearch(option.value)
-                                setIsCitySelected(true)
-                              }}
-                            >
-                              {option.value}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {shippingErrors.city && <p className="text-xs text-red-600 mt-1">{shippingErrors.city}</p>}
-                    </div>
-
-                    <div>
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Código postal</label>
                       <Input
                         value={shippingForm.zipCode}
@@ -1169,6 +1127,17 @@ export default function CheckoutPage() {
                         className="mt-1"
                       />
                       {shippingErrors.zipCode && <p className="text-xs text-red-600 mt-1">{shippingErrors.zipCode}</p>}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Calle y número</label>
+                      <Input
+                        value={shippingForm.address}
+                        onChange={(event) => updateShippingField('address', event.target.value)}
+                        placeholder="Calle, número exterior e interior"
+                        className="mt-1"
+                      />
+                      {shippingErrors.address && <p className="text-xs text-red-600 mt-1">{shippingErrors.address}</p>}
                     </div>
                   </div>
 
@@ -1181,38 +1150,61 @@ export default function CheckoutPage() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {shippingMethods.map((method) => (
-                          <label
-                            key={method.id}
-                            className={`block cursor-pointer rounded-xl border p-3 transition-all ${
-                              selectedShippingMethod === method.id
-                                ? 'border-primary-cyan bg-primary-cyan/10'
-                                : 'border-gray-200 bg-white hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="radio"
-                                name="shipping-method"
-                                checked={selectedShippingMethod === method.id}
-                                onChange={() => setSelectedShippingMethod(method.id)}
-                                className="mt-1"
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm font-semibold text-primary-dark">{method.label}</p>
-                                  <p className="text-sm font-bold text-primary-dark">
-                                    {method.price === 0 ? 'Gratis' : formatPrice(method.price)}
+                        {shippingMethods.map((method) => {
+                          const baseStandard = storeBootstrap?.shipping.standard_fee_cents ?? 0
+                          const showFreeDeal =
+                            method.id === 'standard' &&
+                            qualifiesFreeShipping &&
+                            method.price === 0 &&
+                            baseStandard > 0
+
+                          return (
+                            <label
+                              key={method.id}
+                              className={`block cursor-pointer rounded-xl border p-3 transition-all ${
+                                selectedShippingMethod === method.id
+                                  ? 'border-primary-cyan bg-primary-cyan/10'
+                                  : 'border-gray-200 bg-white hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="radio"
+                                  name="shipping-method"
+                                  checked={selectedShippingMethod === method.id}
+                                  onChange={() => setSelectedShippingMethod(method.id)}
+                                  className="mt-1"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <p className="text-sm font-semibold text-primary-dark">{method.label}</p>
+                                    <div className="text-right">
+                                      {showFreeDeal ? (
+                                        <div className="flex flex-col items-end leading-tight">
+                                          <span className="text-xs text-gray-400 line-through">{formatPrice(baseStandard)}</span>
+                                          <span className="text-sm font-black text-emerald-600 tracking-tight">GRATIS</span>
+                                        </div>
+                                      ) : (
+                                        <p className="text-sm font-bold text-primary-dark">
+                                          {method.price === 0 ? (
+                                            <span className="text-emerald-600">Gratis</span>
+                                          ) : (
+                                            formatPrice(method.price)
+                                          )}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-gray-500">{method.description}</p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {method.etaLabel} · Entrega estimada{' '}
+                                    {new Date(method.estimatedDate).toLocaleDateString('es-MX')}
                                   </p>
                                 </div>
-                                <p className="text-xs text-gray-500">{method.description}</p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {method.etaLabel} · Entrega estimada {new Date(method.estimatedDate).toLocaleDateString('es-MX')}
-                                </p>
                               </div>
-                            </div>
-                          </label>
-                        ))}
+                            </label>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -1226,29 +1218,30 @@ export default function CheckoutPage() {
                     Selecciona método y confirma tus datos de cobro.
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                    {[
-                      { id: 'card', label: 'Tarjeta crédito/débito' },
-                      { id: 'oxxo', label: 'OXXO' },
-                      { id: 'transfer', label: 'Transferencia' },
-                      { id: 'wallet', label: 'Wallet' },
-                    ].map((method) => (
-                      <button
-                        key={method.id}
-                        type="button"
-                        onClick={() => setPaymentMethod(method.id as PaymentMethod)}
-                        className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${
-                          paymentMethod === method.id
-                            ? 'border-primary-cyan bg-primary-cyan/10 text-primary-dark'
-                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        {method.label}
-                      </button>
-                    ))}
-                  </div>
+                  {(storeBootstrap?.payment_methods ?? []).length === 0 ? (
+                    <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-5">
+                      No hay métodos de pago disponibles por el momento. Configura métodos activos en el panel de administración.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                      {(storeBootstrap?.payment_methods ?? []).map((method) => (
+                        <button
+                          key={method.slug}
+                          type="button"
+                          onClick={() => setPaymentMethod(method.slug)}
+                          className={`rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-all ${
+                            paymentMethod === method.slug
+                              ? 'border-primary-cyan bg-primary-cyan/10 text-primary-dark'
+                              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {method.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-                  {paymentMethod === 'card' && (
+                  {isCardLikePayment(paymentMethod) && (
                     <div className="space-y-4">
                       <div>
                         <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1312,23 +1305,26 @@ export default function CheckoutPage() {
               )}
 
               {activeStep === 4 && orderConfirmation && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-                  <div className="rounded-2xl border border-gray-200 p-5 text-left">
-                    <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 inline-flex items-center justify-center checkout-confirm-check mb-4">
-                      <CheckCircle2 className="w-10 h-10" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
+                  <div className="rounded-2xl border border-gray-200 p-4 sm:p-5 text-center">
+                    <div className="flex justify-center mb-3">
+                      <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 inline-flex items-center justify-center checkout-confirm-check">
+                        <CheckCircle2 className="w-8 h-8" />
+                      </div>
                     </div>
-                    <h2 className="text-2xl font-bold text-primary-dark">¡Pedido confirmado!</h2>
-                    <p className="text-gray-500 mt-2">
+                    <h2 className="text-xl sm:text-2xl font-bold text-primary-dark">¡Pedido confirmado!</h2>
+                    <p className="text-sm text-emerald-700 font-medium mt-1">Tu pedido está en camino</p>
+                    <p className="text-gray-500 mt-2 text-sm">
                       Número de orden <span className="font-semibold">{orderConfirmation.order_number}</span>
                     </p>
-                    <div className="mt-5 text-sm text-gray-600 space-y-1">
+                    <div className="mt-4 text-sm text-gray-600 space-y-1 text-left max-w-md mx-auto">
                       <p>Cliente: {orderConfirmation.customer.full_name}</p>
                       <p>Email: {orderConfirmation.customer.email ?? 'No especificado'}</p>
                       <p>Dirección: {orderConfirmation.customer.delivery_address}</p>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-gray-200 p-5 text-left flex flex-col justify-between">
+                  <div className="rounded-2xl border border-gray-200 p-4 sm:p-5 text-left flex flex-col justify-between">
                     <div>
                       <p className="text-sm font-semibold text-primary-dark mb-2">Resumen del pedido</p>
                       <div className="text-sm text-gray-600 space-y-1">
@@ -1386,10 +1382,31 @@ export default function CheckoutPage() {
                   >
                     Volver
                   </Button>
+                  <div className="flex flex-col items-stretch gap-2 w-full sm:w-auto sm:items-end">
+                    {activeStep === 1 && subtotal < minOrderCents && (
+                      <p className="text-[11px] text-center sm:text-right text-gray-500 order-2 sm:order-1">
+                        Pedido mínimo {formatPrice(minOrderCents)} · Faltan{' '}
+                        <span className="font-semibold text-primary-dark">{formatPrice(minOrderCents - subtotal)}</span>
+                      </p>
+                    )}
+                    {activeStep === 1 &&
+                      typeof freeShipMin === 'number' &&
+                      freeShipMin > 0 &&
+                      subtotal < freeShipMin && (
+                        <p className="text-[11px] text-center sm:text-right text-gray-500 order-3 sm:order-2">
+                          Te faltan <span className="font-semibold">{formatPrice(freeShipMin - subtotal)}</span> para envío
+                          gratis.
+                        </p>
+                      )}
                   <Button
                     type="button"
                     onClick={handleContinue}
-                    className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover w-full sm:w-auto"
+                    disabled={
+                      storeBootstrapLoading ||
+                      (activeStep === 3 && (storeBootstrap?.payment_methods ?? []).length === 0) ||
+                      (activeStep === 1 && subtotal < minOrderCents)
+                    }
+                    className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover w-full sm:w-auto order-1 sm:order-3"
                   >
                     {activeStep === 3 ? (
                       <>
@@ -1403,6 +1420,7 @@ export default function CheckoutPage() {
                       </>
                     )}
                   </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1434,7 +1452,22 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-500">Envío</span>
-                    <span className="font-medium">{shippingFee === 0 ? 'Gratis' : formatPrice(shippingFee)}</span>
+                    <span className="font-medium text-right">
+                      {selectedMethod?.id === 'standard' &&
+                      qualifiesFreeShipping &&
+                      (storeBootstrap?.shipping.standard_fee_cents ?? 0) > 0 ? (
+                        <span className="inline-flex flex-col items-end leading-tight">
+                          <span className="text-[10px] text-gray-400 line-through">
+                            {formatPrice(storeBootstrap?.shipping.standard_fee_cents ?? 0)}
+                          </span>
+                          <span className="text-emerald-600 font-semibold">GRATIS</span>
+                        </span>
+                      ) : shippingFee === 0 ? (
+                        <span className="text-emerald-600">Gratis</span>
+                      ) : (
+                        formatPrice(shippingFee)
+                      )}
+                    </span>
                   </div>
                   {effectiveCouponDiscount > 0 && (
                     <div className="flex items-center justify-between text-emerald-700">
@@ -1448,13 +1481,11 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {subtotal < FREE_SHIPPING_THRESHOLD && (
+                {typeof freeShipMin === 'number' && freeShipMin > 0 && subtotal < freeShipMin && (
                   <p className="text-[11px] lg:text-xs text-gray-500 mt-2 leading-tight">
-                    Faltan{' '}
-                    <span className="font-semibold text-primary-dark">
-                      {formatPrice(FREE_SHIPPING_THRESHOLD - subtotal)}
-                    </span>{' '}
-                    para envío gratis.
+                    Te faltan{' '}
+                    <span className="font-semibold text-primary-dark">{formatPrice(freeShipMin - subtotal)}</span> para
+                    envío gratis.
                   </p>
                 )}
 
@@ -1488,6 +1519,82 @@ export default function CheckoutPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Iniciar sesión</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Correo electrónico</label>
+                <Input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="mt-1"
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Contraseña</label>
+                <Input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="mt-1"
+                  autoComplete="current-password"
+                />
+              </div>
+              {loginError && <p className="text-xs text-red-600">{loginError}</p>}
+              <Button
+                type="button"
+                className="w-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover"
+                disabled={loginBusy}
+                onClick={async () => {
+                  setLoginBusy(true)
+                  setLoginError('')
+                  const result = await authLogin(loginEmail.trim(), loginPassword)
+                  setLoginBusy(false)
+                  if (!result.success) {
+                    setLoginError(result.error ?? 'No pudimos iniciar sesión.')
+                    return
+                  }
+                  setLoginPassword('')
+                  setLoginOpen(false)
+                  setCreateAccount(false)
+                  await refreshUser()
+                  toast.success('Sesión iniciada')
+                }}
+              >
+                {loginBusy ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Entrar'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {activeStep === 1 && items.length > 0 && (
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md px-4 py-2.5 flex items-center justify-between gap-3 text-sm shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="min-w-0">
+              <p className="text-[11px] text-gray-500">
+                {getItemCount()} {getItemCount() === 1 ? 'producto' : 'productos'}
+              </p>
+              <p className="font-bold text-primary-dark tabular-nums">{formatPrice(subtotal)}</p>
+            </div>
+            {typeof freeShipMin === 'number' && freeShipMin > 0 ? (
+              subtotal < freeShipMin ? (
+                <p className="text-[10px] text-gray-500 text-right leading-snug flex-1">
+                  Te faltan <span className="font-semibold text-primary-dark">{formatPrice(freeShipMin - subtotal)}</span>{' '}
+                  para envío gratis
+                </p>
+              ) : (
+                <span className="text-[10px] text-emerald-600 font-semibold shrink-0 text-right">
+                  ¡Calificas a envío gratis!
+                </span>
+              )
+            ) : null}
           </div>
         )}
       </Container>

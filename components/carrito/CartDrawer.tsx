@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ShoppingBag, ArrowRight, Sparkles, PartyPopper } from 'lucide-react'
@@ -10,7 +11,7 @@ import { CartItem } from './CartItem'
 import { useCartStore } from '@/lib/stores/cart'
 import { useUIStore } from '@/lib/stores/ui'
 import { formatPrice } from '@/lib/utils/format'
-import { DEFAULT_SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, MIN_ORDER_AMOUNT } from '@/lib/utils/constants'
+import type { CheckoutBootstrapResponse } from '@/lib/store/normalize-checkout-settings'
 
 function AnimatedPrice({ value, className }: { value: number; className?: string }) {
   return (
@@ -98,10 +99,17 @@ function EmptyCartIllustration() {
   )
 }
 
-function ProgressBar({ subtotal }: { subtotal: number }) {
-  const progress = Math.min((subtotal / FREE_SHIPPING_THRESHOLD) * 100, 100)
-  const remaining = FREE_SHIPPING_THRESHOLD - subtotal
-  const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD
+function ProgressBar({
+  subtotal,
+  freeShippingMin,
+}: {
+  subtotal: number
+  freeShippingMin: number | null
+}) {
+  const threshold = typeof freeShippingMin === 'number' && freeShippingMin > 0 ? freeShippingMin : null
+  const progress = threshold ? Math.min((subtotal / threshold) * 100, 100) : 0
+  const remaining = threshold ? threshold - subtotal : 0
+  const freeShipping = threshold ? subtotal >= threshold : false
 
   return (
     <motion.div
@@ -125,7 +133,7 @@ function ProgressBar({ subtotal }: { subtotal: number }) {
         </div>
 
         <AnimatePresence mode="wait">
-          {freeShipping ? (
+          {!threshold ? null : freeShipping ? (
             <motion.p
               key="met"
               initial={{ opacity: 0, y: 4 }}
@@ -144,7 +152,7 @@ function ProgressBar({ subtotal }: { subtotal: number }) {
               exit={{ opacity: 0, y: -4 }}
               className="text-[11px] sm:text-xs text-gray-500 mt-1.5 sm:mt-1 font-medium leading-tight"
             >
-              Agrega <span className="font-bold text-nurei-cta">{formatPrice(remaining)}</span> más para envío gratis 🚚
+              Agrega <span className="font-bold text-nurei-cta">{formatPrice(Math.max(remaining, 0))}</span> más para envío gratis 🚚
             </motion.p>
           )}
         </AnimatePresence>
@@ -161,11 +169,35 @@ export function CartDrawer() {
   const isCartOpen = useUIStore((s) => s.isCartOpen)
   const closeCart = useUIStore((s) => s.closeCart)
 
+  const [bootstrap, setBootstrap] = useState<CheckoutBootstrapResponse | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/store/checkout')
+        const json = await res.json()
+        if (!cancelled && res.ok && json?.data) setBootstrap(json.data as CheckoutBootstrapResponse)
+      } catch {
+        /* defaults below */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const minOrder = bootstrap?.checkout.min_order_cents ?? 19900
+  const freeShipMin = bootstrap?.shipping.free_shipping_min_cents ?? null
+  const defaultShipFee = bootstrap?.shipping.standard_fee_cents ?? 2900
+
   const subtotal = getSubtotal()
-  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_FEE
+  const qualifiesFree =
+    typeof freeShipMin === 'number' && freeShipMin > 0 ? subtotal >= freeShipMin : false
+  const shippingFee = qualifiesFree ? 0 : defaultShipFee
   const total = getTotal(shippingFee)
   const itemCount = getItemCount()
-  const meetsMinimum = subtotal >= MIN_ORDER_AMOUNT
+  const meetsMinimum = subtotal >= minOrder
 
   return (
     <Sheet open={isCartOpen} onOpenChange={(open) => !open && closeCart()}>
@@ -198,7 +230,7 @@ export function CartDrawer() {
         ) : (
           <>
             <div className="pt-1 sm:pt-2">
-              <ProgressBar subtotal={subtotal} />
+              <ProgressBar subtotal={subtotal} freeShippingMin={freeShipMin} />
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 sm:px-5 pb-2 scrollbar-none">
@@ -221,10 +253,19 @@ export function CartDrawer() {
                 <AnimatedPrice value={subtotal} className="font-black text-gray-900" />
               </div>
 
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500 font-medium">Envío</span>
-                <span className={`font-black ${shippingFee === 0 ? 'text-emerald-500' : 'text-gray-900'}`}>
-                  {shippingFee === 0 ? '¡Gratis! 🎉' : formatPrice(shippingFee)}
+              <div className="flex justify-between items-center text-sm gap-2">
+                <span className="text-gray-500 font-medium shrink-0">Envío</span>
+                <span className={`font-black text-right leading-tight ${shippingFee === 0 ? 'text-emerald-500' : 'text-gray-900'}`}>
+                  {shippingFee === 0 && qualifiesFree && defaultShipFee > 0 ? (
+                    <span className="inline-flex flex-col items-end">
+                      <span className="text-[10px] text-gray-400 line-through font-semibold">{formatPrice(defaultShipFee)}</span>
+                      <span>¡GRATIS! 🎉</span>
+                    </span>
+                  ) : shippingFee === 0 ? (
+                    '¡Gratis! 🎉'
+                  ) : (
+                    formatPrice(shippingFee)
+                  )}
                 </span>
               </div>
 
@@ -244,8 +285,7 @@ export function CartDrawer() {
                     transition={{ duration: 0.2 }}
                     className="text-xs text-nurei-promo text-center overflow-hidden"
                   >
-                    Pedido mínimo: {formatPrice(MIN_ORDER_AMOUNT)}. Faltan{' '}
-                    {formatPrice(MIN_ORDER_AMOUNT - subtotal)} 😊
+                    Pedido mínimo: {formatPrice(minOrder)}. Faltan {formatPrice(minOrder - subtotal)} 😊
                   </motion.p>
                 )}
               </AnimatePresence>

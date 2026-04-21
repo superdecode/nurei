@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/server/require-admin'
+import { resolveAffiliateFirstLast } from '@/lib/server/affiliate-display-name'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -28,49 +29,28 @@ export async function GET(req: NextRequest, { params }: Params) {
   // Fetch email from auth
   const { data: authUser } = await supabase.auth.admin.getUserById(id)
 
-  // Surface nombre/apellido/teléfono: si affiliate_profiles viene vacío, usar user_profiles o customers
-  let firstName = profile.first_name != null ? String(profile.first_name).trim() : ''
-  let lastName = profile.last_name != null ? String(profile.last_name).trim() : ''
+  const { data: up } = await supabase
+    .from('user_profiles')
+    .select('full_name, phone')
+    .eq('id', id)
+    .maybeSingle()
+
+  const { data: cust } = await supabase
+    .from('customers')
+    .select('first_name, last_name, full_name, phone')
+    .eq('user_id', id)
+    .maybeSingle()
+
+  const resolved = resolveAffiliateFirstLast(profile, up ?? null, cust ?? null)
+
   let phoneOut = profile.phone != null ? String(profile.phone).trim() : ''
-
-  if (!firstName && !lastName) {
-    const { data: up } = await supabase
-      .from('user_profiles')
-      .select('full_name, phone')
-      .eq('id', id)
-      .maybeSingle()
-    const raw = (up?.full_name ?? '').trim()
-    if (raw) {
-      const parts = raw.split(/\s+/).filter(Boolean)
-      firstName = parts[0] ?? ''
-      lastName = parts.slice(1).join(' ')
-    }
-    if (!phoneOut && up?.phone) phoneOut = String(up.phone).trim()
-  }
-
-  if ((!firstName && !lastName) || !phoneOut) {
-    const { data: cust } = await supabase
-      .from('customers')
-      .select('first_name, last_name, phone')
-      .eq('user_id', id)
-      .maybeSingle()
-    if (cust) {
-      if (!firstName && !lastName) {
-        const fn = (cust.first_name ?? '').trim()
-        const ln = (cust.last_name ?? '').trim()
-        if (fn || ln) {
-          firstName = fn
-          lastName = ln
-        }
-      }
-      if (!phoneOut && cust.phone) phoneOut = String(cust.phone).trim()
-    }
-  }
+  if (!phoneOut && up?.phone) phoneOut = String(up.phone).trim()
+  if (!phoneOut && cust?.phone) phoneOut = String(cust.phone).trim()
 
   const profileMerged = {
     ...profile,
-    first_name: firstName || null,
-    last_name: lastName || null,
+    first_name: resolved.first_name || null,
+    last_name: resolved.last_name || null,
     phone: phoneOut || null,
   }
 

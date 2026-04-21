@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendOrderConfirmationEmails } from '@/lib/email/send-order-emails'
 
-type PaymentMethod = 'card' | 'oxxo' | 'transfer' | 'wallet'
-
 function notifyOrderEmails(
   orderId: string,
-  method: PaymentMethod,
+  method: string,
   meta?: { reference?: string; expiresAt?: string; bank?: string }
 ) {
   let pendingPaymentNote: string | undefined
@@ -15,7 +13,7 @@ function notifyOrderEmails(
       : ''
     pendingPaymentNote = `Paga en OXXO con la referencia ${meta.reference}.${exp ? ` Tienes hasta el ${exp}.` : ''} Cuando recibamos el pago, seguimos con tu pedido.`
   }
-  if (method === 'transfer' && meta?.reference) {
+  if ((method === 'transfer' || method === 'bank_transfer') && meta?.reference) {
     pendingPaymentNote = `Transfiere usando la referencia ${meta.reference}.${meta.bank ? ` Datos: ${meta.bank}.` : ''} Te avisaremos al acreditar.`
   }
 
@@ -44,7 +42,7 @@ function isCardExpired(expiry: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const method = String(body?.method ?? '') as PaymentMethod
+    const method = String(body?.method ?? '').trim()
     const orderId = String(body?.orderId ?? '')
     const amount = Number(body?.amount ?? 0)
     const cartLastUpdatedAt = String(body?.cartLastUpdatedAt ?? '')
@@ -72,14 +70,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!['card', 'oxxo', 'transfer', 'wallet'].includes(method)) {
-      return NextResponse.json(
-        { error: 'Método de pago no soportado' },
-        { status: 400 }
-      )
-    }
+    const cardLike =
+      method === 'card' ||
+      method === 'stripe_card' ||
+      method.endsWith('_card')
 
-    if (method === 'card') {
+    if (cardLike) {
       const card = body?.card ?? {}
       const cardToken = String(card.token ?? '')
       const cardLast4 = String(card.last4 ?? '')
@@ -126,13 +122,13 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      notifyOrderEmails(orderId, 'card')
+      notifyOrderEmails(orderId, method)
 
       return NextResponse.json({
         data: {
           status: 'approved',
           transactionId: `txn_${Date.now()}`,
-          method: 'card',
+          method,
           cardType: cardBrand,
           cardLast4,
         },
@@ -154,28 +150,29 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    if (method === 'transfer') {
+    if (method === 'transfer' || method === 'bank_transfer') {
       const reference = `TR-${orderId.slice(-6).toUpperCase()}`
       const bank = 'Banco Nurei Demo'
-      notifyOrderEmails(orderId, 'transfer', { reference, bank })
+      notifyOrderEmails(orderId, method, { reference, bank })
 
       return NextResponse.json({
         data: {
           status: 'pending',
-          method: 'transfer',
+          method,
           reference,
           bank,
         },
       })
     }
 
-    notifyOrderEmails(orderId, 'wallet')
+    // Efectivo / otros métodos configurados en tienda (sin pasarela simulada de tarjeta)
+    notifyOrderEmails(orderId, method)
 
     return NextResponse.json({
       data: {
         status: 'approved',
-        method: 'wallet',
-        transactionId: `wl_${Date.now()}`,
+        method,
+        transactionId: `pay_${Date.now()}`,
       },
     })
   } catch {

@@ -27,7 +27,5 @@ export function customerToFirstLast(c: NameFields): { first_name: string; last_n
       last_name: parts.slice(1).join(' '),
     }
   }
-  const local = c.email?.split('@')[0]?.replace(/[.+_-]/g, ' ').trim()
-  if (local) return { first_name: local, last_name: '' }
   return { first_name: '', last_name: '' }
 }

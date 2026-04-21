@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { saveCheckoutOrder } from '@/lib/server/checkout-session-store'
@@ -7,6 +8,12 @@ import {
   formatCreateOrderPayloadErrors,
 } from '@/lib/validations/order-create-payload'
 import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
+
+/** Human-readable unique order number; avoids collisions vs. weak random 4-digit IDs. */
+function generateShortOrderId(): string {
+  const suffix = crypto.randomBytes(4).toString('hex').toUpperCase()
+  return `NUR-${suffix}`
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,8 +45,7 @@ export async function POST(request: NextRequest) {
           is_active: boolean
           status: string
         }>
-      | null
-      = null
+      | null = null
 
     try {
       const service = createServiceClient()
@@ -156,49 +162,81 @@ export async function POST(request: NextRequest) {
     }
 
     const total = Math.max(0, subtotal + payload.shipping.fee - couponDiscount)
-    const shortId = `NUR-${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`
+
+    const supabaseSession = await createServerSupabaseClient()
+    const {
+      data: { user },
+    } = await supabaseSession.auth.getUser()
+
+    const service = createServiceClient()
 
     let createdOrderId: string | null = null
+    let shortId = ''
 
-    try {
-      const supabase = await createServerSupabaseClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+    const insertPayloadBase = {
+      user_id: user?.id ?? null,
+      customer_name: payload.customer.full_name,
+      customer_phone: payload.customer.phone,
+      customer_email: payload.customer.email,
+      delivery_address: `${payload.shipping.address}, ${payload.shipping.city}, ${payload.shipping.state}, ${payload.shipping.zip_code}, ${payload.shipping.country}`,
+      items: orderItems.map((item) => ({
+        product_id: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        subtotal: item.subtotal,
+      })),
+      subtotal,
+      shipping_fee: payload.shipping.fee,
+      coupon_code: couponCode,
+      coupon_discount: couponDiscount,
+      coupon_snapshot: couponSnapshot,
+      discount: 0,
+      total,
+      status: 'pending',
+      payment_status: 'pending',
+      source: 'web-checkout',
+      payment_method: payload.payment_method,
+    }
 
-      const { data: order, error: orderError } = await supabase
+    for (let attempt = 0; attempt < 10; attempt++) {
+      shortId = generateShortOrderId()
+      const { data: order, error: orderError } = await service
         .from('orders')
         .insert({
+          ...insertPayloadBase,
           short_id: shortId,
-          user_id: user?.id ?? null,
-          customer_name: payload.customer.full_name,
-          customer_phone: payload.customer.phone,
-          customer_email: payload.customer.email,
-          delivery_address: `${payload.shipping.address}, ${payload.shipping.city}, ${payload.shipping.state}, ${payload.shipping.zip_code}, ${payload.shipping.country}`,
-          items: orderItems.map((item) => ({
-            product_id: item.productId,
-            name: item.name,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            subtotal: item.subtotal,
-          })),
-          subtotal,
-          shipping_fee: payload.shipping.fee,
-          coupon_code: couponCode,
-          coupon_discount: couponDiscount,
-          coupon_snapshot: couponSnapshot,
-          discount: 0,
-          total,
-          status: 'pending',
-          payment_status: 'pending',
-          source: 'web-checkout',
         })
         .select('id')
         .single()
 
-      createdOrderId = order?.id ?? null
+      if (!orderError && order?.id) {
+        createdOrderId = order.id
+        break
+      }
 
-      if (!orderError && createdOrderId && couponId && couponCode) {
+      const msg = orderError?.message ?? ''
+      const code = (orderError as { code?: string })?.code
+      if (code === '23505' || msg.includes('duplicate') || msg.includes('unique')) {
+        continue
+      }
+
+      console.error('[orders/create] insert failed:', orderError)
+      return NextResponse.json(
+        { error: msg || 'No pudimos registrar el pedido en la base de datos.' },
+        { status: 500 }
+      )
+    }
+
+    if (!createdOrderId) {
+      return NextResponse.json(
+        { error: 'No pudimos generar un número de pedido único. Intenta de nuevo.' },
+        { status: 500 }
+      )
+    }
+
+    if (couponId && couponCode) {
+      try {
         await registerCouponUsage({
           couponId,
           orderId: createdOrderId,
@@ -207,8 +245,12 @@ export async function POST(request: NextRequest) {
           discountAmount: couponDiscount,
           snapshot: couponSnapshot ?? { code: couponCode },
         })
+      } catch (e) {
+        console.error('[orders/create] coupon usage:', e)
       }
+    }
 
+    try {
       for (const item of orderItems) {
         const productDb = dbProducts.find((entry) => entry.id === item.productId)
         if (!productDb?.track_inventory) continue
@@ -221,14 +263,12 @@ export async function POST(request: NextRequest) {
           reference: shortId,
         })
       }
-    } catch {
-      createdOrderId = null
+    } catch (invErr) {
+      console.error('[orders/create] inventory movement failed (order persisted):', invErr)
     }
 
-    const orderId = createdOrderId ?? `order_${Date.now()}`
-
     saveCheckoutOrder({
-      id: orderId,
+      id: createdOrderId,
       shortId,
       createdAt: new Date().toISOString(),
       customerName: payload.customer.full_name,
@@ -261,7 +301,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       data: {
-        order_id: orderId,
+        order_id: createdOrderId,
         short_id: shortId,
         subtotal,
         shipping_fee: payload.shipping.fee,
@@ -270,7 +310,8 @@ export async function POST(request: NextRequest) {
         total,
       },
     })
-  } catch {
+  } catch (err) {
+    console.error('[orders/create]', err)
     return NextResponse.json(
       { error: 'No pudimos crear tu pedido. Intenta nuevamente.' },
       { status: 500 }

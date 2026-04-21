@@ -74,7 +74,7 @@ export const createOrderPayloadSchema = z.object({
     state: z.string().min(2, 'Indica el estado'),
     zip_code: z.string().min(4, 'Código postal incompleto'),
     country: z.string().min(2, 'Indica el país'),
-    method_id: z.enum(['standard', 'express', 'same_day'], 'Selecciona un método de envío válido'),
+    method_id: z.string().min(1, 'Selecciona un método de envío válido'),
     method_label: z.string().min(2, 'Tipo de envío no válido'),
     fee: z
       .number({ error: () => 'Costo de envío no válido' })
@@ -82,7 +82,7 @@ export const createOrderPayloadSchema = z.object({
     eta_label: z.string().min(2, 'Tiempo de entrega no válido'),
     estimated_date: z.string().min(8, 'Fecha de entrega no válida'),
   }),
-  payment_method: z.enum(['card', 'oxxo', 'transfer', 'wallet'], 'Selecciona una forma de pago válida'),
+  payment_method: z.string().min(1, 'Selecciona una forma de pago válida'),
 })
 
 export type CreateOrderPayload = z.infer<typeof createOrderPayloadSchema>

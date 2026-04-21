@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { FREE_SHIPPING_THRESHOLD } from '@/lib/utils/constants'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getSettings } from '@/lib/supabase/queries/settings'
+import { normalizeShippingFromConfig } from '@/lib/store/normalize-checkout-settings'
 
 type ShippingMethod = {
-  id: 'standard' | 'express' | 'same_day'
+  id: string
   label: string
   description: string
   price: number
@@ -34,57 +36,46 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const country = (searchParams.get('country') ?? 'MX').toUpperCase()
     const state = (searchParams.get('state') ?? '').toLowerCase()
-    const postalCode = searchParams.get('postalCode') ?? ''
-    const totalWeight = Number(searchParams.get('totalWeight') ?? 0)
     const subtotal = Number(searchParams.get('subtotal') ?? 0)
 
-    const isMexico = country === 'MX' || country === 'MEXICO'
+    const supabase = await createServerSupabaseClient()
+    const raw = await getSettings(supabase)
+    const cfg = normalizeShippingFromConfig(raw.shipping)
+
+    const isMexico = country === 'MX' || country === 'MÉXICO' || country === 'MEXICO'
     const isCdmxLike =
       state.includes('cdmx') ||
       state.includes('ciudad de mexico') ||
-      state.includes('mexico city') ||
-      postalCode.startsWith('0') ||
-      postalCode.startsWith('1')
+      state.includes('ciudad de méxico') ||
+      state.includes('mexico city')
 
-    const weightKg = Math.max(0.25, totalWeight / 1000)
-    const zoneMultiplier = isMexico ? (isCdmxLike ? 1 : 1.22) : 1.85
     const baseDate = new Date()
 
-    const standardPriceRaw = Math.round((7900 + weightKg * 1300) * zoneMultiplier)
-    const expressPriceRaw = Math.round((12900 + weightKg * 1800) * zoneMultiplier)
-    const sameDayPriceRaw = Math.round((17900 + weightKg * 2500) * Math.max(1, zoneMultiplier - 0.12))
+    const freeMin = cfg.free_shipping_min_cents
+    const qualifiesFree =
+      typeof freeMin === 'number' && freeMin > 0 ? subtotal >= freeMin : false
 
-    const standardPrice = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : standardPriceRaw
+    const standardPrice = qualifiesFree ? 0 : cfg.standard_fee_cents
+    const expressPrice = cfg.express_fee_cents
 
     const methods: ShippingMethod[] = [
       {
         id: 'standard',
         label: 'Envío estándar',
-        description: 'Entrega segura en 2 a 5 días hábiles.',
+        description: `Entrega en ${cfg.standard_estimated_time || cfg.legacy_estimated_time}.`,
         price: standardPrice,
-        etaLabel: isCdmxLike ? 'Llega entre 1 y 2 días' : 'Llega entre 2 y 5 días',
-        estimatedDate: formatEstimatedDate(addBusinessDays(baseDate, isCdmxLike ? 2 : 4)),
+        etaLabel: isMexico && isCdmxLike ? 'Llega entre 1 y 2 días' : 'Llega entre 2 y 5 días',
+        estimatedDate: formatEstimatedDate(addBusinessDays(baseDate, isMexico && isCdmxLike ? 2 : 4)),
       },
       {
         id: 'express',
         label: 'Envío express',
-        description: 'Prioridad alta para que llegue más rápido.',
-        price: expressPriceRaw,
-        etaLabel: isCdmxLike ? 'Llega mañana' : 'Llega en 1 o 2 días',
-        estimatedDate: formatEstimatedDate(addBusinessDays(baseDate, isCdmxLike ? 1 : 2)),
+        description: `Prioridad alta · ${cfg.express_estimated_time}.`,
+        price: expressPrice,
+        etaLabel: isMexico && isCdmxLike ? 'Llega mañana' : 'Llega en 1 o 2 días',
+        estimatedDate: formatEstimatedDate(addBusinessDays(baseDate, isMexico && isCdmxLike ? 1 : 2)),
       },
     ]
-
-    if (isMexico && isCdmxLike) {
-      methods.push({
-        id: 'same_day',
-        label: 'Entrega mismo día',
-        description: 'Disponible para pedidos confirmados antes de las 3:00 pm.',
-        price: sameDayPriceRaw,
-        etaLabel: 'Llega hoy',
-        estimatedDate: formatEstimatedDate(baseDate),
-      })
-    }
 
     return NextResponse.json({ data: methods })
   } catch {

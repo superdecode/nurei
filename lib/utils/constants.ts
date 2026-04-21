@@ -58,9 +58,15 @@ export const CANCELLABLE_STATUSES: OrderStatus[] = [
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   card: 'Tarjeta',
+  stripe_card: 'Tarjeta',
   oxxo: 'OXXO',
   transfer: 'Transferencia',
+  bank_transfer: 'Transferencia',
+  cash: 'Efectivo',
   cash_on_delivery: 'Contra entrega',
+  wallet: 'Billetera',
+  mercado_pago: 'Mercado Pago',
+  paypal: 'PayPal',
   stripe: 'Stripe',
 }
 

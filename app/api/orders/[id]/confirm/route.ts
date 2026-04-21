@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { getCheckoutOrder } from '@/lib/server/checkout-session-store'
 import { getOrderById } from '@/lib/supabase/queries/userOrders'
 
@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params
 
     try {
-      const supabase = await createServerSupabaseClient()
+      const supabase = createServiceClient()
       const dbOrder = await getOrderById(supabase, id)
 
       return NextResponse.json({
