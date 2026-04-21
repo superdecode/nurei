@@ -179,24 +179,35 @@ export default function MenuPage() {
           </div>
         ) : (
           <div>
-            {categories.map((cat, idx) => (
-              <div key={cat}>
-                <div
-                  ref={(el) => { sectionRefsMap.current[cat] = el }}
-                  data-category={cat}
-                  className="pt-2"
-                >
-                  <Container>
-                    <ProductGrid products={grouped[cat]} category={cat} />
-                  </Container>
+            {categories.map((cat) => {
+              const title =
+                (categoryMeta[cat]?.label ?? cat)
+                  .replace(/-/g, ' ')
+                  .toUpperCase()
+              return (
+                <div key={cat}>
+                  <div
+                    ref={(el) => { sectionRefsMap.current[cat] = el }}
+                    data-category={cat}
+                    className="pt-1"
+                  >
+                    <div
+                      className="flex items-center gap-2.5 px-4 py-3"
+                      aria-hidden
+                    >
+                      <span className="flex-1 h-px bg-gray-300" />
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400 whitespace-nowrap">
+                        {title}
+                      </span>
+                      <span className="flex-1 h-px bg-gray-300" />
+                    </div>
+                    <Container>
+                      <ProductGrid products={grouped[cat]} category={cat} />
+                    </Container>
+                  </div>
                 </div>
-
-                {/* Divider between categories */}
-                {idx < categories.length - 1 && (
-                  <div className="h-px bg-gradient-to-r from-transparent via-gray-100 to-transparent my-4 mx-4" />
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

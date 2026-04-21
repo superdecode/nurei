@@ -406,10 +406,6 @@ export default function ClientesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/admin/affiliates" className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors hidden sm:flex">
-            <UserCheck className="w-3.5 h-3.5 text-primary-cyan" />
-            Acceso Afiliados
-          </Link>
           <Button
             variant="ghost"
             onClick={handleExport}

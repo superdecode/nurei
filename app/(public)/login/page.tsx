@@ -104,6 +104,14 @@ function LoginForm() {
             ¿No tienes cuenta?{' '}
             <Link href="/registro" className="font-bold text-nurei-cta hover:underline">Regístrate</Link>
           </p>
+          <p className="text-center mt-6">
+            <Link
+              href="/affiliates/login"
+              className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Acceso programa de afiliados →
+            </Link>
+          </p>
           <p className="text-center text-xs text-gray-500">
             <button
               type="button"

@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Settings, Store, Save, Truck, Bell, Smartphone,
-  MessageSquare, Palette, Upload, Mail,
+  MessageSquare, Palette, CheckCircle, Mail,
   Volume2, DollarSign, MapPin, ShoppingCart, Search,
-  Scale, X, Link2, Globe, Image as ImageIcon,
-  Loader2, ToggleLeft, ToggleRight,
+  Scale, X, Plus, Link2, Globe,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SettingsImageField } from '@/components/admin/SettingsImageField'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -21,7 +22,6 @@ import { toast } from 'sonner'
 interface StoreSettings {
   store_info: {
     name: string
-    slogan: string
     phone: string
     whatsapp: string
     email: string
@@ -73,7 +73,6 @@ interface StoreSettings {
 const DEFAULT_SETTINGS: StoreSettings = {
   store_info: {
     name: '',
-    slogan: '',
     phone: '',
     whatsapp: '',
     email: '',
@@ -265,31 +264,13 @@ function TagInput({
 // Page
 // ---------------------------------------------------------------------------
 
-interface PaymentMethodItem {
-  id: string
-  name: string
-  slug: string
-  icon: string | null
-  is_active: boolean
-}
-
-const LOCAL_COLOR_KEY = 'nurei_admin_primary_color'
-
 export default function ConfigPage() {
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodItem[]>([])
-  const [togglingPayment, setTogglingPayment] = useState<string | null>(null)
-  const [localColor, setLocalColor] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(LOCAL_COLOR_KEY) ?? '#00E5FF'
-    }
-    return '#00E5FF'
-  })
 
   useEffect(() => {
-    const settingsP = fetch('/api/admin/settings')
+    fetch('/api/admin/settings')
       .then((r) => r.json())
       .then((data) => {
         if (data.data && typeof data.data === 'object') {
@@ -308,31 +289,9 @@ export default function ConfigPage() {
           }))
         }
       })
-    const methodsP = fetch('/api/admin/payment-methods')
-      .then((r) => r.json())
-      .then((data) => { if (data.data) setPaymentMethods(data.data) })
-      .catch(() => {})
-    Promise.all([settingsP, methodsP])
       .catch(() => toast.error('Error al cargar configuración'))
       .finally(() => setLoading(false))
   }, [])
-
-  const handleTogglePayment = async (id: string, current: boolean) => {
-    setTogglingPayment(id)
-    try {
-      const res = await fetch('/api/admin/payment-methods', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, is_active: !current }),
-      })
-      if (!res.ok) throw new Error()
-      setPaymentMethods((prev) => prev.map((m) => m.id === id ? { ...m, is_active: !current } : m))
-    } catch {
-      toast.error('No se pudo cambiar el estado del método de pago')
-    } finally {
-      setTogglingPayment(null)
-    }
-  }
 
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -433,15 +392,9 @@ export default function ConfigPage() {
       {/* ── Store Info ── */}
       <SectionCard icon={Store} title="Información de la tienda" index={sectionIdx++}>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Nombre de la tienda</label>
-              <Input value={settings.store_info.name} onChange={(e) => updateInfo('name', e.target.value)} className="h-10" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Slogan</label>
-              <Input value={settings.store_info.slogan} onChange={(e) => updateInfo('slogan', e.target.value)} placeholder="Tu mejor aliado en…" className="h-10" />
-            </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Nombre de la tienda</label>
+            <Input value={settings.store_info.name} onChange={(e) => updateInfo('name', e.target.value)} className="h-10" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -608,40 +561,20 @@ export default function ConfigPage() {
         </div>
       </SectionCard>
 
-      {/* ── Payment Methods ── */}
+      {/* ── Payment Methods (link to /admin/pagos) ── */}
       <SectionCard icon={DollarSign} title="Métodos de pago" index={sectionIdx++}>
-        {paymentMethods.length === 0 ? (
-          <p className="text-sm text-gray-400 py-2">No hay métodos de pago configurados.</p>
-        ) : (
-          <div className="space-y-2">
-            {paymentMethods.map((m) => (
-              <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
-                <div className="flex items-center gap-3">
-                  {m.icon ? (
-                    <img src={m.icon} alt={m.name} className="w-6 h-6 object-contain" />
-                  ) : (
-                    <DollarSign className="w-4 h-4 text-gray-400" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium text-primary-dark">{m.name}</p>
-                    <p className="text-xs text-gray-400">{m.slug}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={togglingPayment === m.id}
-                  onClick={() => handleTogglePayment(m.id, m.is_active)}
-                  className="shrink-0"
-                  title={m.is_active ? 'Desactivar' : 'Activar'}
-                >
-                  {m.is_active
-                    ? <ToggleRight className="w-6 h-6 text-primary-cyan" />
-                    : <ToggleLeft className="w-6 h-6 text-gray-300" />}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="text-sm text-gray-500 mb-3">
+          Configura los métodos de pago aceptados en tu tienda.
+        </p>
+        <a href="/admin/pagos">
+          <Button
+            variant="outline"
+            className="gap-2 text-primary-dark border-primary-cyan/30 hover:bg-primary-cyan/5"
+          >
+            <DollarSign className="w-4 h-4" />
+            Ir a configuración de pagos
+          </Button>
+        </a>
       </SectionCard>
 
       {/* ── Notifications ── */}
@@ -698,58 +631,42 @@ export default function ConfigPage() {
       <SectionCard icon={Palette} title="Apariencia" index={sectionIdx++}>
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">
-              Color principal <span className="text-gray-400 font-normal">(solo para este navegador)</span>
-            </label>
+            <label className="text-xs text-gray-500 mb-2 block">Color principal</label>
             <div className="flex gap-2 flex-wrap">
               {COLOR_OPTIONS.map((color) => (
                 <button
                   key={color}
                   type="button"
-                  onClick={() => {
-                    setLocalColor(color)
-                    if (typeof window !== 'undefined') localStorage.setItem(LOCAL_COLOR_KEY, color)
-                  }}
+                  onClick={() => updateAppearance('primary_color', color)}
                   className={cn(
-                    'w-7 h-7 rounded-lg border-2 transition-all',
-                    localColor === color ? 'border-primary-dark scale-110' : 'border-transparent',
+                    'w-8 h-8 rounded-lg border-2 transition-all',
+                    settings.appearance.primary_color === color ? 'border-primary-dark scale-110' : 'border-transparent',
                   )}
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Logo de la tienda</label>
-            {settings.appearance.logo_url && (
-              <img src={settings.appearance.logo_url} alt="Logo" className="h-12 object-contain mb-2 rounded-lg border border-gray-100 p-1 bg-gray-50" />
-            )}
-            <Input
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            <SettingsImageField
+              layout="horizontal"
+              compact
+              label="Logo de la tienda"
+              hint="PNG, JPG o SVG"
               value={settings.appearance.logo_url}
-              onChange={(e) => updateAppearance('logo_url', e.target.value)}
-              placeholder="URL de la imagen (desde Multimedia)"
-              className="h-10 mb-2"
+              onChange={(url) => updateAppearance('logo_url', url)}
+              previewClassName="h-10 max-w-[160px] object-contain"
             />
-            <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1 text-gray-300">
-              <Upload className="w-5 h-5" />
-              <p className="text-[11px]">Sube la imagen en <a href="/admin/media" className="text-primary-cyan underline">Multimedia</a> y pega la URL arriba</p>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Favicon</label>
-            {settings.appearance.favicon_url && (
-              <img src={settings.appearance.favicon_url} alt="Favicon" className="h-8 w-8 object-contain mb-2 rounded border border-gray-100 bg-gray-50" />
-            )}
-            <Input
+            <SettingsImageField
+              layout="horizontal"
+              compact
+              label="Favicon"
+              hint="ICO o PNG cuadrado"
               value={settings.appearance.favicon_url}
-              onChange={(e) => updateAppearance('favicon_url', e.target.value)}
-              placeholder="URL del favicon (ICO o PNG 32×32)"
-              className="h-10 mb-2"
+              onChange={(url) => updateAppearance('favicon_url', url)}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml,.ico"
+              previewClassName="h-8 w-8 object-contain"
             />
-            <div className="border-2 border-dashed border-gray-100 rounded-xl p-3 flex items-center justify-center gap-2 text-gray-300">
-              <ImageIcon className="w-4 h-4" />
-              <p className="text-[11px]">Sube en <a href="/admin/media" className="text-primary-cyan underline">Multimedia</a> y pega la URL</p>
-            </div>
           </div>
           <div className="space-y-3 pt-2">
             <label className="text-xs text-gray-500 block">Redes sociales</label>
@@ -816,22 +733,15 @@ export default function ConfigPage() {
             />
             <p className="text-[10px] text-gray-300 mt-0.5">{settings.seo.meta_description.length}/160</p>
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Imagen OG (Open Graph)</label>
-            {settings.seo.og_image && (
-              <img src={settings.seo.og_image} alt="OG" className="h-16 object-cover mb-2 rounded-lg border border-gray-100 bg-gray-50 w-full" />
-            )}
-            <Input
-              value={settings.seo.og_image}
-              onChange={(e) => updateSeo('og_image', e.target.value)}
-              placeholder="URL de la imagen OG (1200×630)"
-              className="h-10 mb-2"
-            />
-            <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-300">
-              <ImageIcon className="w-4 h-4" />
-              <p className="text-[11px]">Sube en <a href="/admin/media" className="text-primary-cyan underline">Multimedia</a> y pega la URL · 1200×630 recomendado</p>
-            </div>
-          </div>
+          <SettingsImageField
+            layout="horizontal"
+            compact
+            label="Imagen OG (Open Graph)"
+            hint="1200×630 recomendado"
+            value={settings.seo.og_image}
+            onChange={(url) => updateSeo('og_image', url)}
+            previewClassName="h-16 w-full max-w-xs object-cover rounded-md"
+          />
         </div>
       </SectionCard>
 

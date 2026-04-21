@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowUpRight, Calendar, Copy, Filter, Plus, Search, Ticket, X } from 'lucide-react'
+import {
+  ArrowUpRight, Calendar, Copy, Filter, Plus, Search, Ticket, X,
+  Pencil, ClipboardList, Pause, Play,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -376,11 +379,21 @@ export default function CuponesPage() {
                     {c.computed_status === 'active' ? 'Activo' : c.computed_status === 'paused' ? 'Pausado' : c.computed_status === 'expired' ? 'Vencido' : 'Agotado'}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button size="sm" variant="outline" className="h-8" onClick={() => openEdit(c)}>Editar</Button>
-                  <Button size="sm" variant="outline" className="h-8" onClick={() => openDetail(c.id)}>Historial</Button>
-                  <Button size="sm" variant="outline" className="h-8" onClick={() => togglePaused(c)}>{c.is_paused ? 'Reactivar' : 'Pausar'}</Button>
-                  <Button size="sm" variant="outline" className="h-8" onClick={() => { navigator.clipboard.writeText(c.code); toast.success('Código copiado') }}><Copy className="h-3.5 w-3.5" /></Button>
+                <TableCell className="text-right">
+                  <div className="inline-flex items-center justify-end gap-1 flex-wrap">
+                    <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0" title="Editar cupón" aria-label="Editar cupón" onClick={() => openEdit(c)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0" title="Historial de uso" aria-label="Historial de uso" onClick={() => openDetail(c.id)}>
+                      <ClipboardList className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0" title={c.is_paused ? 'Reactivar' : 'Pausar'} aria-label={c.is_paused ? 'Reactivar' : 'Pausar'} onClick={() => togglePaused(c)}>
+                      {c.is_paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0" title="Copiar código" aria-label="Copiar código" onClick={() => { navigator.clipboard.writeText(c.code); toast.success('Código copiado') }}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
