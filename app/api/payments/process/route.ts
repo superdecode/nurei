@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sendOrderConfirmationEmails } from '@/lib/email/send-order-emails'
 
 type PaymentMethod = 'card' | 'oxxo' | 'transfer' | 'wallet'
+
+function notifyOrderEmails(
+  orderId: string,
+  method: PaymentMethod,
+  meta?: { reference?: string; expiresAt?: string; bank?: string }
+) {
+  let pendingPaymentNote: string | undefined
+  if (method === 'oxxo' && meta?.reference) {
+    const exp = meta.expiresAt
+      ? new Date(meta.expiresAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
+      : ''
+    pendingPaymentNote = `Paga en OXXO con la referencia ${meta.reference}.${exp ? ` Tienes hasta el ${exp}.` : ''} Cuando recibamos el pago, seguimos con tu pedido.`
+  }
+  if (method === 'transfer' && meta?.reference) {
+    pendingPaymentNote = `Transfiere usando la referencia ${meta.reference}.${meta.bank ? ` Datos: ${meta.bank}.` : ''} Te avisaremos al acreditar.`
+  }
+
+  void sendOrderConfirmationEmails(orderId, { pendingPaymentNote }).catch((err) =>
+    console.error('[email] notifyOrderEmails:', err)
+  )
+}
 
 function isCardExpired(expiry: string) {
   const parts = expiry.split('/')
@@ -104,6 +126,8 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      notifyOrderEmails(orderId, 'card')
+
       return NextResponse.json({
         data: {
           status: 'approved',
@@ -116,26 +140,36 @@ export async function POST(request: NextRequest) {
     }
 
     if (method === 'oxxo') {
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      const reference = `98${Date.now().toString().slice(-10)}`
+      notifyOrderEmails(orderId, 'oxxo', { reference, expiresAt })
+
       return NextResponse.json({
         data: {
           status: 'pending',
           method: 'oxxo',
-          reference: `98${Date.now().toString().slice(-10)}`,
-          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          reference,
+          expiresAt,
         },
       })
     }
 
     if (method === 'transfer') {
+      const reference = `TR-${orderId.slice(-6).toUpperCase()}`
+      const bank = 'Banco Nurei Demo'
+      notifyOrderEmails(orderId, 'transfer', { reference, bank })
+
       return NextResponse.json({
         data: {
           status: 'pending',
           method: 'transfer',
-          reference: `TR-${orderId.slice(-6).toUpperCase()}`,
-          bank: 'Banco Nurei Demo',
+          reference,
+          bank,
         },
       })
     }
+
+    notifyOrderEmails(orderId, 'wallet')
 
     return NextResponse.json({
       data: {

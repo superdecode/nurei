@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Package, BarChart3, LogOut, ShoppingBag, FolderTree,
   Image as ImageIcon, Settings, Menu, X, ChevronRight, Ticket,
-  Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff, Boxes, UserCheck,
+  Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff, Boxes, UserCheck, Share2,
 } from 'lucide-react'
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell'
 import { AdminTopBar } from '@/components/admin/AdminTopBar'
@@ -20,8 +20,7 @@ import { useSidebarStore, SIDEBAR_W_EXPANDED, SIDEBAR_W_COLLAPSED } from '@/lib/
 
 /** Pedidos badge: only brand-new orders awaiting confirmation/first processing step. */
 function countOpenOrdersFromStatusMap(counts: Record<string, number>): number {
-  const needsAttentionNow = ['paid', 'confirmed']
-  return needsAttentionNow.reduce((sum, status) => sum + (counts[status] ?? 0), 0)
+  return (counts.paid ?? 0) + (counts.confirmed ?? 0)
 }
 
 const NAV_ITEMS = [
@@ -32,6 +31,7 @@ const NAV_ITEMS = [
   { href: '/admin/categorias', label: 'Categorias', icon: FolderTree },
   { href: '/admin/media', label: 'Multimedia', icon: ImageIcon },
   { href: '/admin/cupones', label: 'Cupones', icon: Ticket },
+  { href: '/admin/affiliates', label: 'Afiliados', icon: Share2 },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/admin/clientes', label: 'Clientes', icon: UserCheck },
   { href: '/admin/usuarios', label: 'Usuarios', icon: Users },

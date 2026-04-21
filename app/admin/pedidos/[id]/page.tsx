@@ -82,7 +82,7 @@ function ElapsedTimeBadge({ createdAt }: { createdAt: string }) {
 
   return (
     <div className={cn(
-      'rounded-2xl border p-4 flex flex-col items-center gap-2 text-center',
+      'rounded-2xl border p-3 sm:p-4 flex flex-col items-center gap-2 text-center min-w-0 max-w-full',
       isUrgent ? 'bg-red-50 border-red-200' : isWarning ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'
     )}>
       <p className={cn(
@@ -92,7 +92,7 @@ function ElapsedTimeBadge({ createdAt }: { createdAt: string }) {
         Tiempo transcurrido
       </p>
       <p className={cn(
-        'font-mono text-2xl font-bold tabular-nums tracking-tight',
+        'font-mono text-lg sm:text-2xl font-bold tabular-nums tracking-tight max-w-full break-all sm:break-normal',
         isUrgent ? 'text-red-700' : isWarning ? 'text-amber-700' : 'text-emerald-700'
       )}>
         {h > 0 && <><span>{pad(h)}</span><span className="opacity-50 text-lg">h</span>{' '}</>}
@@ -333,19 +333,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
-
+      {/* Two-column: solo en pantallas amplias; min-w-0 evita desbordes con sidebar admin */}
+      <div className="grid min-w-0 grid-cols-1 gap-4 md:min-w-0 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         {/* LEFT — order details, client, address, payment */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4 overflow-hidden">
 
           {/* Products table + totals */}
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden min-w-0">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-900">Detalle del pedido</p>
               <span className="text-xs text-gray-400 tabular-nums">{items.length} {items.length === 1 ? 'producto' : 'productos'}</span>
             </div>
-            <Table>
+            <div className="overflow-x-auto overscroll-x-contain">
+            <Table className="w-full min-w-[500px]">
               <TableHeader>
                 <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                   <TableHead className="w-12" />
@@ -374,6 +374,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 ))}
               </TableBody>
             </Table>
+            </div>
             <div className="border-t border-gray-100 px-5 py-4 space-y-2">
               <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="tabular-nums">{formatPrice(order.subtotal)}</span></div>
               {order.discount > 0 && <div className="flex justify-between text-sm"><span className="text-gray-500">Descuento</span><span className="tabular-nums text-red-600">-{formatPrice(order.discount)}</span></div>}
@@ -461,10 +462,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* RIGHT — elapsed time + history + notes */}
-        <div className="space-y-4">
+        <div className="min-w-0 max-w-full space-y-4 xl:max-w-none">
 
           {/* Elapsed time badge */}
-          <ElapsedTimeBadge createdAt={order.created_at} />
+          <div className="max-w-full overflow-hidden">
+            <ElapsedTimeBadge createdAt={order.created_at} />
+          </div>
 
           {/* Activity history / timeline */}
           <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">

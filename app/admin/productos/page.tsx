@@ -79,8 +79,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 function SkeletonRow() {
   return (
     <TableRow className="border-b">
-      <TableCell><div className="w-4 h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
-      <TableCell><div className="w-12 h-12 bg-gray-100 rounded-lg animate-pulse" /></TableCell>
+      <TableCell className="py-2 pl-6 pr-2"><div className="w-4 h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
+      <TableCell className="py-2 pl-2 pr-4"><div className="w-12 h-12 bg-gray-100 rounded-lg animate-pulse" /></TableCell>
       <TableCell><div className="w-32 h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
       <TableCell><div className="w-16 h-4 bg-gray-100 rounded-full animate-pulse" /></TableCell>
       <TableCell><div className="w-16 h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
@@ -512,7 +512,7 @@ export default function ProductosAdminPage() {
       <button
         onClick={() => handleSort(field)}
         className={cn(
-          'flex items-center gap-1 text-xs font-semibold uppercase tracking-wider transition-colors',
+          'flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors',
           active ? 'text-primary' : 'text-gray-500 hover:text-gray-700'
         )}
       >
@@ -748,7 +748,7 @@ export default function ProductosAdminPage() {
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                      <TableHead className="w-[4%] min-w-0 p-1">
+                      <TableHead className="w-[4%] min-w-0 py-2 pl-6 pr-2">
                         <button
                           onClick={toggleSelectAll}
                           className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
@@ -758,21 +758,21 @@ export default function ProductosAdminPage() {
                           {allVisibleSelected && <Check className="w-3 h-3 text-gray-900" />}
                         </button>
                       </TableHead>
-                      <TableHead className="w-[6%] min-w-0 p-1" />
-                      <TableHead className="w-[26%] min-w-0 whitespace-normal p-1.5">
+                      <TableHead className="w-[6%] min-w-0 py-2 pl-2 pr-4" />
+                      <TableHead className="w-[26%] min-w-0 whitespace-normal p-1.5 text-[10px]">
                         <SortHeader field="name">Nombre</SortHeader>
                       </TableHead>
-                      <TableHead className="w-[13%] min-w-0 whitespace-normal p-1.5">
+                      <TableHead className="w-[13%] min-w-0 whitespace-normal p-1.5 text-[10px]">
                         <SortHeader field="category">Categoria</SortHeader>
                       </TableHead>
-                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5">
+                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-[10px]">
                         <SortHeader field="price">Precio</SortHeader>
                       </TableHead>
-                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5">
+                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-[10px]">
                         <SortHeader field="status">Estado</SortHeader>
                       </TableHead>
-                      <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-center">Stock</TableHead>
-                      <TableHead className="w-[19%] min-w-0 whitespace-normal p-1.5 text-right">Acciones</TableHead>
+                      <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">Stock</TableHead>
+                      <TableHead className="w-[19%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -794,7 +794,7 @@ export default function ProductosAdminPage() {
                             )}
                             onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
                           >
-                            <TableCell className="min-w-0 p-1" onClick={(e) => e.stopPropagation()}>
+                            <TableCell className="min-w-0 py-2 pl-6 pr-2" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => toggleSelect(product.id)}
                                 className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
@@ -804,7 +804,7 @@ export default function ProductosAdminPage() {
                                 {selectedIds.has(product.id) && <Check className="w-3 h-3 text-primary-dark" />}
                               </button>
                             </TableCell>
-                            <TableCell className="min-w-0 p-1">
+                            <TableCell className="min-w-0 py-2 pl-2 pr-4">
                               <div className="mx-auto h-11 w-11 max-w-full rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
                                 {product.images?.[product.primary_image_index ?? 0] ? (
                                   <img src={product.images[product.primary_image_index ?? 0]} alt={product.name} className="w-full h-full object-cover" />

@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice } from '@/lib/utils/format'
+import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { SPICE_LABELS } from '@/lib/utils/constants'
 import type { Product } from '@/types'
 
@@ -188,9 +189,9 @@ export function ProductCard({ product }: ProductCardProps) {
                 </span>
               </div>
             )}
-            {product.unit_of_measure && (
-              <span className="text-[10px] font-bold text-gray-400 uppercase">{product.unit_of_measure}</span>
-            )}
+            <span className="text-[10px] font-bold text-gray-400 uppercase tabular-nums">
+              {formatProductPresentation(product)}
+            </span>
           </div>
 
           {/* Price + CTA */}

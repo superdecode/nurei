@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -37,7 +38,7 @@ import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 
 // ── Status-aware primary action label ───────────────────────────────────
 const STATUS_PRIMARY_ACTION: Partial<Record<OrderStatus, string>> = {
-  paid: 'Confirmar pedido',
+  paid: 'Aceptar pedido',
   preparing: 'Marcar en camino',
   shipped: 'Marcar entregado',
 }
@@ -83,8 +84,8 @@ const ALL_STATUSES: OrderStatus[] = [
 const STATUS_TABS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'all', label: 'Todos' },
   { key: 'pending_payment', label: 'Pendiente pago' },
-  { key: 'paid', label: 'Por procesar' },
-  { key: 'preparing', label: 'Preparando' },
+  { key: 'paid', label: 'Pendiente' },
+  { key: 'preparing', label: 'Procesando' },
   { key: 'shipped', label: 'En camino' },
   { key: 'delivered', label: 'Entregado' },
   { key: 'cancelled', label: 'Cancelado' },
@@ -203,7 +204,7 @@ export default function PedidosAdminPage() {
 
   const fetchCounts = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/orders/counts')
+      const res = await fetchWithCredentials('/api/admin/orders/counts')
       const json = await res.json() as { data?: Record<string, number> }
       if (json.data) setStatusCounts(json.data)
     } catch { /* silent */ }
@@ -227,7 +228,7 @@ export default function PedidosAdminPage() {
   const SortHeader = ({ col, children }: { col: string; children: React.ReactNode }) => {
     const active = sortBy === col
     return (
-      <button type="button" onClick={() => toggleSort(col)} className={cn('flex items-center gap-1 text-xs font-semibold uppercase tracking-wide', active ? 'text-primary-cyan' : 'text-gray-500 hover:text-gray-700')}>
+      <button type="button" onClick={() => toggleSort(col)} className={cn('flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider', active ? 'text-primary-cyan' : 'text-gray-500 hover:text-gray-700')}>
         {children}
         {active ? (sortDir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />) : null}
       </button>
@@ -433,7 +434,11 @@ export default function PedidosAdminPage() {
         {STATUS_TABS.map((tab) => {
           const count = tab.key === 'all'
             ? Object.values(statusCounts).reduce((a, b) => a + b, 0)
-            : statusCounts[tab.key] ?? 0
+            : tab.key === 'paid'
+              ? (statusCounts.paid ?? 0) + (statusCounts.confirmed ?? 0)
+              : tab.key === 'pending_payment'
+                ? (statusCounts.pending ?? 0)
+              : statusCounts[tab.key] ?? 0
           const active = statusFilter === (tab.key === 'all' ? '' : tab.key)
           const m = tab.key !== 'all' ? statusMeta(tab.key as OrderStatus) : null
           return (
@@ -592,18 +597,18 @@ export default function PedidosAdminPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-              <TableHead className="w-10">
+              <TableHead className="w-10 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 <button type="button" onClick={toggleSelectAll} className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors', allPageSelected ? 'bg-primary-cyan border-primary-cyan' : 'border-gray-300 hover:border-gray-400')}>
                   {allPageSelected && <Check className="w-3 h-3 text-primary-dark" />}
                 </button>
               </TableHead>
-              <TableHead><SortHeader col="short_id">Orden</SortHeader></TableHead>
-              <TableHead><SortHeader col="created_at">Fecha</SortHeader></TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500"><SortHeader col="short_id">Orden</SortHeader></TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500"><SortHeader col="created_at">Fecha</SortHeader></TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Cliente</TableHead>
-              <TableHead><SortHeader col="total">Total</SortHeader></TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pago</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Estatus</TableHead>
-              <TableHead className="w-20 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500"><SortHeader col="total">Total</SortHeader></TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pago</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Estatus</TableHead>
+              <TableHead className="w-20 text-right text-[10px] font-bold uppercase tracking-wider text-gray-500">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

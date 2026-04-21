@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 
 interface AdminUser {
   id: string
@@ -27,10 +28,9 @@ export const useAdminAuthStore = create<AdminAuthStore>()(
 
       login: async (email, password) => {
         try {
-          const res = await fetch('/api/auth/admin-login', {
+          const res = await fetchWithCredentials('/api/auth/admin-login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({ email, password }),
           })
           const json = await res.json()
@@ -49,14 +49,14 @@ export const useAdminAuthStore = create<AdminAuthStore>()(
 
       logout: async () => {
         try {
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+          await fetchWithCredentials('/api/auth/logout', { method: 'POST' })
         } catch { /* ignore */ }
         set({ user: null, isAuthenticated: false, isLoading: false })
       },
 
       checkSession: async () => {
         try {
-          const res = await fetch('/api/auth/me', { credentials: 'include' })
+          const res = await fetchWithCredentials('/api/auth/me')
           if (!res.ok) {
             set({ user: null, isAuthenticated: false, isLoading: false })
             return

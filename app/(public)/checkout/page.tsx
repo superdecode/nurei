@@ -64,7 +64,6 @@ type LocationOption = {
 type CouponState = {
   appliedCode: string | null
   discountAmount: number
-  freeShipping: boolean
   loading: boolean
   error: string | null
 }
@@ -196,7 +195,6 @@ export default function CheckoutPage() {
   const [couponState, setCouponState] = useState<CouponState>({
     appliedCode: null,
     discountAmount: 0,
-    freeShipping: false,
     loading: false,
     error: null,
   })
@@ -264,7 +262,7 @@ export default function CheckoutPage() {
 
   const selectedMethod = shippingMethods.find((method) => method.id === selectedShippingMethod)
   const shippingFee = selectedMethod?.price ?? 0
-  const effectiveCouponDiscount = couponState.freeShipping ? shippingFee : couponState.discountAmount
+  const effectiveCouponDiscount = couponState.discountAmount
   const total = Math.max(0, subtotal + shippingFee - effectiveCouponDiscount)
 
   const processingCopy =
@@ -400,6 +398,15 @@ export default function CheckoutPage() {
           code: couponInput.trim().toUpperCase(),
           subtotal,
           shippingFee: selectedMethod?.price ?? shippingMethods[0]?.price ?? 0,
+          customerEmail: shippingForm.email || undefined,
+          customerPhone: shippingForm.phone || undefined,
+          items: items.map((item) => ({
+            product_id: item.product.id,
+            quantity: item.quantity,
+            unit_price: item.product.price,
+            subtotal: item.product.price * item.quantity,
+            category: item.product.category,
+          })),
         }),
       })
 
@@ -416,7 +423,6 @@ export default function CheckoutPage() {
       setCouponState({
         appliedCode: payload.code,
         discountAmount: payload.discount_amount ?? 0,
-        freeShipping: Boolean(payload.free_shipping),
         loading: false,
         error: null,
       })
@@ -435,7 +441,6 @@ export default function CheckoutPage() {
     setCouponState({
       appliedCode: null,
       discountAmount: 0,
-      freeShipping: false,
       loading: false,
       error: null,
     })
@@ -824,7 +829,7 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 lg:space-y-2">
                     {items.map((item, idx) => {
                       const lowStock = item.product.stock_quantity <= item.product.low_stock_threshold + 2
                       const productSubtotal = item.product.price * item.quantity
@@ -833,11 +838,11 @@ export default function CheckoutPage() {
                       return (
                         <div
                           key={item.product.id}
-                          className="rounded-2xl border border-gray-200 p-4 checkout-stagger-in"
+                          className="rounded-2xl border border-gray-200 p-4 lg:p-3 checkout-stagger-in"
                           style={{ animationDelay: `${idx * 80}ms` }}
                         >
-                          <div className="flex gap-3">
-                            <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-2xl">
+                          <div className="flex gap-3 lg:gap-2.5">
+                            <div className="w-16 h-16 lg:w-[52px] lg:h-[52px] shrink-0 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-2xl lg:text-xl">
                               {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
                                 <Image
                                   src={item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
@@ -853,8 +858,8 @@ export default function CheckoutPage() {
                             </div>
 
                             <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-semibold text-primary-dark truncate">{item.product.name}</p>
+                              <div className="flex flex-wrap items-center gap-2 lg:gap-1.5">
+                                <p className="font-semibold text-primary-dark truncate text-[15px] lg:text-sm leading-tight">{item.product.name}</p>
                                 {lowStock && (
                                   <span className="text-[10px] uppercase tracking-wide font-bold rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-red-600">
                                     Últimas unidades
@@ -864,25 +869,25 @@ export default function CheckoutPage() {
                                   {viewers} viendo ahora
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs text-gray-500 mt-1 lg:mt-0.5 leading-snug">
                                 {formatPrice(item.product.price)} c/u · Subtotal {formatPrice(productSubtotal)}
                               </p>
 
-                              <div className="flex items-center justify-between mt-3">
-                                <div className="inline-flex items-center gap-1 rounded-xl border border-gray-200 p-1">
+                              <div className="flex items-center justify-between mt-3 lg:mt-2">
+                                <div className="inline-flex items-center gap-1 rounded-xl border border-gray-200 p-0.5 lg:p-0.5">
                                   <button
                                     type="button"
                                     onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                                    className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+                                    className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
                                     aria-label="Restar"
                                   >
                                     <Minus className="w-4 h-4" />
                                   </button>
-                                  <span className="w-8 text-center font-semibold">{item.quantity}</span>
+                                  <span className="w-8 lg:w-7 text-center font-semibold text-sm lg:text-xs">{item.quantity}</span>
                                   <button
                                     type="button"
                                     onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                                    className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+                                    className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
                                     aria-label="Sumar"
                                   >
                                     <Plus className="w-4 h-4" />
@@ -1405,15 +1410,15 @@ export default function CheckoutPage() {
 
           {activeStep < 4 && (
             <aside className="lg:col-span-2 hidden lg:block">
-              <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-5">
-                <p className="text-sm font-semibold text-primary-dark mb-3 inline-flex items-center gap-2">
+              <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-5 lg:p-4">
+                <p className="text-sm font-semibold text-primary-dark mb-2 lg:mb-2 inline-flex items-center gap-2">
                   <Package className="w-4 h-4 text-primary-cyan" />
                   Resumen del pedido
                 </p>
 
-                <div className="space-y-2 max-h-52 overflow-auto pr-1">
+                <div className="space-y-1.5 max-h-52 lg:max-h-64 overflow-auto pr-1">
                   {items.map((item) => (
-                    <div key={item.product.id} className="flex items-start justify-between gap-2 text-sm">
+                    <div key={item.product.id} className="flex items-start justify-between gap-2 text-xs lg:text-[13px] leading-snug">
                       <p className="text-gray-600">
                         {item.quantity} × {item.product.name}
                       </p>
@@ -1422,7 +1427,7 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 border-t border-gray-200 pt-3 text-sm space-y-2">
+                <div className="mt-3 lg:mt-3 border-t border-gray-200 pt-3 text-sm space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-500">Subtotal</span>
                     <span className="font-medium">{formatPrice(subtotal)}</span>
@@ -1444,12 +1449,12 @@ export default function CheckoutPage() {
                 </div>
 
                 {subtotal < FREE_SHIPPING_THRESHOLD && (
-                  <p className="text-xs text-gray-500 mt-3">
-                    Te faltan{' '}
+                  <p className="text-[11px] lg:text-xs text-gray-500 mt-2 leading-tight">
+                    Faltan{' '}
                     <span className="font-semibold text-primary-dark">
                       {formatPrice(FREE_SHIPPING_THRESHOLD - subtotal)}
                     </span>{' '}
-                    para envío estándar gratis.
+                    para envío gratis.
                   </p>
                 )}
 

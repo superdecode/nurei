@@ -62,7 +62,8 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
 
           <div
             ref={scrollRef}
-            className="flex gap-2 overflow-x-auto scrollbar-none py-3 sm:py-4 px-1"
+            className="flex flex-nowrap gap-2 overflow-x-auto py-3 sm:py-4 px-1"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {categories.map((cat) => {
               const isActive = selected === cat.value

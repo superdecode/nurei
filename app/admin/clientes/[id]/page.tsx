@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Mail, Phone, MessageCircle, Building2, MapPin, Plus,
+  ArrowLeft, Mail, Phone, MessageCircle, Building2, MapPin, Plus, User,
   ShoppingBag, DollarSign, Calendar, Edit2, Loader2, Trash2, Pin,
   MessageSquare, Phone as PhoneCall, AlertCircle, ThumbsUp, Send,
   Crown, UserCheck, Tag as TagIcon, StickyNote,
@@ -331,6 +331,15 @@ export default function ClienteDetailPage({
         {/* Left column: contact + addresses */}
         <div className="space-y-4">
           <Card title="Contacto">
+            <div className="flex items-start gap-3 pb-3 mb-3 border-b border-gray-100">
+              <User className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Nombre</p>
+                <p className="text-sm font-semibold text-primary-dark truncate">
+                  {customerDisplayName(customer)}
+                </p>
+              </div>
+            </div>
             <InfoRow icon={Mail} label="Email" value={customer.email} href={customer.email ? `mailto:${customer.email}` : undefined} />
             <InfoRow icon={Phone} label="Teléfono" value={customer.phone} href={customer.phone ? `tel:${customer.phone}` : undefined} />
             <InfoRow icon={MessageCircle} label="WhatsApp" value={customer.whatsapp} href={customer.whatsapp ? `https://wa.me/${customer.whatsapp.replace(/\D/g, '')}` : undefined} />
@@ -403,11 +412,28 @@ export default function ClienteDetailPage({
             )}
           </Card>
 
-          <Card title="Marketing & permisos">
-            <PermissionRow label="Marketing general" active={customer.accepts_marketing} />
-            <PermissionRow label="Email marketing" active={customer.accepts_email_marketing} />
-            <PermissionRow label="SMS marketing" active={customer.accepts_sms_marketing} />
-            <PermissionRow label="WhatsApp marketing" active={customer.accepts_whatsapp_marketing} />
+          <Card title="Comunicaciones">
+            <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+              <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                Autorización para recibir novedades y ofertas por correo y WhatsApp (según los datos de contacto registrados).
+              </p>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-gray-800">Comunicaciones comerciales</span>
+                <span
+                  className={cn(
+                    'text-[11px] font-semibold px-3 py-1 rounded-full',
+                    customer.accepts_marketing
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                      : 'bg-gray-100 text-gray-500 border border-gray-200'
+                  )}
+                >
+                  {customer.accepts_marketing ? 'Autorizado' : 'No autorizado'}
+                </span>
+              </div>
+              {!customer.accepts_marketing && (
+                <p className="text-[11px] text-gray-400 mt-2">No incluye SMS.</p>
+              )}
+            </div>
           </Card>
         </div>
 

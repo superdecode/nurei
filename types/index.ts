@@ -20,7 +20,9 @@ export type OrderStatus =
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 
-export type CouponType = 'percentage' | 'fixed'
+export type CouponType = 'percentage' | 'fixed' | 'conditional'
+export type CouponScopeType = 'global' | 'categories' | 'products'
+export type CouponStatus = 'active' | 'paused' | 'expired' | 'exhausted'
 
 export type NotificationType = 'order_confirmed' | 'order_shipped' | 'order_delivered' | 'payment_failed' | 'coupon_received' | 'general'
 
@@ -29,16 +31,94 @@ export type StockStatus = 'available' | 'low_stock' | 'out_of_stock'
 
 export type UnitOfMeasure = 'ml' | 'g' | 'kg' | 'L' | 'oz' | 'units' | 'box' | 'pack'
 
-export type UserRole = 'customer' | 'admin'
+export type UserRole = 'customer' | 'admin' | 'affiliate'
 
 export type PermissionLevel = 'total' | 'escritura' | 'lectura' | 'sin_acceso'
 
 export type AdminModule =
   | 'dashboard' | 'pedidos' | 'productos' | 'categorias'
   | 'inventario' | 'cupones' | 'multimedia' | 'clientes'
-  | 'usuarios' | 'roles' | 'configuracion' | 'analytics' | 'pagos'
+  | 'usuarios' | 'roles' | 'configuracion' | 'analytics' | 'pagos' | 'afiliados'
 
 export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste' | 'venta' | 'devolucion'
+
+// ─── AFFILIATE ────────────────────────────────────────────────────────────────
+
+export type AffiliateAttributionType = 'coupon' | 'cookie'
+export type AffiliatePayoutStatus = 'pending' | 'paid'
+
+export interface AffiliateProfile {
+  id: string
+  handle: string
+  bio: string | null
+  commission_coupon_pct: number
+  commission_cookie_pct: number
+  total_earned_cents: number
+  pending_payout_cents: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ReferralLink {
+  id: string
+  affiliate_id: string
+  slug: string
+  clicks_count: number
+  created_at: string
+}
+
+export interface ReferralClick {
+  id: string
+  referral_link_id: string
+  session_id: string
+  ip_hash: string | null
+  converted: boolean
+  order_id: string | null
+  clicked_at: string
+}
+
+export interface AffiliateAttribution {
+  id: string
+  order_id: string
+  affiliate_id: string
+  attribution_type: AffiliateAttributionType
+  coupon_id: string | null
+  commission_pct: number
+  commission_amount_cents: number
+  payout_status: AffiliatePayoutStatus
+  paid_at: string | null
+  created_at: string
+}
+
+export interface CommissionPayment {
+  id: string
+  affiliate_id: string
+  amount_cents: number
+  period_from: string
+  period_to: string
+  attribution_ids: string[]
+  notes: string | null
+  paid_by: string | null
+  paid_at: string
+}
+
+export interface AffiliateWithStats extends AffiliateProfile {
+  email: string
+  referral_slug: string | null
+  orders_this_month: number
+  coupon_code: string | null
+}
+
+export interface AffiliateDashboardStats {
+  total_earned_cents: number
+  pending_payout_cents: number
+  total_orders: number
+  total_clicks: number
+  conversion_rate: number
+  weekly_sales: { week: string; amount_cents: number; orders: number }[]
+  top_products: { product_name: string; units: number }[]
+}
 
 export interface Product {
   id: string
@@ -143,6 +223,7 @@ export interface Order {
   shipping_fee: number
   coupon_code: string | null
   coupon_discount: number
+  coupon_snapshot?: Record<string, unknown> | null
   discount: number
   tax?: number
   total: number
@@ -180,16 +261,40 @@ export interface OrderUpdate {
 export interface Coupon {
   id: string
   code: string
+  affiliate_id?: string | null
+  affiliate_handle?: string | null
   type: CouponType
   value: number // percentage (0-100) or fixed amount in centavos
+  conditional_type?: 'percentage' | 'fixed' | null
+  conditional_threshold?: number | null
+  scope_type?: CouponScopeType
+  scope_category_slugs?: string[]
+  scope_product_ids?: string[]
+  customer_tags?: string[]
+  starts_at?: string | null
   min_order_amount: number
   max_uses: number | null
+  max_uses_per_customer?: number | null
   used_count: number
   expires_at: string | null
   is_active: boolean
+  is_paused?: boolean
+  computed_status?: CouponStatus
   description: string | null
   created_at: string
   updated_at: string
+}
+
+export interface CouponUsage {
+  id: string
+  coupon_id: string
+  order_id: string | null
+  customer_id: string | null
+  customer_email: string | null
+  customer_phone: string | null
+  discount_amount: number
+  applied_snapshot: Record<string, unknown>
+  created_at: string
 }
 
 export interface Favorite {
@@ -416,6 +521,7 @@ export interface Customer {
   addresses?: CustomerAddress[]
   notes?: CustomerNote[]
   recent_orders?: Order[]
+  is_affiliate?: boolean
 }
 
 export interface CustomerAddress {

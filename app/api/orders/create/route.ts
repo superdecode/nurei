@@ -1,65 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { saveCheckoutOrder } from '@/lib/server/checkout-session-store'
 import { createInventoryMovement } from '@/lib/supabase/queries/inventory'
-
-const createOrderPayloadSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        product_id: z.string().min(1),
-        quantity: z.number().int().min(1).max(20),
-      })
-    )
-    .min(1),
-  coupon_code: z.string().optional(),
-  customer: z.object({
-    full_name: z.string().min(3),
-    email: z.string().email(),
-    phone: z.string().min(8),
-  }),
-  shipping: z.object({
-    address: z.string().min(6),
-    city: z.string().min(2),
-    state: z.string().min(2),
-    zip_code: z.string().min(4),
-    country: z.string().min(2),
-    method_id: z.enum(['standard', 'express', 'same_day']),
-    method_label: z.string().min(2),
-    fee: z.number().min(0),
-    eta_label: z.string().min(2),
-    estimated_date: z.string().min(8),
-  }),
-  payment_method: z.enum(['card', 'oxxo', 'transfer', 'wallet']),
-})
-
-const COUPON_RULES = {
-  BIENVENIDO10: { type: 'percentage', value: 10, min: 20000 },
-  NUREI150: { type: 'fixed', value: 15000, min: 50000 },
-  ENVIOGRATIS: { type: 'free_shipping', value: 0, min: 30000 },
-} as const
-
-function applyCoupon(
-  couponCode: string | undefined,
-  subtotal: number,
-  shippingFee: number
-) {
-  if (!couponCode) return { code: null, discount: 0 }
-
-  const normalized = couponCode.trim().toUpperCase()
-  const rule = COUPON_RULES[normalized as keyof typeof COUPON_RULES]
-
-  if (!rule || subtotal < rule.min) return { code: null, discount: 0 }
-  if (rule.type === 'percentage') {
-    return { code: normalized, discount: Math.round(subtotal * (rule.value / 100)) }
-  }
-  if (rule.type === 'fixed') {
-    return { code: normalized, discount: rule.value }
-  }
-
-  return { code: normalized, discount: shippingFee }
-}
+import {
+  createOrderPayloadSchema,
+  formatCreateOrderPayloadErrors,
+} from '@/lib/validations/order-create-payload'
+import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,7 +14,10 @@ export async function POST(request: NextRequest) {
     const parsed = createOrderPayloadSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Datos del pedido inválidos', details: parsed.error.flatten() },
+        {
+          error: formatCreateOrderPayloadErrors(parsed.error),
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       )
     }
@@ -81,6 +31,7 @@ export async function POST(request: NextRequest) {
           name: string
           price: number
           base_price: number | null
+          category: string
           stock_quantity: number
           track_inventory: boolean
           allow_backorder: boolean
@@ -94,7 +45,7 @@ export async function POST(request: NextRequest) {
       const service = createServiceClient()
       const { data } = await service
         .from('products')
-        .select('id, name, price, base_price, stock_quantity, track_inventory, allow_backorder, is_active, status')
+        .select('id, name, price, base_price, category, stock_quantity, track_inventory, allow_backorder, is_active, status')
         .in('id', productIds)
 
       dbProducts = data ?? null
@@ -120,6 +71,7 @@ export async function POST(request: NextRequest) {
     const orderItems: Array<{
       productId: string
       name: string
+      category: string
       quantity: number
       unitPrice: number
       subtotal: number
@@ -157,6 +109,7 @@ export async function POST(request: NextRequest) {
       orderItems.push({
         productId: product.id,
         name: product.name,
+        category: product.category,
         quantity: line.quantity,
         unitPrice,
         subtotal: lineSubtotal,
@@ -174,8 +127,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const couponResult = applyCoupon(payload.coupon_code, subtotal, payload.shipping.fee)
-    const total = Math.max(0, subtotal + payload.shipping.fee - couponResult.discount)
+    let couponCode: string | null = null
+    let couponDiscount = 0
+    let couponId: string | null = null
+    let couponSnapshot: Record<string, unknown> | null = null
+    if (payload.coupon_code) {
+      const result = await validateCoupon({
+        code: payload.coupon_code,
+        subtotal,
+        shippingFee: payload.shipping.fee,
+        customerEmail: payload.customer.email ?? null,
+        customerPhone: payload.customer.phone ?? null,
+        items: orderItems.map((item) => ({
+          product_id: item.productId,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          subtotal: item.subtotal,
+          category: item.category,
+        })),
+      })
+      if (!result.valid) {
+        return NextResponse.json({ error: result.reason }, { status: result.status })
+      }
+      couponCode = result.code
+      couponDiscount = result.discountAmount
+      couponId = result.couponId
+      couponSnapshot = result.snapshot
+    }
+
+    const total = Math.max(0, subtotal + payload.shipping.fee - couponDiscount)
     const shortId = `NUR-${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`
 
     let createdOrderId: string | null = null
@@ -186,7 +166,7 @@ export async function POST(request: NextRequest) {
         data: { user },
       } = await supabase.auth.getUser()
 
-      const { data: order } = await supabase
+      const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           short_id: shortId,
@@ -204,8 +184,9 @@ export async function POST(request: NextRequest) {
           })),
           subtotal,
           shipping_fee: payload.shipping.fee,
-          coupon_code: couponResult.code,
-          coupon_discount: couponResult.discount,
+          coupon_code: couponCode,
+          coupon_discount: couponDiscount,
+          coupon_snapshot: couponSnapshot,
           discount: 0,
           total,
           status: 'pending',
@@ -216,6 +197,17 @@ export async function POST(request: NextRequest) {
         .single()
 
       createdOrderId = order?.id ?? null
+
+      if (!orderError && createdOrderId && couponId && couponCode) {
+        await registerCouponUsage({
+          couponId,
+          orderId: createdOrderId,
+          customerEmail: payload.customer.email ?? null,
+          customerPhone: payload.customer.phone ?? null,
+          discountAmount: couponDiscount,
+          snapshot: couponSnapshot ?? { code: couponCode },
+        })
+      }
 
       for (const item of orderItems) {
         const productDb = dbProducts.find((entry) => entry.id === item.productId)
@@ -261,8 +253,8 @@ export async function POST(request: NextRequest) {
       },
       paymentMethod: payload.payment_method,
       items: orderItems,
-      couponCode: couponResult.code,
-      couponDiscount: couponResult.discount,
+      couponCode,
+      couponDiscount,
       subtotal,
       total,
     })
@@ -273,7 +265,8 @@ export async function POST(request: NextRequest) {
         short_id: shortId,
         subtotal,
         shipping_fee: payload.shipping.fee,
-        coupon_discount: couponResult.discount,
+        coupon_discount: couponDiscount,
+        coupon_snapshot: couponSnapshot,
         total,
       },
     })

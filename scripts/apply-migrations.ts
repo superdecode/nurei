@@ -28,6 +28,12 @@ const PENDING_MIGRATIONS = [
   '006_customers.sql',
   '007_products_shipping_weight.sql',
   '008_categories_position.sql',
+  '011_set_updated_at_function.sql',
+  '012_affiliate_role.sql',
+  '013_affiliate_tables.sql',
+  '015_affiliate_rls.sql',
+  '017_affiliate_payment_notif.sql',
+  '018_affiliate_phone_name.sql',
 ]
 
 async function runSql(query: string, label: string): Promise<void> {

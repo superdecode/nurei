@@ -3,6 +3,7 @@ import { createOrderSchema } from '@/lib/validations/order'
 import { calculateShippingFee } from '@/lib/utils/calculations'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { getUserOrders } from '@/lib/supabase/queries/userOrders'
+import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
 
 // ─── GET: user's order history ───────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -74,29 +75,31 @@ export async function POST(request: NextRequest) {
     const shippingFee = calculateShippingFee(subtotal)
     let couponDiscount = 0
     let validatedCouponCode: string | null = null
+    let validatedCouponId: string | null = null
+    let couponSnapshot: Record<string, unknown> | null = null
 
-    // Validate coupon if provided
+    // Validate coupon if provided (server-side robust validator)
     if (coupon_code) {
-      const supabase = await createServerSupabaseClient()
-      const { data: coupon } = await supabase
-        .from('coupons')
-        .select('*')
-        .ilike('code', coupon_code)
-        .eq('is_active', true)
-        .single()
-
-      if (coupon && subtotal >= coupon.min_order_amount) {
-        const now = new Date()
-        const notExpired = !coupon.expires_at || new Date(coupon.expires_at) > now
-        const notExhausted = !coupon.max_uses || coupon.used_count < coupon.max_uses
-
-        if (notExpired && notExhausted) {
-          couponDiscount = coupon.type === 'percentage'
-            ? Math.round(subtotal * (coupon.value / 100))
-            : coupon.value
-          validatedCouponCode = coupon.code
-        }
+      const result = await validateCoupon({
+        code: coupon_code,
+        subtotal,
+        shippingFee,
+        customerEmail: customer_email ?? null,
+        customerPhone: customer_phone,
+        items: orderItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.subtotal,
+        })),
+      })
+      if (!result.valid) {
+        return NextResponse.json({ error: result.reason }, { status: result.status })
       }
+      couponDiscount = result.discountAmount
+      validatedCouponCode = result.code
+      validatedCouponId = result.couponId
+      couponSnapshot = result.snapshot
     }
 
     const total = subtotal + shippingFee - couponDiscount
@@ -124,6 +127,7 @@ export async function POST(request: NextRequest) {
           shipping_fee: shippingFee,
           coupon_code: validatedCouponCode,
           coupon_discount: couponDiscount,
+          coupon_snapshot: couponSnapshot,
           discount: 0,
           total,
           status: 'pending',
@@ -134,11 +138,16 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (!error && order) {
-        // Increment coupon use count if used
-        if (validatedCouponCode) {
-          try {
-            await supabase.rpc('increment_coupon_use', { p_code: validatedCouponCode })
-          } catch { /* non-critical */ }
+        // Register coupon use if used
+        if (validatedCouponCode && validatedCouponId) {
+          await registerCouponUsage({
+            couponId: validatedCouponId,
+            orderId: order.id,
+            customerEmail: customer_email ?? null,
+            customerPhone: customer_phone,
+            discountAmount: couponDiscount,
+            snapshot: couponSnapshot ?? { code: validatedCouponCode },
+          })
         }
 
         // Log initial status

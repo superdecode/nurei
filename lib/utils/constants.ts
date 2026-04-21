@@ -24,27 +24,27 @@ export interface StatusMeta {
 
 export const ORDER_STATUS_MAP: Record<OrderStatus, StatusMeta> = {
   pending_payment: { label: 'Pendiente de pago', color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-300', icon: '⏳' },
-  paid:            { label: 'Por procesar',      color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '💳' },
-  preparing:       { label: 'En preparación',    color: 'text-indigo-700', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-300', icon: '📦' },
+  paid:            { label: 'Pendiente',         color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '💳' },
+  preparing:       { label: 'Procesando',        color: 'text-indigo-700', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-300', icon: '📦' },
   ready_to_ship:   { label: 'En camino',         color: 'text-sky-700',    bgColor: 'bg-sky-50',    borderColor: 'border-sky-300', icon: '🚚' }, // legacy compat
   shipped:         { label: 'En camino',          color: 'text-sky-700',    bgColor: 'bg-sky-50',    borderColor: 'border-sky-300', icon: '📦' },
   delivered:       { label: 'Entregado',          color: 'text-emerald-700',bgColor: 'bg-emerald-50',borderColor: 'border-emerald-300', icon: '✅' },
   cancelled:       { label: 'Cancelado',          color: 'text-red-700',    bgColor: 'bg-red-50',    borderColor: 'border-red-300', icon: '❌' },
   refunded:        { label: 'Reembolsado',        color: 'text-gray-600',   bgColor: 'bg-gray-50',   borderColor: 'border-gray-300', icon: '↩️' },
   // Legacy compat
-  pending:   { label: 'Procesando',   color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-300', icon: '⏳' },
-  confirmed: { label: 'Confirmado',   color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '✅' },
+  pending:   { label: 'Pendiente',    color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '⏳' },
+  confirmed: { label: 'Pendiente',    color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '✅' },
   failed:    { label: 'Fallido',      color: 'text-red-700',    bgColor: 'bg-red-50',    borderColor: 'border-red-300', icon: '⚠️' },
 }
 
 export const VALID_STATUS_TRANSITIONS: Record<string, OrderStatus[]> = {
   pending_payment: ['paid', 'cancelled'],
-  paid:            ['preparing', 'cancelled', 'refunded'],
+  paid:            ['preparing', 'cancelled'],
   preparing:       ['shipped', 'cancelled'],
   ready_to_ship:   ['shipped', 'cancelled'], // legacy compat
-  shipped:         ['delivered'],
+  shipped:         ['delivered', 'cancelled'],
   delivered:       ['refunded'],
-  cancelled:       [],
+  cancelled:       ['refunded'],
   refunded:        [],
   // Legacy
   pending:   ['confirmed', 'cancelled'],

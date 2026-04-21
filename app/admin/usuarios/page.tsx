@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, Shield, Plus, Search, Edit2, Trash2, ToggleLeft, ToggleRight,
   LayoutDashboard, ShoppingCart, Package, FolderTree, Warehouse, Ticket,
-  Image, UserCheck, UserCog, Lock, Settings, BarChart3, CreditCard, X, Check,
+  Image, UserCheck, UserCog, Lock, Settings, BarChart3, CreditCard, X, Check, Share2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,7 @@ const ALL_MODULES: AdminModule[] = [
   'dashboard', 'pedidos', 'productos', 'categorias', 'inventario',
   'cupones', 'multimedia', 'clientes', 'usuarios', 'roles',
   'configuracion', 'analytics', 'pagos',
+  'afiliados',
 ]
 
 const MODULE_LABELS: Record<AdminModule, string> = {
@@ -40,7 +41,7 @@ const MODULE_LABELS: Record<AdminModule, string> = {
   categorias: 'Categorías', inventario: 'Inventario', cupones: 'Cupones',
   multimedia: 'Multimedia', clientes: 'Clientes', usuarios: 'Usuarios',
   roles: 'Roles', configuracion: 'Configuración', analytics: 'Analytics',
-  pagos: 'Pagos',
+  pagos: 'Pagos', afiliados: 'Afiliados',
 }
 
 const MODULE_ICONS: Record<AdminModule, React.ElementType> = {
@@ -48,7 +49,7 @@ const MODULE_ICONS: Record<AdminModule, React.ElementType> = {
   categorias: FolderTree, inventario: Warehouse, cupones: Ticket,
   multimedia: Image, clientes: UserCheck, usuarios: Users,
   roles: Shield, configuracion: Settings, analytics: BarChart3,
-  pagos: CreditCard,
+  pagos: CreditCard, afiliados: Share2,
 }
 
 const PERMISSION_LEVELS: PermissionLevel[] = ['total', 'escritura', 'lectura', 'sin_acceso']
@@ -432,12 +433,12 @@ export default function UsuariosPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50/50">
-                    <TableHead className="font-semibold text-primary-dark">Nombre</TableHead>
-                    <TableHead className="font-semibold text-primary-dark">Email</TableHead>
-                    <TableHead className="font-semibold text-primary-dark">Rol</TableHead>
-                    <TableHead className="font-semibold text-primary-dark">Estado</TableHead>
-                    <TableHead className="font-semibold text-primary-dark">Ultimo acceso</TableHead>
-                    <TableHead className="font-semibold text-primary-dark text-right">Acciones</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Nombre</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Email</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Rol</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Estado</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Ultimo acceso</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -564,7 +565,7 @@ export default function UsuariosPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2.5">
                       <div
-                        className="w-3 h-3 rounded-full"
+                        className="w-2 h-2 rounded-full shrink-0"
                         style={{ backgroundColor: role.color }}
                       />
                       <h3 className="font-semibold text-primary-dark">{role.name}</h3>
@@ -793,13 +794,13 @@ export default function UsuariosPage() {
             {/* Color */}
             <div>
               <label className="text-xs font-semibold text-gray-500 mb-2.5 block uppercase tracking-wide">Color identificador</label>
-              <div className="flex gap-2.5">
+              <div className="flex gap-2">
                 {ROLE_COLORS.map((c) => (
                   <button
                     key={c}
                     onClick={() => setRoleForm({ ...roleForm, color: c })}
                     className={cn(
-                      'w-8 h-8 rounded-xl transition-all shadow-sm',
+                      'w-6 h-6 rounded-lg transition-all shadow-sm',
                       roleForm.color === c ? 'ring-2 ring-offset-2 ring-gray-700 scale-110' : 'hover:scale-105'
                     )}
                     style={{ backgroundColor: c }}
@@ -842,7 +843,7 @@ export default function UsuariosPage() {
                           <button
                             onClick={() => updatePermission(mod, level)}
                             className={cn(
-                              'w-6 h-6 rounded-full border-2 transition-all',
+                              'w-4 h-4 rounded-full border-2 transition-all',
                               roleForm.permissions[mod] === level
                                 ? cn(PERMISSION_COLORS[level], 'border-transparent scale-110')
                                 : 'border-gray-200 hover:border-gray-400 bg-white'

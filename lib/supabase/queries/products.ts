@@ -13,6 +13,13 @@ function getStockStatus(row: Record<string, unknown>): Product['stock_status'] {
   })
 }
 
+function coerceWeightG(raw: unknown): number {
+  if (raw == null || raw === '') return 0
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0
+  const n = parseFloat(String(raw).replace(',', '.'))
+  return Number.isFinite(n) ? n : 0
+}
+
 function mapRow(row: Record<string, unknown>): Product {
   return {
     ...row,
@@ -25,6 +32,7 @@ function mapRow(row: Record<string, unknown>): Product {
     status: (row.status as string) ?? 'draft',
     unit_of_measure: (row.unit_of_measure as string) ?? 'units',
     primary_image_index: (row.primary_image_index as number) ?? 0,
+    weight_g: coerceWeightG(row.weight_g),
     shipping_weight_g: (row.shipping_weight_g as number | null) ?? null,
     dimensions_cm: (row.dimensions_cm as Product['dimensions_cm']) ?? null,
     stock_quantity: (row.stock_quantity as number) ?? 0,

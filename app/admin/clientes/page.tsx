@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Download, UserCheck, Users, Crown,
   AlertTriangle, TrendingUp, Building2, Mail, Phone,
-  MoreHorizontal, ToggleLeft, ToggleRight, Trash2, Edit2, Eye,
-  DollarSign, Check, Loader2, ChevronLeft, ChevronRight,
+  ToggleLeft, ToggleRight, Trash2, Edit2, Eye,
+  DollarSign, Check, Loader2, ChevronLeft, ChevronRight, Users2,
   Filter, X, ChevronDown, LayoutGrid, List,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,10 +23,6 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { customerDisplayName, customerToFirstLast } from '@/lib/utils/customer-display'
@@ -258,9 +254,9 @@ export default function ClientesPage() {
         tags: form.tags
           .split(',').map(t => t.trim()).filter(Boolean),
         accepts_marketing: form.accepts_marketing,
-        accepts_email_marketing: form.accepts_email_marketing,
-        accepts_sms_marketing: form.accepts_sms_marketing,
-        accepts_whatsapp_marketing: form.accepts_whatsapp_marketing,
+        accepts_email_marketing: form.accepts_marketing,
+        accepts_sms_marketing: false,
+        accepts_whatsapp_marketing: form.accepts_marketing,
         internal_notes: form.internal_notes.trim() || null,
       }
 
@@ -410,6 +406,10 @@ export default function ClientesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/admin/affiliates" className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors hidden sm:flex">
+            <UserCheck className="w-3.5 h-3.5 text-primary-cyan" />
+            Acceso Afiliados
+          </Link>
           <Button
             variant="ghost"
             onClick={handleExport}
@@ -716,14 +716,14 @@ export default function ClientesPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/50">
-              <TableHead className="font-semibold text-primary-dark">Cliente</TableHead>
-              <TableHead className="font-semibold text-primary-dark">Contacto</TableHead>
-              <TableHead className="font-semibold text-primary-dark">Tipo</TableHead>
-              <TableHead className="font-semibold text-primary-dark">Segmento</TableHead>
-              <TableHead className="font-semibold text-primary-dark text-right">Pedidos</TableHead>
-              <TableHead className="font-semibold text-primary-dark text-right">LTV</TableHead>
-              <TableHead className="font-semibold text-primary-dark">Último pedido</TableHead>
-              <TableHead className="font-semibold text-primary-dark text-right">Acciones</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Cliente</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Contacto</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Tipo</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Segmento</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Pedidos</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">LTV</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Último pedido</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -761,6 +761,11 @@ export default function ClientesPage() {
                         >
                           {customerDisplayName(c)}
                         </Link>
+                      {c.is_affiliate && (
+                        <span className="inline-flex items-center gap-1 mt-1 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold text-cyan-700">
+                          <Users2 className="w-3 h-3" /> Afiliado
+                        </span>
+                      )}
                         {c.company_name && (
                           <span className="text-[11px] text-gray-400 truncate block">
                             <Building2 className="w-3 h-3 inline mr-1" />
@@ -825,31 +830,32 @@ export default function ClientesPage() {
                       >
                         <Eye className="w-4 h-4 text-gray-500" />
                       </Link>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                          title="Más"
-                        >
-                          <MoreHorizontal className="w-4 h-4 text-gray-500" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => openEdit(c)}>
-                            <Edit2 className="w-3.5 h-3.5 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleActive(c)}>
-                            {c.is_active
-                              ? <><ToggleLeft className="w-3.5 h-3.5 mr-2" /> Desactivar</>
-                              : <><ToggleRight className="w-3.5 h-3.5 mr-2" /> Activar</>}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setDeleteConfirm(c)}
-                            className="text-red-500 focus:text-red-600"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(c)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        title="Editar"
+                      >
+                        <Edit2 className="w-4 h-4 text-gray-500" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(c)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        title={c.is_active ? 'Desactivar' : 'Activar'}
+                      >
+                        {c.is_active
+                          ? <ToggleRight className="w-4 h-4 text-emerald-500" />
+                          : <ToggleLeft className="w-4 h-4 text-gray-400" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirm(c)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </button>
                     </div>
                   </TableCell>
                 </motion.tr>
@@ -956,21 +962,22 @@ export default function ClientesPage() {
       {/* ── Editor Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
         <DialogContent size="lg" className="p-0 overflow-hidden flex flex-col max-h-[92vh]">
-          <div className="bg-gradient-to-r from-primary-dark to-[#0D2A3F] px-6 py-5 flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-primary-cyan" />
+          <div className="bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#f59e0bb3] px-8 py-5 relative overflow-hidden flex-shrink-0">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-black/10 backdrop-blur-md flex items-center justify-center border border-black/5">
+                <UserCheck className="w-5 h-5 text-gray-900" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold text-white">
+                <DialogTitle className="text-lg font-bold text-gray-900 leading-tight">
                   {editing ? 'Editar cliente' : 'Nuevo cliente'}
                 </DialogTitle>
                 {editing && (
-                  <p className="text-sm font-semibold text-white/95 truncate max-w-[min(100%,22rem)] mt-0.5" title={customerDisplayName(editing)}>
+                  <p className="text-sm font-semibold text-gray-900/85 truncate max-w-[min(100%,22rem)] mt-0.5" title={customerDisplayName(editing)}>
                     {customerDisplayName(editing)}
                   </p>
                 )}
-                <p className="text-xs text-white/60">
+                <p className="text-xs text-gray-900/60 font-medium">
                   Datos, contacto, segmento y consentimientos
                 </p>
               </div>
@@ -1098,29 +1105,28 @@ export default function ClientesPage() {
               />
             </Field>
 
-            {/* Marketing consents */}
-            <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 space-y-2">
-              <p className="text-xs font-semibold text-amber-900 uppercase tracking-wide">Consentimientos de marketing</p>
+            {/* Marketing — una sola pregunta (email + WhatsApp siguen la misma decisión al guardar) */}
+            <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/90 to-orange-50/40 p-4 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-amber-900/90">Preferencias</p>
+              <p className="text-xs text-amber-950/80 mt-1 mb-3 leading-snug">
+                ¿Desea recibir novedades, descuentos y comunicaciones ocasionales por correo electrónico y WhatsApp?
+              </p>
               <ToggleRow
-                label="Acepta marketing (general)"
+                label="Sí, quiero recibir comunicaciones"
                 checked={form.accepts_marketing}
-                onChange={(v) => setForm({ ...form, accepts_marketing: v })}
+                onChange={(v) =>
+                  setForm({
+                    ...form,
+                    accepts_marketing: v,
+                    accepts_email_marketing: v,
+                    accepts_whatsapp_marketing: v,
+                    accepts_sms_marketing: false,
+                  })
+                }
               />
-              <ToggleRow
-                label="Email marketing"
-                checked={form.accepts_email_marketing}
-                onChange={(v) => setForm({ ...form, accepts_email_marketing: v })}
-              />
-              <ToggleRow
-                label="SMS marketing"
-                checked={form.accepts_sms_marketing}
-                onChange={(v) => setForm({ ...form, accepts_sms_marketing: v })}
-              />
-              <ToggleRow
-                label="WhatsApp marketing"
-                checked={form.accepts_whatsapp_marketing}
-                onChange={(v) => setForm({ ...form, accepts_whatsapp_marketing: v })}
-              />
+              <p className="text-[11px] text-amber-800/70 mt-2 leading-relaxed">
+                Si activa esta opción, podremos enviarle mensajes por los datos de contacto que indicó arriba. No enviamos SMS.
+              </p>
             </div>
 
             <Field label="Notas internas (solo admin)">

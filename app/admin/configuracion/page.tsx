@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Settings, Store, Save, Truck, Bell, Smartphone,
-  MessageSquare, Palette, Upload, CheckCircle, Mail,
+  MessageSquare, Palette, Upload, Mail,
   Volume2, DollarSign, MapPin, ShoppingCart, Search,
-  Scale, X, Plus, Link2, Globe, Image as ImageIcon,
-  Loader2,
+  Scale, X, Link2, Globe, Image as ImageIcon,
+  Loader2, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 interface StoreSettings {
   store_info: {
     name: string
+    slogan: string
     phone: string
     whatsapp: string
     email: string
@@ -28,8 +29,11 @@ interface StoreSettings {
     description: string
   }
   shipping: {
-    fee_cents: number
+    standard_fee_cents: number
+    express_fee_cents: number
     free_shipping_min_cents: number
+    standard_estimated_time: string
+    express_estimated_time: string
     estimated_time: string
     enabled: boolean
     zones: string[]
@@ -69,6 +73,7 @@ interface StoreSettings {
 const DEFAULT_SETTINGS: StoreSettings = {
   store_info: {
     name: '',
+    slogan: '',
     phone: '',
     whatsapp: '',
     email: '',
@@ -76,8 +81,11 @@ const DEFAULT_SETTINGS: StoreSettings = {
     description: '',
   },
   shipping: {
-    fee_cents: 2900,
+    standard_fee_cents: 2900,
+    express_fee_cents: 5900,
     free_shipping_min_cents: 50000,
+    standard_estimated_time: '3-5 días hábiles',
+    express_estimated_time: '24-48 horas',
     estimated_time: '3-5 días hábiles',
     enabled: true,
     zones: [],
@@ -257,13 +265,31 @@ function TagInput({
 // Page
 // ---------------------------------------------------------------------------
 
+interface PaymentMethodItem {
+  id: string
+  name: string
+  slug: string
+  icon: string | null
+  is_active: boolean
+}
+
+const LOCAL_COLOR_KEY = 'nurei_admin_primary_color'
+
 export default function ConfigPage() {
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodItem[]>([])
+  const [togglingPayment, setTogglingPayment] = useState<string | null>(null)
+  const [localColor, setLocalColor] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(LOCAL_COLOR_KEY) ?? '#00E5FF'
+    }
+    return '#00E5FF'
+  })
 
   useEffect(() => {
-    fetch('/api/admin/settings')
+    const settingsP = fetch('/api/admin/settings')
       .then((r) => r.json())
       .then((data) => {
         if (data.data && typeof data.data === 'object') {
@@ -282,9 +308,31 @@ export default function ConfigPage() {
           }))
         }
       })
+    const methodsP = fetch('/api/admin/payment-methods')
+      .then((r) => r.json())
+      .then((data) => { if (data.data) setPaymentMethods(data.data) })
+      .catch(() => {})
+    Promise.all([settingsP, methodsP])
       .catch(() => toast.error('Error al cargar configuración'))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleTogglePayment = async (id: string, current: boolean) => {
+    setTogglingPayment(id)
+    try {
+      const res = await fetch('/api/admin/payment-methods', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_active: !current }),
+      })
+      if (!res.ok) throw new Error()
+      setPaymentMethods((prev) => prev.map((m) => m.id === id ? { ...m, is_active: !current } : m))
+    } catch {
+      toast.error('No se pudo cambiar el estado del método de pago')
+    } finally {
+      setTogglingPayment(null)
+    }
+  }
 
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -385,9 +433,15 @@ export default function ConfigPage() {
       {/* ── Store Info ── */}
       <SectionCard icon={Store} title="Información de la tienda" index={sectionIdx++}>
         <div className="space-y-4">
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Nombre de la tienda</label>
-            <Input value={settings.store_info.name} onChange={(e) => updateInfo('name', e.target.value)} className="h-10" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Nombre de la tienda</label>
+              <Input value={settings.store_info.name} onChange={(e) => updateInfo('name', e.target.value)} className="h-10" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Slogan</label>
+              <Input value={settings.store_info.slogan} onChange={(e) => updateInfo('slogan', e.target.value)} placeholder="Tu mejor aliado en…" className="h-10" />
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -443,17 +497,29 @@ export default function ConfigPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">
-                <DollarSign className="w-3 h-3 inline mr-1" />Costo de envío (MXN)
+                <DollarSign className="w-3 h-3 inline mr-1" />Envío estándar (MXN)
               </label>
               <Input
                 type="number"
                 step="0.01"
-                value={centsToMxn(settings.shipping.fee_cents)}
-                onChange={(e) => updateShipping('fee_cents', mxnToCents(e.target.value))}
+                value={centsToMxn(settings.shipping.standard_fee_cents)}
+                onChange={(e) => updateShipping('standard_fee_cents', mxnToCents(e.target.value))}
                 className="h-10"
               />
             </div>
             <div>
+              <label className="text-xs text-gray-500 mb-1 block">
+                <DollarSign className="w-3 h-3 inline mr-1" />Envío express (MXN)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                value={centsToMxn(settings.shipping.express_fee_cents)}
+                onChange={(e) => updateShipping('express_fee_cents', mxnToCents(e.target.value))}
+                className="h-10"
+              />
+            </div>
+            <div className="sm:col-span-2">
               <label className="text-xs text-gray-500 mb-1 block">
                 <DollarSign className="w-3 h-3 inline mr-1" />Envío gratis desde (MXN)
               </label>
@@ -469,9 +535,21 @@ export default function ConfigPage() {
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Tiempo estimado de entrega</label>
             <Input
-              value={settings.shipping.estimated_time}
-              onChange={(e) => updateShipping('estimated_time', e.target.value)}
-              placeholder="3-5 días hábiles"
+              value={settings.shipping.standard_estimated_time}
+              onChange={(e) => {
+                updateShipping('standard_estimated_time', e.target.value)
+                updateShipping('estimated_time', e.target.value)
+              }}
+              placeholder="Estándar: 3-5 días hábiles"
+              className="h-10"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Tiempo estimado de entrega express</label>
+            <Input
+              value={settings.shipping.express_estimated_time}
+              onChange={(e) => updateShipping('express_estimated_time', e.target.value)}
+              placeholder="Express: 24-48 horas"
               className="h-10"
             />
           </div>
@@ -530,20 +608,40 @@ export default function ConfigPage() {
         </div>
       </SectionCard>
 
-      {/* ── Payment Methods (link to /admin/pagos) ── */}
+      {/* ── Payment Methods ── */}
       <SectionCard icon={DollarSign} title="Métodos de pago" index={sectionIdx++}>
-        <p className="text-sm text-gray-500 mb-3">
-          Configura los métodos de pago aceptados en tu tienda.
-        </p>
-        <a href="/admin/pagos">
-          <Button
-            variant="outline"
-            className="gap-2 text-primary-dark border-primary-cyan/30 hover:bg-primary-cyan/5"
-          >
-            <DollarSign className="w-4 h-4" />
-            Ir a configuración de pagos
-          </Button>
-        </a>
+        {paymentMethods.length === 0 ? (
+          <p className="text-sm text-gray-400 py-2">No hay métodos de pago configurados.</p>
+        ) : (
+          <div className="space-y-2">
+            {paymentMethods.map((m) => (
+              <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+                <div className="flex items-center gap-3">
+                  {m.icon ? (
+                    <img src={m.icon} alt={m.name} className="w-6 h-6 object-contain" />
+                  ) : (
+                    <DollarSign className="w-4 h-4 text-gray-400" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-primary-dark">{m.name}</p>
+                    <p className="text-xs text-gray-400">{m.slug}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={togglingPayment === m.id}
+                  onClick={() => handleTogglePayment(m.id, m.is_active)}
+                  className="shrink-0"
+                  title={m.is_active ? 'Desactivar' : 'Activar'}
+                >
+                  {m.is_active
+                    ? <ToggleRight className="w-6 h-6 text-primary-cyan" />
+                    : <ToggleLeft className="w-6 h-6 text-gray-300" />}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
 
       {/* ── Notifications ── */}
@@ -600,16 +698,21 @@ export default function ConfigPage() {
       <SectionCard icon={Palette} title="Apariencia" index={sectionIdx++}>
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 mb-2 block">Color principal</label>
+            <label className="text-xs text-gray-500 mb-1 block">
+              Color principal <span className="text-gray-400 font-normal">(solo para este navegador)</span>
+            </label>
             <div className="flex gap-2 flex-wrap">
               {COLOR_OPTIONS.map((color) => (
                 <button
                   key={color}
                   type="button"
-                  onClick={() => updateAppearance('primary_color', color)}
+                  onClick={() => {
+                    setLocalColor(color)
+                    if (typeof window !== 'undefined') localStorage.setItem(LOCAL_COLOR_KEY, color)
+                  }}
                   className={cn(
-                    'w-8 h-8 rounded-lg border-2 transition-all',
-                    settings.appearance.primary_color === color ? 'border-primary-dark scale-110' : 'border-transparent',
+                    'w-7 h-7 rounded-lg border-2 transition-all',
+                    localColor === color ? 'border-primary-dark scale-110' : 'border-transparent',
                   )}
                   style={{ backgroundColor: color }}
                 />
@@ -618,17 +721,34 @@ export default function ConfigPage() {
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Logo de la tienda</label>
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-primary-cyan/50 transition-colors cursor-pointer">
-              <Upload className="w-6 h-6 text-gray-300" />
-              <p className="text-xs text-gray-400">Arrastra una imagen o haz clic para subir</p>
-              <p className="text-[10px] text-gray-300">PNG, JPG hasta 2MB</p>
+            {settings.appearance.logo_url && (
+              <img src={settings.appearance.logo_url} alt="Logo" className="h-12 object-contain mb-2 rounded-lg border border-gray-100 p-1 bg-gray-50" />
+            )}
+            <Input
+              value={settings.appearance.logo_url}
+              onChange={(e) => updateAppearance('logo_url', e.target.value)}
+              placeholder="URL de la imagen (desde Multimedia)"
+              className="h-10 mb-2"
+            />
+            <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 flex flex-col items-center justify-center gap-1 text-gray-300">
+              <Upload className="w-5 h-5" />
+              <p className="text-[11px]">Sube la imagen en <a href="/admin/media" className="text-primary-cyan underline">Multimedia</a> y pega la URL arriba</p>
             </div>
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Favicon</label>
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center justify-center gap-1 hover:border-primary-cyan/50 transition-colors cursor-pointer">
-              <ImageIcon className="w-5 h-5 text-gray-300" />
-              <p className="text-xs text-gray-400">ICO o PNG 32x32</p>
+            {settings.appearance.favicon_url && (
+              <img src={settings.appearance.favicon_url} alt="Favicon" className="h-8 w-8 object-contain mb-2 rounded border border-gray-100 bg-gray-50" />
+            )}
+            <Input
+              value={settings.appearance.favicon_url}
+              onChange={(e) => updateAppearance('favicon_url', e.target.value)}
+              placeholder="URL del favicon (ICO o PNG 32×32)"
+              className="h-10 mb-2"
+            />
+            <div className="border-2 border-dashed border-gray-100 rounded-xl p-3 flex items-center justify-center gap-2 text-gray-300">
+              <ImageIcon className="w-4 h-4" />
+              <p className="text-[11px]">Sube en <a href="/admin/media" className="text-primary-cyan underline">Multimedia</a> y pega la URL</p>
             </div>
           </div>
           <div className="space-y-3 pt-2">
@@ -698,10 +818,18 @@ export default function ConfigPage() {
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Imagen OG (Open Graph)</label>
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-primary-cyan/50 transition-colors cursor-pointer">
-              <ImageIcon className="w-6 h-6 text-gray-300" />
-              <p className="text-xs text-gray-400">1200x630 recomendado</p>
-              <p className="text-[10px] text-gray-300">PNG, JPG hasta 2MB</p>
+            {settings.seo.og_image && (
+              <img src={settings.seo.og_image} alt="OG" className="h-16 object-cover mb-2 rounded-lg border border-gray-100 bg-gray-50 w-full" />
+            )}
+            <Input
+              value={settings.seo.og_image}
+              onChange={(e) => updateSeo('og_image', e.target.value)}
+              placeholder="URL de la imagen OG (1200×630)"
+              className="h-10 mb-2"
+            />
+            <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-300">
+              <ImageIcon className="w-4 h-4" />
+              <p className="text-[11px]">Sube en <a href="/admin/media" className="text-primary-cyan underline">Multimedia</a> y pega la URL · 1200×630 recomendado</p>
             </div>
           </div>
         </div>

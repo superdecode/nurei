@@ -26,7 +26,14 @@ export async function POST(request: NextRequest) {
     //   mode: 'payment',
     //   success_url: `${process.env.NEXT_PUBLIC_APP_URL}/pedido/${order.id}?success=true`,
     //   cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout`,
-    //   metadata: { order_id: order.id, short_id: order.short_id },
+    //   metadata: {
+    //     order_id: order.id,
+    //     short_id: order.short_id,
+    //     // Forward referral cookie so webhook can attribute the order
+    //     ...(request.cookies.get('_nurei_ref')?.value
+    //       ? { referral_link_id: request.cookies.get('_nurei_ref')!.value }
+    //       : {}),
+    //   },
     // })
     //
     // await supabase.from('orders').update({ stripe_checkout_session_id: session.id }).eq('id', order.id)

@@ -38,9 +38,9 @@ export interface CustomerListResult {
   limit: number
 }
 
-/** Staff / internal profiles (any `user_profiles.role` other than `customer`) must not appear in storefront CRM. */
-async function getNonCustomerProfileIds(supabase: SupabaseClient): Promise<string[]> {
-  const { data, error } = await supabase.from('user_profiles').select('id').neq('role', 'customer')
+/** Internal admin profiles must not appear in storefront CRM list. */
+async function getInternalAdminProfileIds(supabase: SupabaseClient): Promise<string[]> {
+  const { data, error } = await supabase.from('user_profiles').select('id').eq('role', 'admin')
   if (error) throw error
   return (data ?? []).map((r) => r.id as string)
 }
@@ -62,7 +62,7 @@ export async function listCustomers(
     sort = 'created_at', order = 'desc',
   } = filters
 
-  const excludedIds = await getNonCustomerProfileIds(supabase)
+  const excludedIds = await getInternalAdminProfileIds(supabase)
   const excludeInternalOr = buildExcludeInternalUsersOr(excludedIds)
 
   let query = supabase
@@ -112,12 +112,53 @@ export async function listCustomers(
   const { data, error, count } = await query
   if (error) throw error
 
+  const rows = (data ?? []) as unknown as Customer[]
+  const enriched = await enrichCustomersFromProfiles(supabase, rows)
+
   return {
-    data: (data ?? []) as unknown as Customer[],
+    data: enriched,
     total: count ?? 0,
     page,
     limit,
   }
+}
+
+/** Si no hay first/last en CRM pero sí perfil de usuario (OAuth), copiamos el nombre del perfil. */
+async function enrichCustomersFromProfiles(
+  supabase: SupabaseClient,
+  rows: Customer[],
+): Promise<Customer[]> {
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[]
+  if (userIds.length === 0) return rows
+
+  const { data: profiles, error } = await supabase
+    .from('user_profiles')
+    .select('id, full_name')
+    .in('id', userIds)
+  if (error || !profiles?.length) return rows
+
+  const map = new Map(profiles.map((p) => [p.id as string, (p.full_name ?? '').trim()]))
+  const { data: affiliateProfiles } = await supabase
+    .from('affiliate_profiles')
+    .select('id')
+    .in('id', userIds)
+  const affiliateSet = new Set((affiliateProfiles ?? []).map((row) => row.id as string))
+
+  return rows.map((c) => {
+    const affiliateFlag = c.user_id ? affiliateSet.has(c.user_id) : false
+    const fn = (c.first_name ?? '').trim()
+    const ln = (c.last_name ?? '').trim()
+    if (fn || ln) return { ...c, is_affiliate: affiliateFlag }
+    const raw = c.user_id ? map.get(c.user_id) : ''
+    if (!raw) return { ...c, is_affiliate: affiliateFlag }
+    const parts = raw.split(/\s+/).filter(Boolean)
+    return {
+      ...c,
+      first_name: parts[0] ?? null,
+      last_name: parts.slice(1).join(' ') || null,
+      is_affiliate: affiliateFlag,
+    }
+  })
 }
 
 export async function getCustomerById(
@@ -132,6 +173,8 @@ export async function getCustomerById(
   if (error) throw error
   if (!data) return null
 
+  const [base] = await enrichCustomersFromProfiles(supabase, [data as unknown as Customer])
+
   const [addresses, notes, recentOrders] = await Promise.all([
     listCustomerAddresses(supabase, id),
     listCustomerNotes(supabase, id),
@@ -139,7 +182,7 @@ export async function getCustomerById(
   ])
 
   return {
-    ...(data as unknown as Customer),
+    ...(base as unknown as Customer),
     addresses,
     notes,
     recent_orders: recentOrders,
@@ -441,7 +484,7 @@ type CustomerStatsRow = {
 
 /** Aggregates storefront CRM only (excludes rows linked to internal admin auth users). */
 export async function getCustomerStats(supabase: SupabaseClient): Promise<CustomerStats> {
-  const excludedIds = await getNonCustomerProfileIds(supabase)
+  const excludedIds = await getInternalAdminProfileIds(supabase)
   let q = supabase
     .from('customers')
     .select('is_active, segment, customer_type, accepts_marketing, total_spent_cents, completed_orders_count, created_at')
@@ -479,7 +522,7 @@ export async function getCustomerStats(supabase: SupabaseClient): Promise<Custom
 // ─── CSV export helper ────────────────────────────────
 
 export async function exportCustomersCsv(supabase: SupabaseClient): Promise<string> {
-  const excludedIds = await getNonCustomerProfileIds(supabase)
+  const excludedIds = await getInternalAdminProfileIds(supabase)
   const excludeInternalOr = buildExcludeInternalUsersOr(excludedIds)
 
   let exportQuery = supabase

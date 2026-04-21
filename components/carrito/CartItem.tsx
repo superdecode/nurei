@@ -52,7 +52,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -200, transition: { duration: 0.3, ease: [0.32, 0, 0.67, 0] } }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-xl mb-2"
+      className="relative overflow-hidden rounded-xl mb-1.5 sm:mb-1"
     >
       {/* Delete backdrop revealed on swipe */}
       <motion.div
@@ -73,12 +73,12 @@ export function CartItem({ item, onRemove }: CartItemProps) {
           }
         }}
         style={{ x: dragX }}
-        className="relative flex items-start gap-4 py-5 px-4 bg-white rounded-3xl border border-gray-100 cursor-grab active:cursor-grabbing shadow-sm"
+        className="relative flex items-start gap-3 sm:gap-2.5 py-3.5 px-3 sm:py-3 sm:px-3 bg-white rounded-2xl sm:rounded-2xl border border-gray-100 cursor-grab active:cursor-grabbing shadow-sm"
       >
         {/* Product image */}
         <motion.div
           whileTap={{ scale: 0.95 }}
-          className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
+          className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
         >
           {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
             <img
@@ -87,31 +87,31 @@ export function CartItem({ item, onRemove }: CartItemProps) {
               className="w-full h-full object-cover rounded-xl"
             />
           ) : (
-            <span className="text-2xl opacity-30">🍘</span>
+            <span className="text-xl sm:text-lg opacity-30">🍘</span>
           )}
         </motion.div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-black text-gray-900 truncate tracking-tight">
+          <p className="text-sm font-black text-gray-900 truncate tracking-tight leading-snug">
             {item.product.name}
           </p>
-          <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+          <p className="text-[11px] sm:text-xs text-gray-400 font-bold uppercase mt-0.5">
             {formatPrice(item.product.price)} c/u
           </p>
 
-          <div className="flex items-center justify-between mt-2.5">
+          <div className="flex items-center justify-between mt-2 sm:mt-1.5">
             {/* Quantity controls */}
             <div className="flex items-center gap-1">
               <motion.button
                 whileTap={{ scale: 0.8 }}
                 transition={springConfig}
                 onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
+                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
               >
                 <Minus className="w-3.5 h-3.5" />
               </motion.button>
 
-              <div className="w-8 h-8 flex items-center justify-center overflow-hidden">
+              <div className="w-7 h-7 flex items-center justify-center overflow-hidden">
                 <AnimatePresence mode="popLayout">
                   <motion.span
                     key={item.quantity}
@@ -119,7 +119,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
                     animate={{ y: 0, opacity: 1, scale: 1 }}
                     exit={{ y: 16, opacity: 0, scale: 0.8 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    className="text-sm font-black text-gray-900"
+                    className="text-xs sm:text-sm font-black text-gray-900"
                   >
                     {item.quantity}
                   </motion.span>
@@ -130,7 +130,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
                 whileTap={{ scale: 0.8 }}
                 transition={springConfig}
                 onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
+                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
               >
                 <Plus className="w-3.5 h-3.5" />
               </motion.button>
@@ -146,7 +146,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
                     animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
                     exit={{ y: 12, opacity: 0, filter: 'blur(4px)' }}
                     transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                    className="text-sm font-bold text-nurei-cta block"
+                    className="text-xs sm:text-sm font-bold text-nurei-cta block"
                   >
                     {formatPrice(currentPrice)}
                   </motion.span>
@@ -157,7 +157,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
                 whileTap={{ scale: 0.75, rotate: -10 }}
                 transition={springConfig}
                 onClick={handleRemove}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-nurei-muted/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-nurei-muted/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </motion.button>

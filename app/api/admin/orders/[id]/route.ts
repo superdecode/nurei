@@ -71,7 +71,7 @@ export async function PATCH(
 
     await updateOrderStatus(supabase, id, newStatus, body.note, 'admin')
 
-    if (newStatus === 'preparing' || newStatus === 'ready_to_ship') {
+    if (newStatus === 'preparing' || newStatus === 'ready_to_ship' || newStatus === 'shipped') {
       void sendOrderStatusEmail(id, 'preparing')
     } else if (newStatus === 'delivered') {
       void sendOrderStatusEmail(id, 'delivered')

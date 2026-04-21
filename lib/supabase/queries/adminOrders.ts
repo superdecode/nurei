@@ -44,8 +44,23 @@ export async function listOrders(
 
   // Filters
   if (opts.status && opts.status !== 'all') {
-    countQuery = countQuery.eq('status', opts.status)
-    dataQuery = dataQuery.eq('status', opts.status)
+    const statusMap: Record<string, string[]> = {
+      pending_payment: ['pending'],
+      paid: ['paid', 'confirmed'],
+      preparing: ['preparing'],
+      shipped: ['shipped'],
+      delivered: ['delivered'],
+      cancelled: ['cancelled'],
+      refunded: ['refunded'],
+    }
+    const statusValues = statusMap[opts.status] ?? [opts.status]
+    if (statusValues.length === 1) {
+      countQuery = countQuery.eq('status', statusValues[0])
+      dataQuery = dataQuery.eq('status', statusValues[0])
+    } else {
+      countQuery = countQuery.in('status', statusValues)
+      dataQuery = dataQuery.in('status', statusValues)
+    }
   }
 
   if (opts.paymentMethod && opts.paymentMethod !== 'all') {

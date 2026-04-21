@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -16,7 +16,6 @@ import { Badge } from '@/components/ui/badge'
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
@@ -105,6 +104,12 @@ const ORIGINS = [
 
 const VARIANT_AXES = ['Sabor', 'Tamano', 'Color', 'Peso', 'Presentacion']
 
+const PRODUCT_STATUS_LABELS: Record<ProductStatus, string> = {
+  draft: 'Borrador',
+  active: 'Activo',
+  archived: 'Archivado',
+}
+
 const SPICE_CATEGORIES = ['spicy', 'snacks', 'ramen', 'salsas']
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -179,26 +184,38 @@ function variantToForm(v: ProductVariant): VariantFormData {
 // ─── Collapsible Section ────────────────────────────────────────────────
 
 function Section({
-  title, icon: Icon, children, defaultOpen = true, titleClassName = '',
+  title, icon: Icon, children, defaultOpen = true, titleClassName = '', headerRight,
 }: {
   title: string
   icon: React.ComponentType<{ className?: string }>
   children: React.ReactNode
   defaultOpen?: boolean
   titleClassName?: string
+  headerRight?: ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-gray-50/50 transition-colors"
-      >
-        <Icon className="w-4 h-4 text-gray-400" />
-        <span className={cn("text-sm font-bold text-gray-900 flex-1", titleClassName)}>{title}</span>
-        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-      </button>
+      <div className="flex items-stretch gap-2 px-4 sm:px-6 py-4 hover:bg-gray-50/50 transition-colors">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex flex-1 min-w-0 items-center gap-3 text-left"
+        >
+          <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+          <span className={cn('text-sm font-bold text-gray-900 flex-1 min-w-0', titleClassName)}>{title}</span>
+          {open ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />}
+        </button>
+        {headerRight && (
+          <div
+            className="shrink-0 flex flex-col items-end justify-center gap-1 pl-3 border-l border-gray-100"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {headerRight}
+          </div>
+        )}
+      </div>
       <AnimatePresence>
         {open && (
           <motion.div
@@ -440,7 +457,6 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
     if (!form.category) errors.push('Categoría')
     if (!form.base_price || parseFloat(form.base_price) <= 0) errors.push('Precio válido (mayor a $0)')
     if (!form.images.length) errors.push('Al menos una imagen')
-    if (form.has_variants && !variants.length) errors.push('Al menos una variante (si está habilitada)')
     if (form.track_inventory) {
       const stockRaw = form.stock_quantity.trim()
       if (!stockRaw) {
@@ -469,6 +485,12 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       return
     }
     setFieldErrors({})
+
+    const hasNamedVariant = variants.some((v) => v.name.trim().length > 0)
+    const effectiveHasVariants = form.has_variants && hasNamedVariant
+    if (form.has_variants && !hasNamedVariant) {
+      toast.info('Variantes desactivadas: agrega al menos una variante con nombre.', { duration: 4500 })
+    }
 
     const stockQtyParsed = form.track_inventory
       ? parseInt(form.stock_quantity.trim(), 10)
@@ -502,7 +524,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         tags: form.tags,
         images: form.images,
         primary_image_index: form.primary_image_index,
-        has_variants: form.has_variants,
+        has_variants: effectiveHasVariants,
         dimensions_cm: (form.dimensions_cm.length || form.dimensions_cm.width || form.dimensions_cm.height)
           ? {
               length: parseFloat(form.dimensions_cm.length) || null,
@@ -542,29 +564,38 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         productId = json.data.id
       }
 
-      // Save variants
-      if (form.has_variants && variants.length > 0) {
-        const variantData = variants.map(v => ({
-          ...(v.id ? { id: v.id } : {}),
-          name: v.name,
-          sku_suffix: v.sku_suffix || null,
-          price: Math.round(parseFloat(v.price || '0') * 100),
-          compare_at_price: v.compare_at_price ? Math.round(parseFloat(v.compare_at_price) * 100) : null,
-          stock: parseInt(v.stock, 10) || 0,
-          attributes: v.attributes,
-          image: v.image || null,
-          status: v.status,
-        }))
+      // Save variants — solo filas con nombre; vaciar en servidor si se desactiva el modo
+      if (effectiveHasVariants) {
+        const variantData = variants
+          .filter((v) => v.name.trim().length > 0)
+          .map(v => ({
+            ...(v.id ? { id: v.id } : {}),
+            name: v.name.trim(),
+            sku_suffix: v.sku_suffix || null,
+            price: Math.round(parseFloat(v.price || '0') * 100),
+            compare_at_price: v.compare_at_price ? Math.round(parseFloat(v.compare_at_price) * 100) : null,
+            stock: parseInt(v.stock, 10) || 0,
+            attributes: v.attributes,
+            image: v.image || null,
+            status: v.status,
+          }))
 
         await fetchWithCredentials(`/api/products/${productId}/variants`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: variantData }),
         })
+      } else if (isEdit) {
+        await fetchWithCredentials(`/api/products/${productId}/variants`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variants: [] }),
+        })
       }
 
       toast.success(isEdit ? 'Producto actualizado' : 'Producto creado')
-      if (isEdit) update({ status: statusToSave })
+      if (isEdit) update({ status: statusToSave, has_variants: effectiveHasVariants })
+      else if (!effectiveHasVariants) update({ has_variants: false })
 
       if (addAnother) {
         setForm(emptyForm)
@@ -647,19 +678,6 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-gray-400 uppercase hidden sm:inline">Estado</span>
-              <Select value={form.status} onValueChange={(v) => update({ status: v as ProductStatus })}>
-                <SelectTrigger className="h-9 w-[128px] rounded-xl text-xs font-bold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Borrador</SelectItem>
-                  <SelectItem value="active">Activo</SelectItem>
-                  <SelectItem value="archived">Archivado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             {!isEdit ? (
               <>
                 <Button
@@ -709,7 +727,25 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         {/* Left column — main content */}
         <div className="space-y-5">
           {/* 1. Basic info */}
-          <Section title="Informacion basica" icon={Package}>
+          <Section
+            title="Información básica"
+            icon={Package}
+            headerRight={(
+              <>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Estado</span>
+                <Select value={form.status} onValueChange={(v) => update({ status: v as ProductStatus })}>
+                  <SelectTrigger className="h-9 min-w-[148px] rounded-full border-gray-200 bg-gray-50 text-xs font-bold shadow-sm">
+                    <SelectValue>{PRODUCT_STATUS_LABELS[form.status]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="draft">Borrador</SelectItem>
+                    <SelectItem value="active">Activo</SelectItem>
+                    <SelectItem value="archived">Archivado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-xs font-medium text-gray-500">Nombre *</label>
@@ -920,19 +956,6 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                     </div>
                   </div>
                 )}
-
-                <div className="flex flex-col gap-2 mt-4 text-xs">
-                  <Toggle
-                    value={form.has_variants}
-                    onChange={(v) => update({ has_variants: v })}
-                    label="Este producto tiene variantes (sabor, tamano, etc.)"
-                  />
-                  {form.has_variants && (
-                    <p className="text-[11px] text-amber-600 bg-amber-50 px-3 py-2 rounded-lg ml-6 inline-block w-fit">
-                      El precio base se usara como referencia. Cada variante puede tener su propio precio.
-                    </p>
-                  )}
-                </div>
               </div>
 
               {/* Organizacion (Merged) */}
@@ -1005,7 +1028,102 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
             </div>
           </Section>
 
-          {/* 2. Images */}
+          {/* 2. Variantes — justo después de información básica */}
+          <Section title="Variantes" icon={Layers} defaultOpen>
+            <div className="space-y-4">
+              <Toggle
+                value={form.has_variants}
+                onChange={(v) => update({ has_variants: v })}
+                label="Este producto tiene variantes (sabor, tamaño, etc.)"
+              />
+              {form.has_variants && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 px-3 py-2 rounded-xl">
+                  El precio base se usará como referencia. Cada variante puede tener su propio precio. Si no agregas ninguna variante con nombre, el modo variantes se desactivará al guardar.
+                </p>
+              )}
+              {form.has_variants && (
+                <div className="space-y-4">
+                  {variants.map((variant, idx) => (
+                    <div key={idx} className="bg-gray-50 rounded-xl p-4 space-y-3 relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GripVertical className="w-4 h-4 text-gray-300" />
+                          <span className="text-xs font-bold text-gray-500">Variante {idx + 1}</span>
+                        </div>
+                        <button type="button" onClick={() => removeVariant(idx)} className="text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="col-span-2 space-y-1">
+                          <label className="text-[10px] text-gray-400 uppercase font-bold">Nombre *</label>
+                          <Input
+                            value={variant.name}
+                            onChange={(e) => updateVariant(idx, { name: e.target.value })}
+                            placeholder="Ej: Fresa, 500ml, Picante"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400 uppercase font-bold">Precio</label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+                            <Input
+                              type="number" step="0.01"
+                              value={variant.price}
+                              onChange={(e) => updateVariant(idx, { price: e.target.value })}
+                              className="h-9 pl-6 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400 uppercase font-bold">Stock</label>
+                          <Input
+                            type="number"
+                            value={variant.stock}
+                            onChange={(e) => updateVariant(idx, { stock: e.target.value })}
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400 uppercase font-bold">SKU suffix</label>
+                          <Input
+                            value={variant.sku_suffix}
+                            onChange={(e) => updateVariant(idx, { sku_suffix: e.target.value })}
+                            placeholder="-FR"
+                            className="h-9 text-sm font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400 uppercase font-bold">Precio original</label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+                            <Input
+                              type="number" step="0.01"
+                              value={variant.compare_at_price}
+                              onChange={(e) => updateVariant(idx, { compare_at_price: e.target.value })}
+                              className="h-9 pl-6 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addVariant}
+                    className="w-full rounded-xl h-10 border-dashed border-2 text-xs font-bold"
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Agregar variante
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Section>
+
+          {/* 3. Images */}
           <Section title="Galería de imágenes" icon={ImageIcon} titleClassName="text-nurei-cta" defaultOpen={false}>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1074,6 +1192,10 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           {/* 5. Optional Attributes */}
           <Section title="Atributos opcionales" icon={Settings2} defaultOpen={false}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-8 rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50/80 to-white p-4">
+                <Toggle value={form.is_featured} onChange={(v) => update({ is_featured: v })} label="Destacado (Popular)" />
+                <Toggle value={form.is_limited} onChange={(v) => update({ is_limited: v })} label="Edición limitada" />
+              </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-500">Peso para envío (g) (opcional)</label>
                 <Input
@@ -1156,90 +1278,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
             </div>
           </Section>
 
-          {/* 6. Variants */}
-          {form.has_variants && (
-            <Section title={`Variantes (${variants.length})`} icon={Layers} defaultOpen={false}>
-              <div className="space-y-4">
-                {variants.map((variant, idx) => (
-                  <div key={idx} className="bg-gray-50 rounded-xl p-4 space-y-3 relative">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <GripVertical className="w-4 h-4 text-gray-300" />
-                        <span className="text-xs font-bold text-gray-500">Variante {idx + 1}</span>
-                      </div>
-                      <button type="button" onClick={() => removeVariant(idx)} className="text-gray-400 hover:text-red-500">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="col-span-2 space-y-1">
-                        <label className="text-[10px] text-gray-400 uppercase font-bold">Nombre *</label>
-                        <Input
-                          value={variant.name}
-                          onChange={(e) => updateVariant(idx, { name: e.target.value })}
-                          placeholder="Ej: Fresa, 500ml, Picante"
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-gray-400 uppercase font-bold">Precio</label>
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                          <Input
-                            type="number" step="0.01"
-                            value={variant.price}
-                            onChange={(e) => updateVariant(idx, { price: e.target.value })}
-                            className="h-9 pl-6 text-sm"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-gray-400 uppercase font-bold">Stock</label>
-                        <Input
-                          type="number"
-                          value={variant.stock}
-                          onChange={(e) => updateVariant(idx, { stock: e.target.value })}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-gray-400 uppercase font-bold">SKU suffix</label>
-                        <Input
-                          value={variant.sku_suffix}
-                          onChange={(e) => updateVariant(idx, { sku_suffix: e.target.value })}
-                          placeholder="-FR"
-                          className="h-9 text-sm font-mono"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-gray-400 uppercase font-bold">Precio original</label>
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                          <Input
-                            type="number" step="0.01"
-                            value={variant.compare_at_price}
-                            onChange={(e) => updateVariant(idx, { compare_at_price: e.target.value })}
-                            className="h-9 pl-6 text-sm"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addVariant}
-                  className="w-full rounded-xl h-10 border-dashed border-2 text-xs font-bold"
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Agregar variante
-                </Button>
-              </div>
-            </Section>
-          )}
-
-          {/* 7. Inventory */}
+          {/* Inventario */}
           <Section title="Inventario" icon={Package} defaultOpen={false}>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -1292,49 +1331,14 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
         {/* Right column — sticky panel */}
         <div className="space-y-5">
           <div className="lg:sticky lg:top-20 space-y-5">
-            {/* Status */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Estado del producto</h3>
-
-              <div className="grid grid-cols-3 gap-2">
-                {['draft', 'active', 'archived'].map((status) => {
-                  const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-                    draft: { label: 'Borrador', color: 'text-gray-600', bg: 'bg-gray-100' },
-                    active: { label: 'Activo', color: 'text-green-700', bg: 'bg-green-100' },
-                    archived: { label: 'Archivado', color: 'text-orange-700', bg: 'bg-orange-100' },
-                  }
-                  const config = statusConfig[status]
-                  const isSelected = form.status === status
-                  return (
-                    <button
-                      key={status}
-                      type="button"
-                      onClick={() => update({ status: status as ProductStatus })}
-                      className={cn(
-                        'py-2.5 px-3 rounded-xl font-semibold text-xs transition-all duration-200',
-                        isSelected
-                          ? `${config.bg} ${config.color} ring-2 ring-offset-0 ${config.color.replace('text-', 'ring-')}`
-                          : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
-                      )}
-                    >
-                      {config.label}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <Separator className="my-3" />
-
-              <div className="space-y-2">
-                <Toggle value={form.is_featured} onChange={(v) => update({ is_featured: v })} label="✨ Destacado" />
-                <Toggle value={form.is_limited} onChange={(v) => update({ is_limited: v })} label="⭐ Edición limitada" />
-              </div>
-            </div>
-
             {/* Summary */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Resumen</h3>
               <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Estado</span>
+                  <span className="font-medium text-gray-700">{PRODUCT_STATUS_LABELS[form.status]}</span>
+                </div>
                 {form.category && (
                   <div className="flex justify-between">
                     <span className="text-gray-400">Categoria</span>
@@ -1745,31 +1749,44 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       </AnimatePresence>
 
       <Dialog open={brandManageOpen} onOpenChange={setBrandManageOpen}>
-        <DialogContent className="max-w-md rounded-2xl">
-          <DialogTitle className="text-base font-bold">Marcas</DialogTitle>
-          <p className="text-xs text-gray-500 mb-3">Elimina marcas que ya no uses. Los productos quedarán sin marca vinculada.</p>
-          {brandListLoading ? (
-            <p className="text-sm text-gray-400 py-6 text-center">Cargando…</p>
-          ) : (
-            <ul className="max-h-64 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-2">
-              {brandList.map((b) => (
-                <li key={b.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50">
-                  <span className="text-sm font-medium text-gray-800 truncate">{b.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => void deleteBrand(b.id)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
-                    title="Eliminar marca"
+        <DialogContent className="max-w-md overflow-hidden rounded-2xl border-0 p-0 gap-0 shadow-2xl">
+          <div className="bg-gradient-to-br from-primary-dark via-primary-dark to-primary-cyan/90 px-6 py-5 text-white">
+            <DialogTitle className="text-lg font-black tracking-tight">Gestionar marcas</DialogTitle>
+            <p className="text-xs text-white/80 mt-1.5 leading-relaxed">
+              Lista de marcas en catálogo. Al eliminar, los productos vinculados quedarán sin marca hasta que asignes otra.
+            </p>
+          </div>
+          <div className="p-5 bg-white">
+            {brandListLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-400">
+                <Loader2 className="w-5 h-5 animate-spin" /> Cargando marcas…
+              </div>
+            ) : (
+              <ul className="max-h-[min(50vh,280px)] overflow-y-auto custom-scrollbar space-y-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-2">
+                {brandList.map((b) => (
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 bg-white border border-gray-100 shadow-sm hover:border-primary-cyan/30 transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </li>
-              ))}
-              {brandList.length === 0 && (
-                <li className="text-xs text-gray-400 text-center py-4">No hay marcas registradas</li>
-              )}
-            </ul>
-          )}
+                    <span className="text-sm font-semibold text-gray-900 truncate">{b.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => void deleteBrand(b.id)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                      title="Eliminar marca"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </li>
+                ))}
+                {brandList.length === 0 && (
+                  <li className="text-sm text-gray-400 text-center py-8 px-4">
+                    No hay marcas registradas. Escribe un nombre en el campo Marca del producto y usa &quot;Crear&quot; o aplica la migración de base de datos si el servidor lo indica.
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

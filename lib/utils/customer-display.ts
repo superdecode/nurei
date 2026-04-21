@@ -10,9 +10,9 @@ export function customerDisplayName(c: NameFields): string {
   const full = (c.full_name ?? '').trim()
   if (full) return full
   if (c.company_name?.trim()) return c.company_name.trim()
-  if (c.email?.trim()) return c.email.trim()
   if (c.phone?.trim()) return c.phone.trim()
-  return 'Cliente'
+  // No usar el correo como "nombre" en CRM: el email se muestra en su propia fila.
+  return 'Sin nombre'
 }
 
 export function customerToFirstLast(c: NameFields): { first_name: string; last_name: string } {

@@ -1,21 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/stores/auth'
 import { Container } from '@/components/layout/Container'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestedRedirect = searchParams.get('redirect') ?? '/perfil'
+  const redirectTo =
+    requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
+      ? requestedRedirect
+      : '/perfil'
   const { login, loginWithGoogle } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,7 +31,7 @@ export default function LoginPage() {
     const result = await login(email, password)
     if (result.success) {
       toast.success('Bienvenido de vuelta', { icon: '👋' })
-      router.push('/perfil')
+      router.push(redirectTo)
     } else {
       toast.error(result.error || 'Credenciales incorrectas')
     }
@@ -97,8 +104,41 @@ export default function LoginPage() {
             ¿No tienes cuenta?{' '}
             <Link href="/registro" className="font-bold text-nurei-cta hover:underline">Regístrate</Link>
           </p>
+          <p className="text-center text-xs text-gray-500">
+            <button
+              type="button"
+              className="font-semibold text-primary-dark hover:underline"
+              onClick={async () => {
+                if (!email.trim()) {
+                  toast.error('Escribe tu email para recuperar contraseña')
+                  return
+                }
+                setResetting(true)
+                const res = await fetch('/api/auth/forgot-password', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: email.trim() }),
+                })
+                const json = await res.json()
+                if (!res.ok) toast.error(json.error ?? 'No se pudo enviar el correo')
+                else toast.success('Te enviamos un correo para recuperar contraseña')
+                setResetting(false)
+              }}
+              disabled={resetting}
+            >
+              {resetting ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
+            </button>
+          </p>
         </form>
       </motion.div>
     </Container>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

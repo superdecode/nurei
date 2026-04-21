@@ -4,7 +4,7 @@ import { computeStockStatus } from '@/lib/inventory/stock-status'
 
 export type AdminNotificationItem = {
   id: string
-  type: 'stock_bajo' | 'stock_agotado' | 'movimiento' | 'nuevo_pedido' | 'pedido_pagado'
+  type: 'stock_bajo' | 'stock_agotado' | 'nuevo_pedido'
   title: string
   message: string
   href?: string
@@ -19,25 +19,25 @@ export async function GET() {
 
     // ── New/recent orders (last 2 hours) — highest priority ──────────────────
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+    // Solo pedidos con pago aún pendiente (nuevos en caja)
     const { data: recentOrders } = await supabase
       .from('orders')
-      .select('id, short_id, status, total, customer_name, customer_email, created_at')
-      .in('status', ['pending_payment', 'paid'])
+      .select('id, short_id, status, total, customer_name, customer_email, created_at, payment_status')
+      .eq('payment_status', 'pending')
       .gte('created_at', twoHoursAgo)
       .order('created_at', { ascending: false })
       .limit(15)
 
     for (const o of recentOrders ?? []) {
-      const isPaid = o.status === 'paid'
       const totalFormatted = o.total ? `$${(o.total / 100).toFixed(2)}` : ''
       items.push({
         id: `order-${o.id}`,
-        type: isPaid ? 'pedido_pagado' : 'nuevo_pedido',
-        title: isPaid ? `💳 Pedido pagado #${o.short_id}` : `🛒 Nuevo pedido #${o.short_id}`,
+        type: 'nuevo_pedido',
+        title: `🛒 Nuevo pedido #${o.short_id}`,
         message: `${o.customer_name ?? 'Cliente'} · ${totalFormatted}`,
         href: `/admin/pedidos/${o.id}`,
         created_at: o.created_at,
-        priority: isPaid ? 'alta' : 'alta',
+        priority: 'alta',
       })
     }
 
@@ -47,6 +47,7 @@ export async function GET() {
       .select('id, name, sku, stock_quantity, low_stock_threshold, track_inventory, allow_backorder, status')
       .eq('status', 'active')
       .eq('is_active', true)
+      .eq('track_inventory', true)
       .limit(80)
 
     for (const p of products ?? []) {
@@ -74,30 +75,10 @@ export async function GET() {
       }
     }
 
-    // ── Recent inventory movements (non-sale) ─────────────────────────────────
-    const { data: movements } = await supabase
-      .from('inventory_movements')
-      .select('id, type, quantity, reason, reference, created_at')
-      .neq('type', 'venta')
-      .order('created_at', { ascending: false })
-      .limit(5)
-
-    for (const m of movements ?? []) {
-      items.push({
-        id: `mov-${m.id}`,
-        type: 'movimiento',
-        title: `Movimiento: ${m.type}`,
-        message: `${m.reason ?? 'Sin detalle'} · Ref. ${m.reference ?? '—'}`.slice(0, 160),
-        href: '/admin/inventario',
-        created_at: m.created_at,
-        priority: 'baja',
-      })
-    }
-
     // Sort: orders first, then by date desc
     items.sort((a, b) => {
-      const isOrderA = a.type === 'nuevo_pedido' || a.type === 'pedido_pagado'
-      const isOrderB = b.type === 'nuevo_pedido' || b.type === 'pedido_pagado'
+      const isOrderA = a.type === 'nuevo_pedido'
+      const isOrderB = b.type === 'nuevo_pedido'
       if (isOrderA && !isOrderB) return -1
       if (!isOrderA && isOrderB) return 1
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

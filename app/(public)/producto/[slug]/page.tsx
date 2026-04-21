@@ -19,19 +19,9 @@ import { Container } from '@/components/layout/Container'
 import { ProductCard } from '@/components/productos/ProductCard'
 import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
+import { formatProductPresentation } from '@/lib/utils/product-presentation'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-/** Presentación: cantidad + unidad (ej. 150 g, 500 ml). */
-function formatProductPresentation(p: {
-  weight_g?: number | null
-  unit_of_measure?: string | null
-}): string {
-  const u = (p.unit_of_measure ?? 'g').trim()
-  const w = p.weight_g
-  if (w == null || w === 0) return u
-  return `${w} ${u}`
-}
 
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
@@ -511,8 +501,6 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           <div className="flex items-center gap-1.5 text-[10px] text-gray-400 flex-wrap">
             {product.brand && <><span className="uppercase font-bold tracking-wide">{product.brand}</span><span>·</span></>}
             <span className="uppercase font-bold tracking-wide">{product.origin_country ?? product.origin}</span>
-            <span>·</span>
-            <span className="uppercase font-bold tracking-wide">{formatProductPresentation(product)}</span>
           </div>
 
           {/* Title — compact, try to fit one line */}
@@ -537,6 +525,11 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
             </div>
           )}
 
+          <div className="space-y-1 pt-1">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Presentación</p>
+            <p className="text-[11px] font-semibold text-gray-800 tabular-nums">{formatProductPresentation(product)}</p>
+          </div>
+
           {/* Spice level */}
           {product.spice_level > 0 && (
             <div className="flex items-center gap-1.5">
@@ -552,12 +545,14 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
           {/* Tags */}
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Etiquetas</p>
-          {product.tags && product.tags.length > 0 && (
+          {product.tags && product.tags.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {product.tags.map(tag => (
-                <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-400 rounded-full">{tag}</span>
+                <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 rounded-full">{tag}</span>
               ))}
             </div>
+          ) : (
+            <p className="text-[11px] text-gray-400">Sin etiquetas</p>
           )}
 
           {/* Variants */}
@@ -765,6 +760,25 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 </div>
               )}
 
+              <div className="mb-5 space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Presentación</p>
+                  <p className="text-sm font-semibold text-gray-800 tabular-nums">{formatProductPresentation(product)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Etiquetas</p>
+                  {product.tags && product.tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {product.tags.map(tag => (
+                        <span key={tag} className="px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">Sin etiquetas</p>
+                  )}
+                </div>
+              </div>
+
               {product.spice_level > 0 && (
                 <div className="flex items-center gap-2 mb-5">
                   <Flame className="w-4 h-4 text-nurei-promo" />
@@ -774,17 +788,6 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                     ))}
                   </div>
                   <span className="text-sm font-bold text-nurei-promo italic">{SPICE_LABELS[product.spice_level]}</span>
-                </div>
-              )}
-
-              {product.tags && product.tags.length > 0 && (
-                <div className="mb-5">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Etiquetas</p>
-                  <div className="flex flex-wrap gap-1.5">
-                  {product.tags.map(tag => (
-                    <span key={tag} className="px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-600 rounded-full">{tag}</span>
-                  ))}
-                  </div>
                 </div>
               )}
 

@@ -108,10 +108,10 @@ function ProgressBar({ subtotal }: { subtotal: number }) {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="mx-6 mb-3 p-4 rounded-3xl bg-gray-50 border border-gray-100"
+      className="mx-4 sm:mx-5 mb-2 sm:mb-2 p-3 sm:p-2.5 rounded-2xl sm:rounded-xl bg-gray-50 border border-gray-100"
     >
       <div className="relative">
-        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className="h-1.5 sm:h-1.5 bg-gray-200 rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
@@ -131,7 +131,7 @@ function ProgressBar({ subtotal }: { subtotal: number }) {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="flex items-center gap-1.5 text-xs text-nurei-stock font-semibold mt-2"
+              className="flex items-center gap-1.5 text-[11px] sm:text-xs text-nurei-stock font-semibold mt-1.5 sm:mt-1 leading-tight"
             >
               <PartyPopper className="w-3.5 h-3.5" />
               ¡Envío gratis desbloqueado! 🎉
@@ -142,7 +142,7 @@ function ProgressBar({ subtotal }: { subtotal: number }) {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="text-xs text-gray-500 mt-2 font-medium"
+              className="text-[11px] sm:text-xs text-gray-500 mt-1.5 sm:mt-1 font-medium leading-tight"
             >
               Agrega <span className="font-bold text-nurei-cta">{formatPrice(remaining)}</span> más para envío gratis 🚚
             </motion.p>
@@ -174,10 +174,10 @@ export function CartDrawer() {
         className="w-full sm:max-w-[450px] flex flex-col p-0 h-full max-h-[100dvh] sm:max-h-full bg-white border-l border-gray-100"
       >
         {/* Header */}
-        <SheetHeader className="px-6 py-5 border-b border-gray-100 flex-shrink-0">
+        <SheetHeader className="px-5 sm:px-6 py-4 sm:py-3 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <SheetTitle className="text-xl font-black text-gray-900 flex items-center gap-2">
+              <SheetTitle className="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
                 🛒 Mi carrito
               </SheetTitle>
               {itemCount > 0 && <AnimatedBadge count={itemCount} />}
@@ -197,11 +197,11 @@ export function CartDrawer() {
           <EmptyCartIllustration />
         ) : (
           <>
-            <div className="pt-3">
+            <div className="pt-1 sm:pt-2">
               <ProgressBar subtotal={subtotal} />
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-2 scrollbar-none">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 pb-2 scrollbar-none">
               <AnimatePresence mode="popLayout">
                 {items.map((item) => (
                   <CartItem key={item.product.id} item={item} />
@@ -214,7 +214,7 @@ export function CartDrawer() {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="border-t border-gray-100 bg-white px-5 sm:px-6 py-6 space-y-3 flex-shrink-0"
+              className="border-t border-gray-100 bg-white px-5 sm:px-6 py-4 sm:py-4 space-y-2.5 flex-shrink-0"
             >
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-500 font-medium">Subtotal</span>
@@ -228,11 +228,11 @@ export function CartDrawer() {
                 </span>
               </div>
 
-              <Separator className="!my-3 bg-gray-100" />
+              <Separator className="!my-2 bg-gray-100" />
 
               <div className="flex justify-between items-center">
-                <span className="font-bold text-lg text-gray-900">Total</span>
-                <AnimatedPrice value={total} className="font-black text-2xl text-gray-900" />
+                <span className="font-bold text-base sm:text-lg text-gray-900">Total</span>
+                <AnimatedPrice value={total} className="font-black text-xl sm:text-2xl text-gray-900" />
               </div>
 
               <AnimatePresence>
@@ -257,7 +257,7 @@ export function CartDrawer() {
                 {meetsMinimum ? (
                   <Link href="/checkout" onClick={closeCart} className="block">
                     <Button
-                      className="w-full h-14 text-base font-bold bg-nurei-cta text-nurei-black hover:bg-nurei-cta-hover rounded-2xl gap-2 transition-all shadow-lg shadow-nurei-cta/20"
+                      className="w-full h-12 sm:h-12 text-base font-bold bg-nurei-cta text-nurei-black hover:bg-nurei-cta-hover rounded-2xl gap-2 transition-all shadow-lg shadow-nurei-cta/20"
                     >
                       Continuar al pago
                       <ArrowRight className="w-5 h-5" />
@@ -265,7 +265,7 @@ export function CartDrawer() {
                   </Link>
                 ) : (
                   <Button
-                    className="w-full h-14 text-base font-bold bg-nurei-cta text-nurei-black hover:bg-nurei-cta-hover disabled:opacity-40 rounded-2xl gap-2 transition-all"
+                    className="w-full h-12 sm:h-12 text-base font-bold bg-nurei-cta text-nurei-black hover:bg-nurei-cta-hover disabled:opacity-40 rounded-2xl gap-2 transition-all"
                     disabled
                   >
                     Continuar al pago

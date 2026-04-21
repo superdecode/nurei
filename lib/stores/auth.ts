@@ -95,7 +95,11 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       loginWithGoogle: () => {
-        window.location.href = '/api/auth/google'
+        const next =
+          typeof window !== 'undefined'
+            ? `${window.location.pathname}${window.location.search}` || '/'
+            : '/'
+        window.location.href = `/api/auth/google?next=${encodeURIComponent(next)}`
       },
 
       logout: async () => {

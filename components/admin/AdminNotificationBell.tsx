@@ -8,7 +8,6 @@ import {
   ExternalLink,
   X,
   AlertTriangle,
-  Package,
   CheckCircle,
   Trash2,
   AlertCircle,
@@ -16,7 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 
 type NotificationPriority = 'alta' | 'media' | 'baja'
-type NotificationType = 'stock_bajo' | 'stock_agotado' | 'movimiento' | 'nuevo_pedido' | 'pedido_pagado'
+type NotificationType = 'stock_bajo' | 'stock_agotado' | 'nuevo_pedido'
 
 type NotificationItem = {
   id: string
@@ -50,10 +49,8 @@ function saveReadIds(ids: Set<string>) {
 
 function getIcon(type: NotificationType, priority: NotificationPriority) {
   if (type === 'nuevo_pedido') return <span className="text-lg leading-none">🛒</span>
-  if (type === 'pedido_pagado') return <span className="text-lg leading-none">💳</span>
   if (type === 'stock_agotado') return <AlertCircle className="h-[18px] w-[18px] text-red-500" />
   if (type === 'stock_bajo') return <AlertTriangle className="h-[18px] w-[18px] text-amber-500" />
-  if (type === 'movimiento') return <Package className="h-[18px] w-[18px] text-slate-500" />
   if (priority === 'alta') return <AlertCircle className="h-[18px] w-[18px] text-red-500" />
   return <Bell className="h-[18px] w-[18px] text-primary-cyan" />
 }
@@ -153,7 +150,7 @@ export function AdminNotificationBell() {
       const currentRead = getReadIds()
       const newCritical = next.filter(
         (i) =>
-          (i.priority === 'alta' || i.type === 'stock_agotado' || i.type === 'nuevo_pedido' || i.type === 'pedido_pagado') &&
+          (i.priority === 'alta' || i.type === 'stock_agotado' || i.type === 'nuevo_pedido') &&
           !currentRead.has(i.id) &&
           !prevItemIdsRef.current.has(i.id)
       )
@@ -162,7 +159,7 @@ export function AdminNotificationBell() {
         if (popupTimerRef.current) clearTimeout(popupTimerRef.current)
         setPopupsClosing(false)
 
-        const hasNewOrder = newCritical.some(i => i.type === 'nuevo_pedido' || i.type === 'pedido_pagado')
+        const hasNewOrder = newCritical.some(i => i.type === 'nuevo_pedido')
         if (hasNewOrder && prevItemIdsRef.current.size > 0) {
           playOrderSound()
         }
@@ -170,7 +167,7 @@ export function AdminNotificationBell() {
         if (newCritical.length <= MAX_INDIVIDUAL_POPUPS) {
           setPopups(newCritical.map((n) => ({ ...n, popupType: 'individual' as const })))
         } else {
-          const orderCount = newCritical.filter(i => i.type === 'nuevo_pedido' || i.type === 'pedido_pagado').length
+          const orderCount = newCritical.filter(i => i.type === 'nuevo_pedido').length
           setPopups([{ popupType: 'consolidated', count: newCritical.length, id: 'consolidated', hasOrders: orderCount > 0, orderCount }])
         }
 
@@ -352,15 +349,15 @@ export function AdminNotificationBell() {
                       return (
                         <Link
                           key={item.id}
-                          href={item.href ?? (item.type === 'nuevo_pedido' || item.type === 'pedido_pagado' ? '/admin/pedidos' : '/admin/inventario')}
+                          href={item.href ?? (item.type === 'nuevo_pedido' ? '/admin/pedidos' : '/admin/inventario')}
                           onClick={() => {
                             markRead(item.id)
                             setOpen(false)
                           }}
                           className={cn(
                             'group flex cursor-pointer items-start gap-3 px-4 py-3.5 transition hover:bg-slate-50',
-                            (item.type === 'nuevo_pedido' || item.type === 'pedido_pagado') && 'border-l-4 border-l-nurei-cta pl-3 bg-nurei-warm/40',
-                            item.priority === 'alta' && item.type !== 'nuevo_pedido' && item.type !== 'pedido_pagado' && 'border-l-4 border-l-red-500 pl-3',
+                            item.type === 'nuevo_pedido' && 'border-l-4 border-l-nurei-cta pl-3 bg-nurei-warm/40',
+                            item.priority === 'alta' && item.type !== 'nuevo_pedido' && 'border-l-4 border-l-red-500 pl-3',
                             !unread && 'opacity-60'
                           )}
                         >
@@ -493,8 +490,8 @@ export function AdminNotificationBell() {
                   </button>
                 </div>
               ) : (
-                <div className={cn('p-4', (popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') && 'bg-gradient-to-br from-nurei-warm to-white')}>
-                  {(popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') && (
+                <div className={cn('p-4', popup.type === 'nuevo_pedido' && 'bg-gradient-to-br from-nurei-warm to-white')}>
+                  {popup.type === 'nuevo_pedido' && (
                     <div className="flex items-center gap-1.5 mb-3">
                       <span className="inline-flex items-center gap-1 rounded-full bg-nurei-cta px-2.5 py-0.5 text-[10px] font-black text-gray-900 animate-pulse">
                         ● NUEVO PEDIDO
@@ -502,7 +499,7 @@ export function AdminNotificationBell() {
                     </div>
                   )}
                   <div className="flex items-start gap-3">
-                    <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg', (popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') ? 'bg-nurei-cta/20' : 'bg-slate-100')}>
+                    <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg', popup.type === 'nuevo_pedido' ? 'bg-nurei-cta/20' : 'bg-slate-100')}>
                       {getIcon(popup.type, popup.priority)}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -516,10 +513,10 @@ export function AdminNotificationBell() {
                   <div className="mt-3 border-t border-slate-100 pt-3 flex justify-end">
                     <Link
                       href={popup.href ?? '/admin/pedidos'}
-                      className={cn('flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold', (popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') ? 'bg-nurei-cta text-gray-900 hover:bg-nurei-cta-hover' : 'bg-primary-dark text-white hover:bg-primary-dark/90')}
+                      className={cn('flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold', popup.type === 'nuevo_pedido' ? 'bg-nurei-cta text-gray-900 hover:bg-nurei-cta-hover' : 'bg-primary-dark text-white hover:bg-primary-dark/90')}
                       onClick={() => dismissPopup(popup.id)}
                     >
-                      {(popup.type === 'nuevo_pedido' || popup.type === 'pedido_pagado') ? 'Ver pedido' : 'Ir al módulo'} <ExternalLink className="h-3 w-3" />
+                      {popup.type === 'nuevo_pedido' ? 'Ver pedido' : 'Ir al módulo'} <ExternalLink className="h-3 w-3" />
                     </Link>
                   </div>
                 </div>
