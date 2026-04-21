@@ -62,3 +62,15 @@ export type CheckoutBootstrapResponse = {
   }
   payment_methods: PaymentMethod[]
 }
+
+/** Standard shipping fee (cents) from store settings + free-shipping threshold. */
+export function computeStandardShippingFeeCents(
+  subtotalCents: number,
+  shipping: NormalizedShippingSettings
+): number {
+  const threshold = shipping.free_shipping_min_cents
+  if (typeof threshold === 'number' && threshold > 0 && subtotalCents >= threshold) {
+    return 0
+  }
+  return shipping.standard_fee_cents
+}

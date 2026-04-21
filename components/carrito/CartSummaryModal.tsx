@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCartStore } from '@/lib/stores/cart'
 import { formatPrice } from '@/lib/utils/format'
-import { DEFAULT_SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, MIN_ORDER_AMOUNT } from '@/lib/utils/constants'
+import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
+import { computeStandardShippingFeeCents } from '@/lib/store/normalize-checkout-settings'
 import type { CartItem } from '@/types'
 
 // SVG Icons
@@ -164,13 +165,24 @@ export function CartSummaryModal({ open, onClose }: CartSummaryModalProps) {
   const getTotal = useCartStore((s) => s.getTotal)
   const clearCart = useCartStore((s) => s.clearCart)
   const removeItem = useCartStore((s) => s.removeItem)
+  const { bootstrap, loading: checkoutLoading } = useStoreCheckout()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const subtotal = getSubtotal()
-  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_FEE
+  const shippingCfg = bootstrap?.shipping
+  const shippingFee = shippingCfg ? computeStandardShippingFeeCents(subtotal, shippingCfg) : 0
   const total = getTotal(shippingFee)
-  const meetsMinimum = subtotal >= MIN_ORDER_AMOUNT
+  const minOrder = bootstrap?.checkout.min_order_cents ?? 0
+  const freeShipMin = bootstrap?.shipping.free_shipping_min_cents
+  const qualifiesFree =
+    typeof freeShipMin === 'number' && freeShipMin > 0 ? subtotal >= freeShipMin : false
+  const missingForFree =
+    typeof freeShipMin === 'number' && freeShipMin > 0 && !qualifiesFree
+      ? Math.max(0, freeShipMin - subtotal)
+      : null
+  const meetsMinimum =
+    !checkoutLoading && bootstrap !== null && subtotal >= minOrder
 
   const isAllSelected = items.length > 0 && selected.size === items.length
 
@@ -310,11 +322,18 @@ export function CartSummaryModal({ open, onClose }: CartSummaryModalProps) {
                     </AnimatePresence>
                   </div>
 
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-400 font-medium">Envío</span>
-                    <span className={`font-black ${shippingFee === 0 ? 'text-emerald-500' : 'text-gray-900'}`}>
-                      {shippingFee === 0 ? '¡Gratis! 🎉' : formatPrice(shippingFee)}
-                    </span>
+                  <div className="flex justify-between items-start gap-2 text-sm">
+                    <span className="text-gray-400 font-medium shrink-0 pt-0.5">Envío</span>
+                    <div className="flex flex-col items-end gap-0.5 min-w-0 text-right">
+                      <span className={`font-black ${shippingFee === 0 ? 'text-emerald-500' : 'text-gray-900'}`}>
+                        {shippingFee === 0 ? '¡Gratis! 🎉' : formatPrice(shippingFee)}
+                      </span>
+                      {missingForFree !== null && missingForFree > 0 && (
+                        <span className="text-[11px] font-semibold text-red-500 leading-tight">
+                          Te faltan {formatPrice(missingForFree)} para envío gratis
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-center pt-1 border-t border-gray-100">
@@ -333,14 +352,14 @@ export function CartSummaryModal({ open, onClose }: CartSummaryModalProps) {
                   </div>
 
                   <AnimatePresence>
-                    {!meetsMinimum && (
+                    {!meetsMinimum && bootstrap !== null && minOrder > 0 && (
                       <motion.p
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         className="text-xs text-nurei-promo text-center overflow-hidden font-medium"
                       >
-                        Pedido mínimo: {formatPrice(MIN_ORDER_AMOUNT)} — Faltan {formatPrice(MIN_ORDER_AMOUNT - subtotal)}
+                        Pedido mínimo: {formatPrice(minOrder)} — Faltan {formatPrice(Math.max(0, minOrder - subtotal))}
                       </motion.p>
                     )}
                   </AnimatePresence>

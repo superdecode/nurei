@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ShoppingBag, ArrowRight, Sparkles, PartyPopper } from 'lucide-react'
+import { X, ArrowRight, PartyPopper } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -11,7 +10,8 @@ import { CartItem } from './CartItem'
 import { useCartStore } from '@/lib/stores/cart'
 import { useUIStore } from '@/lib/stores/ui'
 import { formatPrice } from '@/lib/utils/format'
-import type { CheckoutBootstrapResponse } from '@/lib/store/normalize-checkout-settings'
+import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
+import { computeStandardShippingFeeCents } from '@/lib/store/normalize-checkout-settings'
 
 function AnimatedPrice({ value, className }: { value: number; className?: string }) {
   return (
@@ -169,35 +169,21 @@ export function CartDrawer() {
   const isCartOpen = useUIStore((s) => s.isCartOpen)
   const closeCart = useUIStore((s) => s.closeCart)
 
-  const [bootstrap, setBootstrap] = useState<CheckoutBootstrapResponse | null>(null)
+  const { bootstrap, loading: checkoutLoading } = useStoreCheckout()
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch('/api/store/checkout')
-        const json = await res.json()
-        if (!cancelled && res.ok && json?.data) setBootstrap(json.data as CheckoutBootstrapResponse)
-      } catch {
-        /* defaults below */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const minOrder = bootstrap?.checkout.min_order_cents ?? 19900
+  const minOrder = bootstrap?.checkout.min_order_cents ?? 0
   const freeShipMin = bootstrap?.shipping.free_shipping_min_cents ?? null
-  const defaultShipFee = bootstrap?.shipping.standard_fee_cents ?? 2900
+  const defaultShipFee = bootstrap?.shipping.standard_fee_cents ?? 0
 
   const subtotal = getSubtotal()
+  const shippingCfg = bootstrap?.shipping
+  const shippingFee = shippingCfg ? computeStandardShippingFeeCents(subtotal, shippingCfg) : 0
   const qualifiesFree =
     typeof freeShipMin === 'number' && freeShipMin > 0 ? subtotal >= freeShipMin : false
-  const shippingFee = qualifiesFree ? 0 : defaultShipFee
   const total = getTotal(shippingFee)
   const itemCount = getItemCount()
-  const meetsMinimum = subtotal >= minOrder
+  const meetsMinimum =
+    !checkoutLoading && bootstrap !== null && subtotal >= minOrder
 
   return (
     <Sheet open={isCartOpen} onOpenChange={(open) => !open && closeCart()}>
@@ -277,7 +263,7 @@ export function CartDrawer() {
               </div>
 
               <AnimatePresence>
-                {!meetsMinimum && (
+                {!meetsMinimum && bootstrap !== null && minOrder > 0 && (
                   <motion.p
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}

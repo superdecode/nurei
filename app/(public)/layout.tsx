@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/Header'
 import { ConditionalFooter } from '@/components/layout/ConditionalFooter'
 import { CartDrawer } from '@/components/carrito/CartDrawer'
 import { ReferralTracker } from '@/components/ReferralTracker'
+import { StoreCheckoutProvider } from '@/components/providers/StoreCheckoutProvider'
 
 export default function PublicLayout({
   children,
@@ -10,7 +11,7 @@ export default function PublicLayout({
   children: React.ReactNode
 }) {
   return (
-    <>
+    <StoreCheckoutProvider>
       <Suspense fallback={null}>
         <ReferralTracker />
       </Suspense>
@@ -18,6 +19,6 @@ export default function PublicLayout({
       <main className="flex-1">{children}</main>
       <ConditionalFooter />
       <CartDrawer />
-    </>
+    </StoreCheckoutProvider>
   )
 }

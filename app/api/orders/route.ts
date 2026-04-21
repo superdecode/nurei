@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createOrderSchema } from '@/lib/validations/order'
-import { calculateShippingFee } from '@/lib/utils/calculations'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { getUserOrders } from '@/lib/supabase/queries/userOrders'
+import { getSettings } from '@/lib/supabase/queries/settings'
 import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
+import {
+  computeStandardShippingFeeCents,
+  normalizeShippingFromConfig,
+} from '@/lib/store/normalize-checkout-settings'
 
 // ─── GET: user's order history ───────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -72,7 +76,10 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const shippingFee = calculateShippingFee(subtotal)
+    const supabase = await createServerSupabaseClient()
+    const appSettings = await getSettings(supabase)
+    const normalizedShipping = normalizeShippingFromConfig(appSettings.shipping)
+    const shippingFee = computeStandardShippingFeeCents(subtotal, normalizedShipping)
     let couponDiscount = 0
     let validatedCouponCode: string | null = null
     let validatedCouponId: string | null = null
@@ -109,7 +116,6 @@ export async function POST(request: NextRequest) {
 
     // Try Supabase insert; fall back to mock if not configured
     try {
-      const supabase = await createServerSupabaseClient()
       const { data: { user } } = await supabase.auth.getUser()
 
       const { data: order, error } = await supabase

@@ -8,9 +8,13 @@ import { CategoryFilter } from '@/components/productos/CategoryFilter'
 import { ProductGrid } from '@/components/productos/ProductGrid'
 import { CartBottomBar } from '@/components/carrito/CartBottomBar'
 import { PageTransition } from '@/components/motion'
+import { formatPrice } from '@/lib/utils/format'
+import { useCartStore } from '@/lib/stores/cart'
 import type { Product } from '@/types'
 
 export default function MenuPage() {
+  const cartItemCount = useCartStore((s) => s.getItemCount())
+  const cartSubtotal = useCartStore((s) => s.getSubtotal())
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -151,10 +155,25 @@ export default function MenuPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <h1 className="text-2xl font-bold text-primary-dark">Nuestro menú</h1>
-              <p className="text-sm text-gray-400 mt-1">
-                {desktopProducts.length} productos disponibles
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <h1 className="text-2xl font-bold text-primary-dark">Nuestro menú</h1>
+                  <p className="text-sm text-gray-400 mt-1">
+                    {desktopProducts.length} productos disponibles
+                  </p>
+                </div>
+                {cartItemCount > 0 && (
+                  <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-right shadow-sm">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                      Tu carrito
+                    </p>
+                    <p className="text-xs text-gray-600 tabular-nums">
+                      {cartItemCount} {cartItemCount === 1 ? 'ítem' : 'ítems'}
+                    </p>
+                    <p className="text-sm font-bold text-primary-dark tabular-nums">{formatPrice(cartSubtotal)}</p>
+                  </div>
+                )}
+              </div>
             </motion.div>
 
             {loading ? (
@@ -173,6 +192,16 @@ export default function MenuPage() {
         ref={containerRef}
         className="sm:hidden overflow-y-auto h-[calc(100vh-120px)] pb-24"
       >
+        {cartItemCount > 0 && !loading && (
+          <div className="sticky top-0 z-20 -mx-0 mb-2 border-b border-gray-100 bg-white/95 px-4 py-2 backdrop-blur-sm">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">
+                {cartItemCount} {cartItemCount === 1 ? 'ítem' : 'ítems'}
+              </span>
+              <span className="font-bold text-primary-dark tabular-nums">{formatPrice(cartSubtotal)}</span>
+            </div>
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />

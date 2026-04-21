@@ -8,9 +8,10 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/layout/Container'
 // Products fetched from Supabase via API
-import { SPICE_LABELS, FREE_SHIPPING_THRESHOLD } from '@/lib/utils/constants'
+import { SPICE_LABELS } from '@/lib/utils/constants'
 import { formatPrice } from '@/lib/utils/format'
 import { useCartStore } from '@/lib/stores/cart'
+import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
 import type { Product } from '@/types'
 
 function SpiceDots({ level }: { level: number }) {
@@ -178,6 +179,7 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
   const addItem = useCartStore((s) => s.addItem)
+  const { bootstrap } = useStoreCheckout()
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([
     { value: 'all', label: 'Todo', emoji: '✨' }
@@ -213,6 +215,8 @@ export default function LandingPage() {
   }, [])
 
   const featuredProduct = allProducts.find((p) => p.is_featured) || allProducts[0]
+
+  const freeShippingMin = bootstrap?.shipping.free_shipping_min_cents
 
   const filteredProducts = useMemo(() => {
     return allProducts.filter((p) => {
@@ -388,7 +392,13 @@ export default function LandingPage() {
               ¿Ya se te antojó? 😋
             </h2>
             <p className="text-lg text-gray-800 max-w-md mx-auto mb-10 font-medium">
-              Envío gratis en pedidos mayores a {formatPrice(FREE_SHIPPING_THRESHOLD)}. Llega directo a tu puerta.
+              {typeof freeShippingMin === 'number' && freeShippingMin > 0 ? (
+                <>
+                  Envío gratis en pedidos desde {formatPrice(freeShippingMin)}. Llega directo a tu puerta.
+                </>
+              ) : (
+                <>Empaque seguro y envíos confiables. Llega directo a tu puerta.</>
+              )}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/menu">

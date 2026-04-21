@@ -16,6 +16,7 @@ import {
   Plus,
   Tag,
   Trash2,
+  UserRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,13 +24,14 @@ import { Container } from '@/components/layout/Container'
 import { useCartStore } from '@/lib/stores/cart'
 import { useAuthStore } from '@/lib/stores/auth'
 import { formatPrice } from '@/lib/utils/format'
-import type { CheckoutBootstrapResponse } from '@/lib/store/normalize-checkout-settings'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
 
 type CheckoutStep = 1 | 2 | 3 | 4
 type Direction = 'forward' | 'backward'
@@ -98,6 +100,20 @@ const PROGRESS_BY_STEP: Record<CheckoutStep, number> = {
   2: 52,
   3: 78,
   4: 100,
+}
+
+function trimShippingForm(form: ShippingForm): ShippingForm {
+  return {
+    fullName: form.fullName.trim(),
+    email: form.email.trim(),
+    phone: form.phone.trim(),
+    address: form.address.trim(),
+    neighborhood: form.neighborhood.trim(),
+    city: form.city.trim(),
+    state: form.state.trim(),
+    zipCode: form.zipCode.trim(),
+    country: form.country.trim(),
+  }
 }
 
 function getFieldError(field: keyof ShippingForm, value: string) {
@@ -222,8 +238,7 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<string>('standard')
 
-  const [storeBootstrap, setStoreBootstrap] = useState<CheckoutBootstrapResponse | null>(null)
-  const [storeBootstrapLoading, setStoreBootstrapLoading] = useState(true)
+  const { bootstrap: storeBootstrap, loading: storeCheckoutLoading } = useStoreCheckout()
 
   const [paymentMethod, setPaymentMethod] = useState<string>('stripe_card')
   const [cardForm, setCardForm] = useState<CardForm>({
@@ -278,28 +293,12 @@ export default function CheckoutPage() {
   }, [authOk, authUser, authEmail])
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch('/api/store/checkout')
-        const json = await res.json()
-        if (!cancelled && res.ok && json?.data) {
-          setStoreBootstrap(json.data as CheckoutBootstrapResponse)
-          const methods = (json.data as CheckoutBootstrapResponse).payment_methods ?? []
-          if (methods.length > 0) {
-            setPaymentMethod(methods[0].slug)
-          }
-        }
-      } catch {
-        /* fallback below */
-      } finally {
-        if (!cancelled) setStoreBootstrapLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    const methods = storeBootstrap?.payment_methods ?? []
+    if (methods.length === 0) return
+    setPaymentMethod((current) =>
+      methods.some((m) => m.slug === current) ? current : methods[0].slug,
+    )
+  }, [storeBootstrap])
 
   useEffect(() => {
     if (!mounted) return
@@ -308,7 +307,8 @@ export default function CheckoutPage() {
 
   const subtotal = mounted ? getSubtotal() : 0
 
-  const minOrderCents = storeBootstrap?.checkout.min_order_cents ?? 19900
+  const minOrderCents = storeBootstrap?.checkout.min_order_cents ?? 0
+  const checkoutConfigReady = !storeCheckoutLoading && storeBootstrap !== null
   const freeShipMin = storeBootstrap?.shipping.free_shipping_min_cents
 
   const qualifiesFreeShipping =
@@ -327,11 +327,23 @@ export default function CheckoutPage() {
         ? 'Casi listo…'
         : '¡Confirmando!'
 
-  const goToStep = useCallback((nextStep: CheckoutStep) => {
-    setDirection(nextStep > activeStep ? 'forward' : 'backward')
-    setActiveStep(nextStep)
-    setPanelKey((key) => key + 1)
-  }, [activeStep])
+  const scrollCheckoutTop = useCallback(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    const main = document.querySelector('main')
+    if (main instanceof HTMLElement) main.scrollTop = 0
+  }, [])
+
+  const goToStep = useCallback(
+    (nextStep: CheckoutStep) => {
+      setDirection(nextStep > activeStep ? 'forward' : 'backward')
+      scrollCheckoutTop()
+      setActiveStep(nextStep)
+      setPanelKey((key) => key + 1)
+    },
+    [activeStep, scrollCheckoutTop],
+  )
 
   const triggerPanelShake = useCallback(() => {
     setShakePanel(true)
@@ -378,7 +390,8 @@ export default function CheckoutPage() {
 
   const updateShippingField = (field: keyof ShippingForm, value: string) => {
     setShippingForm((prev) => ({ ...prev, [field]: value }))
-    setShippingErrors((prev) => ({ ...prev, [field]: getFieldError(field, value) }))
+    const forValidation = field === 'email' ? value.trim() : value
+    setShippingErrors((prev) => ({ ...prev, [field]: getFieldError(field, forValidation) }))
   }
 
   const applyCoupon = async () => {
@@ -393,7 +406,7 @@ export default function CheckoutPage() {
           code: couponInput.trim().toUpperCase(),
           subtotal,
           shippingFee: selectedMethod?.price ?? shippingMethods[0]?.price ?? 0,
-          customerEmail: shippingForm.email || undefined,
+          customerEmail: shippingForm.email.trim() || undefined,
           customerPhone: shippingForm.phone || undefined,
           items: items.map((item) => ({
             product_id: item.product.id,
@@ -442,14 +455,18 @@ export default function CheckoutPage() {
   }
 
   const validateShippingStep = () => {
+    const trimmed = trimShippingForm(shippingForm)
     const nextErrors: Partial<Record<keyof ShippingForm, string>> = {}
-    ;(Object.keys(shippingForm) as Array<keyof ShippingForm>).forEach((key) => {
-      const error = getFieldError(key, shippingForm[key])
+    ;(Object.keys(trimmed) as Array<keyof ShippingForm>).forEach((key) => {
+      const error = getFieldError(key, trimmed[key])
       if (error) nextErrors[key] = error
     })
 
     setShippingErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return false
+
+    setShippingForm(trimmed)
+
     if (!selectedMethod) {
       toast.error('Selecciona un método de envío para continuar.')
       return false
@@ -477,6 +494,11 @@ export default function CheckoutPage() {
 
   const handleContinue = async () => {
     if (activeStep === 1) {
+      if (!checkoutConfigReady) {
+        toast.error('Espera un momento mientras cargamos la configuración de la tienda.')
+        triggerPanelShake()
+        return
+      }
       if (items.length === 0) {
         toast.error('Tu carrito está vacío.')
         triggerPanelShake()
@@ -513,6 +535,8 @@ export default function CheckoutPage() {
         return
       }
 
+      const ship = trimShippingForm(shippingForm)
+
       setProcessingStage('creating')
       const createOrderResponse = await fetch('/api/orders/create', {
         method: 'POST',
@@ -524,16 +548,16 @@ export default function CheckoutPage() {
           })),
           coupon_code: couponState.appliedCode ?? undefined,
           customer: {
-            full_name: shippingForm.fullName,
-            email: shippingForm.email,
-            phone: shippingForm.phone,
+            full_name: ship.fullName,
+            email: ship.email,
+            phone: ship.phone,
           },
           shipping: {
-            address: `${shippingForm.address}, Col. ${shippingForm.neighborhood}`,
-            city: shippingForm.city,
-            state: shippingForm.state,
-            zip_code: shippingForm.zipCode,
-            country: shippingForm.country,
+            address: `${ship.address}, Col. ${ship.neighborhood}`,
+            city: ship.city,
+            state: ship.state,
+            zip_code: ship.zipCode,
+            country: ship.country,
             method_id: selectedMethod.id,
             method_label: selectedMethod.label,
             fee: shippingFee,
@@ -611,9 +635,9 @@ export default function CheckoutPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email: shippingForm.email,
+              email: ship.email,
               password: newPassword,
-              name: shippingForm.fullName,
+              name: ship.fullName,
             }),
           })
           if (accountResponse.ok) {
@@ -715,7 +739,19 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <Container className="max-w-6xl">
+      <Container className="max-w-6xl relative">
+        {activeStep === 2 && !authOk && (
+          <button
+            type="button"
+            className="fixed top-[max(5.25rem,env(safe-area-inset-top))] right-4 z-[70] text-sm font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-4 decoration-amber-400/70 bg-transparent border-0 shadow-none rounded-none px-0 py-0 cursor-pointer max-w-[45%] text-right leading-snug sm:top-28"
+            onClick={() => {
+              setLoginOpen(true)
+              setLoginError('')
+            }}
+          >
+            Iniciar sesión
+          </button>
+        )}
         <Link
           href="/menu"
           className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary-dark transition-colors mb-3"
@@ -772,12 +808,15 @@ export default function CheckoutPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className={activeStep === 4 ? 'lg:col-span-5' : 'lg:col-span-3'}>
-            <div
-              key={`${activeStep}-${panelKey}`}
-              className={`rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 ${
-                direction === 'forward' ? 'checkout-slide-in-right' : 'checkout-slide-in-left'
-              } ${shakePanel ? 'checkout-shake' : ''}`}
-            >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeStep}-${panelKey}`}
+                initial={{ opacity: 0, x: direction === 'forward' ? 14 : -14 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: direction === 'forward' ? -12 : 12 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className={`rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 ${shakePanel ? 'checkout-shake' : ''}`}
+              >
               {activeStep === 1 && (
                 <div>
                   <h2 className="text-xl font-semibold text-primary-dark mb-1">Paso 1 · Productos</h2>
@@ -962,24 +1001,9 @@ export default function CheckoutPage() {
 
               {activeStep === 2 && (
                 <div className="relative">
-                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                    <div>
-                      <h2 className="text-xl font-semibold text-primary-dark">Paso 2 · Datos de envío</h2>
-                      <p className="text-sm text-gray-500">Completa tu dirección de entrega.</p>
-                    </div>
-                    {!authOk && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="text-xs sm:text-sm border-gray-200 bg-gray-50 text-primary-dark hover:bg-gray-100 shrink-0"
-                        onClick={() => {
-                          setLoginOpen(true)
-                          setLoginError('')
-                        }}
-                      >
-                        Iniciar sesión
-                      </Button>
-                    )}
+                  <div className="mb-4 pr-24 sm:pr-0">
+                    <h2 className="text-xl font-semibold text-primary-dark">Paso 2 · Datos de envío</h2>
+                    <p className="text-sm text-gray-500">Completa tu dirección de entrega.</p>
                   </div>
 
                   {typeof freeShipMin === 'number' && freeShipMin > 0 && !qualifiesFreeShipping && (
@@ -1383,7 +1407,7 @@ export default function CheckoutPage() {
                     Volver
                   </Button>
                   <div className="flex flex-col items-stretch gap-2 w-full sm:w-auto sm:items-end">
-                    {activeStep === 1 && subtotal < minOrderCents && (
+                    {activeStep === 1 && checkoutConfigReady && minOrderCents > 0 && subtotal < minOrderCents && (
                       <p className="text-[11px] text-center sm:text-right text-gray-500 order-2 sm:order-1">
                         Pedido mínimo {formatPrice(minOrderCents)} · Faltan{' '}
                         <span className="font-semibold text-primary-dark">{formatPrice(minOrderCents - subtotal)}</span>
@@ -1402,9 +1426,9 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={handleContinue}
                     disabled={
-                      storeBootstrapLoading ||
+                      storeCheckoutLoading ||
                       (activeStep === 3 && (storeBootstrap?.payment_methods ?? []).length === 0) ||
-                      (activeStep === 1 && subtotal < minOrderCents)
+                      (activeStep === 1 && (!checkoutConfigReady || subtotal < minOrderCents))
                     }
                     className="bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover w-full sm:w-auto order-1 sm:order-3"
                   >
@@ -1423,7 +1447,8 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
-            </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {activeStep < 4 && (
@@ -1523,54 +1548,76 @@ export default function CheckoutPage() {
         )}
 
         <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Iniciar sesión</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 pt-2">
-              <div>
-                <label className="text-xs font-semibold text-gray-500">Correo electrónico</label>
-                <Input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="mt-1"
-                  autoComplete="email"
-                />
+          <DialogContent className="sm:max-w-[420px] border-0 bg-transparent p-0 shadow-none overflow-visible">
+            <div className="relative rounded-3xl border border-gray-200/80 bg-gradient-to-b from-white to-gray-50/95 p-1 shadow-[0_24px_80px_-12px_rgba(15,23,42,0.28)]">
+              <div className="rounded-[1.35rem] bg-white/95 px-6 pt-8 pb-6 backdrop-blur-sm">
+                <DialogHeader className="space-y-2 text-center sm:text-center pb-2">
+                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-cyan/25 to-primary-cyan/5 ring-1 ring-primary-cyan/20">
+                    <UserRound className="h-6 w-6 text-primary-dark opacity-90" />
+                  </div>
+                  <DialogTitle className="text-xl font-bold tracking-tight text-primary-dark">
+                    Iniciar sesión
+                  </DialogTitle>
+                  <p className="text-sm text-gray-500 font-medium leading-relaxed px-2">
+                    Accede con tu cuenta para sincronizar tus datos de envío sin perder tu avance.
+                  </p>
+                </DialogHeader>
+                <div className="space-y-4 pt-3">
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                      Correo electrónico
+                    </label>
+                    <Input
+                      type="email"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      className="mt-1.5 h-11 rounded-xl border-gray-200 bg-gray-50/80 focus-visible:ring-primary-cyan/40"
+                      autoComplete="email"
+                      placeholder="tucorreo@ejemplo.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                      Contraseña
+                    </label>
+                    <Input
+                      type="password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="mt-1.5 h-11 rounded-xl border-gray-200 bg-gray-50/80 focus-visible:ring-primary-cyan/40"
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  {loginError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                      {loginError}
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    className="w-full h-12 rounded-xl bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover font-semibold text-base shadow-sm"
+                    disabled={loginBusy}
+                    onClick={async () => {
+                      setLoginBusy(true)
+                      setLoginError('')
+                      const result = await authLogin(loginEmail.trim(), loginPassword)
+                      setLoginBusy(false)
+                      if (!result.success) {
+                        setLoginError(result.error ?? 'No pudimos iniciar sesión.')
+                        return
+                      }
+                      setLoginPassword('')
+                      setLoginOpen(false)
+                      setCreateAccount(false)
+                      await refreshUser()
+                      toast.success('Sesión iniciada')
+                    }}
+                  >
+                    {loginBusy ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Entrar'}
+                  </Button>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500">Contraseña</label>
-                <Input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="mt-1"
-                  autoComplete="current-password"
-                />
-              </div>
-              {loginError && <p className="text-xs text-red-600">{loginError}</p>}
-              <Button
-                type="button"
-                className="w-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover"
-                disabled={loginBusy}
-                onClick={async () => {
-                  setLoginBusy(true)
-                  setLoginError('')
-                  const result = await authLogin(loginEmail.trim(), loginPassword)
-                  setLoginBusy(false)
-                  if (!result.success) {
-                    setLoginError(result.error ?? 'No pudimos iniciar sesión.')
-                    return
-                  }
-                  setLoginPassword('')
-                  setLoginOpen(false)
-                  setCreateAccount(false)
-                  await refreshUser()
-                  toast.success('Sesión iniciada')
-                }}
-              >
-                {loginBusy ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Entrar'}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>

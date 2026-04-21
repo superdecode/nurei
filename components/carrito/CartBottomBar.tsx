@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCartStore } from '@/lib/stores/cart'
 import { formatPrice } from '@/lib/utils/format'
-import { DEFAULT_SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '@/lib/utils/constants'
+import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
+import { computeStandardShippingFeeCents } from '@/lib/store/normalize-checkout-settings'
 import { CartSummaryModal } from './CartSummaryModal'
 
 const ArrowRightIcon = () => (
@@ -24,9 +26,14 @@ export function CartBottomBar() {
   const getSubtotal = useCartStore((s) => s.getSubtotal)
   const getItemCount = useCartStore((s) => s.getItemCount)
   const [modalOpen, setModalOpen] = useState(false)
+  const { bootstrap, loading: checkoutLoading } = useStoreCheckout()
 
   const subtotal = getSubtotal()
-  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_FEE
+  const shippingCfg = bootstrap?.shipping
+  const shippingFee = shippingCfg ? computeStandardShippingFeeCents(subtotal, shippingCfg) : 0
+  const minOrder = bootstrap?.checkout.min_order_cents ?? 0
+  const meetsMinimum =
+    !checkoutLoading && bootstrap !== null && subtotal >= minOrder
   const itemCount = getItemCount()
   const hasItems = items.length > 0
 
@@ -89,14 +96,25 @@ export function CartBottomBar() {
 
               {/* Confirm button */}
               <div className="pr-3">
-                <motion.a
-                  href="/checkout"
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 bg-nurei-cta text-gray-900 px-5 py-3.5 rounded-xl font-black text-sm shadow-lg shadow-nurei-cta/20"
-                >
-                  Confirmar
-                  <ArrowRightIcon />
-                </motion.a>
+                {meetsMinimum ? (
+                  <Link href="/checkout">
+                    <motion.span
+                      whileTap={{ scale: 0.95 }}
+                      className="flex items-center gap-2 bg-nurei-cta text-gray-900 px-5 py-3.5 rounded-xl font-black text-sm shadow-lg shadow-nurei-cta/20 cursor-pointer"
+                    >
+                      Confirmar
+                      <ArrowRightIcon />
+                    </motion.span>
+                  </Link>
+                ) : (
+                  <motion.span
+                    aria-disabled
+                    className="flex items-center gap-2 bg-nurei-cta/35 text-gray-900/45 px-5 py-3.5 rounded-xl font-black text-sm cursor-not-allowed select-none"
+                  >
+                    Confirmar
+                    <ArrowRightIcon />
+                  </motion.span>
+                )}
               </div>
             </div>
           </motion.div>

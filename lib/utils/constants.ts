@@ -70,11 +70,7 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   stripe: 'Stripe',
 }
 
-// ── Shipping & fees ─────────────────────────────────────────────────────
-
-export const DEFAULT_SHIPPING_FEE = 9900
-export const FREE_SHIPPING_THRESHOLD = 59900
-export const MIN_ORDER_AMOUNT = 19900
+// Shipping fees, free-shipping threshold, and min order: app_config → GET /api/store/checkout
 
 // ── Contact ─────────────────────────────────────────────────────────────
 
