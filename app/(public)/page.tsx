@@ -104,8 +104,8 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         {/* Out of stock overlay */}
         {isOutOfStock && (
           <div className="absolute bottom-3 left-3 right-3">
-            <div className="px-3 py-1.5 bg-gray-900/85 rounded-full text-center shadow-sm">
-              <span className="text-[10px] font-bold text-white uppercase tracking-wide">Agotado</span>
+            <div className="px-3 py-1.5 bg-amber-400 rounded-full text-center shadow-sm">
+              <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wide">Agotado</span>
             </div>
           </div>
         )}

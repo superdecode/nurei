@@ -249,9 +249,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const profileUpdate = isNewUser
-    ? { role: 'affiliate', full_name: handle.trim() }
-    : { role: 'affiliate' }
+  const profileUpdate = { role: 'affiliate' }
   const { error: profileErr } = await supabase
     .from('user_profiles')
     .update(profileUpdate)

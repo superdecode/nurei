@@ -112,8 +112,8 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
             </span>
           )}
           {isOutOfStock && (
-            <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
-              <span className="text-[9px] font-bold text-white uppercase tracking-wide">Agotado</span>
+            <div className="absolute inset-0 bg-amber-400/80 flex items-center justify-center">
+              <span className="text-[9px] font-bold text-amber-900 uppercase tracking-wide">Agotado</span>
             </div>
           )}
         </div>

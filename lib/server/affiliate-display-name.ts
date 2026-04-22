@@ -1,11 +1,12 @@
 /**
  * Resolves nombre/apellido para afiliados: prioridad affiliate_profiles → user_profiles.full_name → customers.
- * No usa el correo como nombre.
+ * No usa el correo como nombre. Descarta valores que coincidan con el handle (sin acentos/espacios).
  */
 export function resolveAffiliateFirstLast(
   affiliateRow: {
     first_name?: string | null
     last_name?: string | null
+    handle?: string | null
   },
   userProfile: { full_name?: string | null } | null | undefined,
   customer: {
@@ -14,12 +15,15 @@ export function resolveAffiliateFirstLast(
     full_name?: string | null
   } | null | undefined
 ): { first_name: string; last_name: string } {
+  const handle = (affiliateRow.handle ?? '').toLowerCase().trim()
+
   let firstName = String(affiliateRow.first_name ?? '').trim()
   let lastName = String(affiliateRow.last_name ?? '').trim()
 
   if (!firstName && !lastName && userProfile?.full_name) {
     const raw = String(userProfile.full_name).trim()
-    if (raw) {
+    // Skip if the full_name is identical to the handle (was set as handle during creation)
+    if (raw && raw.toLowerCase() !== handle) {
       const parts = raw.split(/\s+/).filter(Boolean)
       firstName = parts[0] ?? ''
       lastName = parts.slice(1).join(' ')
@@ -34,7 +38,7 @@ export function resolveAffiliateFirstLast(
       lastName = ln
     } else if (customer.full_name) {
       const raw = String(customer.full_name).trim()
-      if (raw) {
+      if (raw && raw.toLowerCase() !== handle) {
         const parts = raw.split(/\s+/).filter(Boolean)
         firstName = parts[0] ?? ''
         lastName = parts.slice(1).join(' ')
