@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { MX_MUNICIPALITIES, MX_STATE_NAMES } from '@/lib/data/mexico-locations'
 
 type LocationRecord = {
   country: string
@@ -9,17 +10,7 @@ type LocationRecord = {
   }>
 }
 
-const LOCATION_DATA: LocationRecord[] = [
-  {
-    country: 'México',
-    states: [
-      { code: 'CDMX', name: 'Ciudad de México', cities: ['Cuauhtémoc', 'Coyoacán', 'Benito Juárez', 'Miguel Hidalgo'] },
-      { code: 'MEX', name: 'Estado de México', cities: ['Naucalpan', 'Tlalnepantla', 'Toluca', 'Ecatepec'] },
-      { code: 'JAL', name: 'Jalisco', cities: ['Guadalajara', 'Zapopan', 'Tlaquepaque', 'Puerto Vallarta'] },
-      { code: 'NL', name: 'Nuevo León', cities: ['Monterrey', 'San Pedro Garza García', 'Guadalupe', 'Apodaca'] },
-      { code: 'PUE', name: 'Puebla', cities: ['Puebla', 'San Andrés Cholula', 'Tehuacán'] },
-    ],
-  },
+const NON_MX: LocationRecord[] = [
   {
     country: 'Estados Unidos',
     states: [
@@ -29,6 +20,15 @@ const LOCATION_DATA: LocationRecord[] = [
     ],
   },
 ]
+
+function buildMexicoRecord(): LocationRecord {
+  const states = MX_STATE_NAMES.map((name, idx) => ({
+    code: `MX-${idx}`,
+    name,
+    cities: [...(MX_MUNICIPALITIES[name] ?? [])],
+  }))
+  return { country: 'México', states }
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -41,9 +41,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 })
   }
 
+  const mexicoRecord = buildMexicoRecord()
   const countryRecord =
-    LOCATION_DATA.find((entry) => entry.country.toLowerCase() === country.toLowerCase()) ??
-    LOCATION_DATA[0]
+    NON_MX.find((entry) => entry.country.toLowerCase() === country.toLowerCase()) ??
+    mexicoRecord
 
   if (type === 'states') {
     const options = countryRecord.states
@@ -53,9 +54,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: options })
   }
 
-  const stateRecord = countryRecord.states.find(
-    (entry) => entry.name.toLowerCase() === state.toLowerCase()
-  )
+  const stateRecord = countryRecord.states.find((entry) => entry.name.toLowerCase() === state.toLowerCase())
   if (!stateRecord) {
     return NextResponse.json({ data: [] })
   }

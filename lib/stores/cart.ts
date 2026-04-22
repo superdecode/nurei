@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { clearShippingDraft } from '@/lib/checkout-shipping-cache'
 import type { Product, CartItem } from '@/types'
 
 interface CartStore {
@@ -56,7 +57,10 @@ export const useCartStore = create<CartStore>()(
         }))
       },
 
-      clearCart: () => set({ items: [] }),
+      clearCart: () => {
+        clearShippingDraft()
+        set({ items: [] })
+      },
 
       getSubtotal: () => {
         return get().items.reduce(

@@ -32,21 +32,20 @@ import {
 } from '@/components/ui/dialog'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
+import {
+  loadShippingDraft,
+  migrateLegacyShippingDraft,
+  saveShippingDraft,
+} from '@/lib/checkout-shipping-cache'
+import {
+  DEFAULT_SHIPPING_FORM,
+  trimShippingFormFields,
+  type ShippingForm,
+} from '@/lib/types/checkout-shipping'
+import { SearchableSelect } from '@/components/forms/SearchableSelect'
 
 type CheckoutStep = 1 | 2 | 3 | 4
 type Direction = 'forward' | 'backward'
-
-type ShippingForm = {
-  fullName: string
-  email: string
-  phone: string
-  address: string
-  neighborhood: string
-  city: string
-  state: string
-  zipCode: string
-  country: string
-}
 
 type CardForm = {
   number: string
@@ -102,27 +101,45 @@ const PROGRESS_BY_STEP: Record<CheckoutStep, number> = {
   4: 100,
 }
 
-function trimShippingForm(form: ShippingForm): ShippingForm {
-  return {
-    fullName: form.fullName.trim(),
-    email: form.email.trim(),
-    phone: form.phone.trim(),
-    address: form.address.trim(),
-    neighborhood: form.neighborhood.trim(),
-    city: form.city.trim(),
-    state: form.state.trim(),
-    zipCode: form.zipCode.trim(),
-    country: form.country.trim(),
-  }
+const SHIPPING_FIELD_ORDER: (keyof ShippingForm)[] = [
+  'firstName',
+  'lastName',
+  'email',
+  'phone',
+  'country',
+  'state',
+  'city',
+  'neighborhood',
+  'zipCode',
+  'address',
+]
+
+function scrollToFirstShippingError(errors: Partial<Record<keyof ShippingForm, string>>) {
+  const firstKey = SHIPPING_FIELD_ORDER.find((k) => errors[k])
+  if (!firstKey) return
+  requestAnimationFrame(() => {
+    document
+      .querySelector(`[data-checkout-field="${firstKey}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
 }
 
 function getFieldError(field: keyof ShippingForm, value: string) {
   const cleaned = value.trim()
 
   if (
-    ['fullName', 'address', 'neighborhood', 'city', 'state', 'zipCode', 'country', 'phone', 'email'].includes(
-      field
-    ) &&
+    [
+      'firstName',
+      'lastName',
+      'address',
+      'neighborhood',
+      'city',
+      'state',
+      'zipCode',
+      'country',
+      'phone',
+      'email',
+    ].includes(field) &&
     !cleaned
   ) {
     return 'Este campo es obligatorio.'
@@ -221,17 +238,9 @@ export default function CheckoutPage() {
     error: null,
   })
 
-  const [shippingForm, setShippingForm] = useState<ShippingForm>({
-    fullName: '',
-    email: '',
-    phone: '',
-    address: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: 'México',
-  })
+  const [shippingForm, setShippingForm] = useState<ShippingForm>(DEFAULT_SHIPPING_FORM)
+  const [locationStateOptions, setLocationStateOptions] = useState<string[]>([])
+  const [locationCityOptions, setLocationCityOptions] = useState<string[]>([])
   const [shippingErrors, setShippingErrors] = useState<Partial<Record<keyof ShippingForm, string>>>({})
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false)
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([])
@@ -278,15 +287,31 @@ export default function CheckoutPage() {
   }, [])
 
   useEffect(() => {
+    if (!mounted) return
+    const raw = loadShippingDraft()
+    const merged = migrateLegacyShippingDraft(DEFAULT_SHIPPING_FORM, raw as Record<string, unknown> | null)
+    setShippingForm((prev) => ({ ...prev, ...merged }))
+  }, [mounted])
+
+  useEffect(() => {
+    if (!mounted) return
+    saveShippingDraft(shippingForm)
+  }, [mounted, shippingForm])
+
+  useEffect(() => {
     void refreshUser()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- session sync once on checkout mount
   }, [])
 
   useEffect(() => {
     if (!authOk || !authUser) return
+    const parts = (authUser.full_name ?? '').trim().split(/\s+/)
+    const fn = parts[0] ?? ''
+    const ln = parts.slice(1).join(' ')
     setShippingForm((prev) => ({
       ...prev,
-      fullName: prev.fullName.trim() ? prev.fullName : authUser.full_name ?? '',
+      firstName: prev.firstName.trim() ? prev.firstName : fn,
+      lastName: prev.lastName.trim() ? prev.lastName : ln,
       email: prev.email.trim() ? prev.email : authEmail ?? '',
       phone: prev.phone.trim() ? prev.phone : authUser.phone ?? '',
     }))
@@ -357,8 +382,8 @@ export default function CheckoutPage() {
       setShippingLoading(true)
       try {
         const query = new URLSearchParams({
-          country: shippingForm.country || 'MX',
-          state: shippingForm.state || 'CDMX',
+          country: shippingForm.country || 'México',
+          state: shippingForm.state || 'ciudad de méxico',
           subtotal: `${subtotal}`,
         })
 
@@ -388,10 +413,82 @@ export default function CheckoutPage() {
     items.length,
   ])
 
+  useEffect(() => {
+    let cancelled = false
+    const country = shippingForm.country.trim()
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/location/options?type=states&country=${encodeURIComponent(country)}`)
+        const json = await res.json()
+        const names = ((json.data ?? []) as Array<{ value: string }>).map((x) => x.value)
+        if (!cancelled) setLocationStateOptions(names)
+      } catch {
+        if (!cancelled) setLocationStateOptions([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [shippingForm.country])
+
+  useEffect(() => {
+    let cancelled = false
+    const country = shippingForm.country.trim()
+    const state = shippingForm.state.trim()
+    if (!state) {
+      setLocationCityOptions([])
+      return
+    }
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/location/options?type=cities&country=${encodeURIComponent(country)}&state=${encodeURIComponent(state)}`,
+        )
+        const json = await res.json()
+        const names = ((json.data ?? []) as Array<{ value: string }>).map((x) => x.value)
+        if (!cancelled) setLocationCityOptions(names)
+      } catch {
+        if (!cancelled) setLocationCityOptions([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [shippingForm.country, shippingForm.state])
+
   const updateShippingField = (field: keyof ShippingForm, value: string) => {
+    if (field === 'country') {
+      setShippingForm((prev) => ({
+        ...prev,
+        country: value,
+        state: '',
+        city: '',
+      }))
+      setShippingErrors((prev) => {
+        const next = { ...prev }
+        delete next.state
+        delete next.city
+        return next
+      })
+      return
+    }
+    if (field === 'state') {
+      setShippingForm((prev) => ({
+        ...prev,
+        state: value,
+        city: '',
+      }))
+      setShippingErrors((prev) => {
+        const next = { ...prev }
+        delete next.city
+        next.state = getFieldError('state', value.trim())
+        return next
+      })
+      return
+    }
     setShippingForm((prev) => ({ ...prev, [field]: value }))
-    const forValidation = field === 'email' ? value.trim() : value
-    setShippingErrors((prev) => ({ ...prev, [field]: getFieldError(field, forValidation) }))
+    const cleaned = value.trim()
+    setShippingErrors((prev) => ({ ...prev, [field]: getFieldError(field, cleaned) }))
   }
 
   const applyCoupon = async () => {
@@ -455,15 +552,28 @@ export default function CheckoutPage() {
   }
 
   const validateShippingStep = () => {
-    const trimmed = trimShippingForm(shippingForm)
+    const trimmed = trimShippingFormFields(shippingForm)
     const nextErrors: Partial<Record<keyof ShippingForm, string>> = {}
-    ;(Object.keys(trimmed) as Array<keyof ShippingForm>).forEach((key) => {
-      const error = getFieldError(key, trimmed[key])
-      if (error) nextErrors[key] = error
+
+    SHIPPING_FIELD_ORDER.forEach((key) => {
+      const err = getFieldError(key, trimmed[key])
+      if (err) nextErrors[key] = err
     })
 
+    if (trimmed.state && locationCityOptions.length > 0) {
+      const okCity = locationCityOptions.some((c) => c.toLowerCase() === trimmed.city.toLowerCase())
+      if (!trimmed.city) {
+        nextErrors.city = 'Este campo es obligatorio.'
+      } else if (!okCity) {
+        nextErrors.city = 'Selecciona una ciudad de la lista.'
+      }
+    }
+
     setShippingErrors(nextErrors)
-    if (Object.keys(nextErrors).length > 0) return false
+    if (Object.keys(nextErrors).length > 0) {
+      scrollToFirstShippingError(nextErrors)
+      return false
+    }
 
     setShippingForm(trimmed)
 
@@ -473,6 +583,12 @@ export default function CheckoutPage() {
     }
     if (createAccount && newPassword.trim().length < 6) {
       setPasswordError('La contraseña debe tener al menos 6 caracteres.')
+      requestAnimationFrame(() => {
+        document.querySelector('[data-checkout-field="account-password"]')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+      })
       return false
     }
     return true
@@ -535,7 +651,7 @@ export default function CheckoutPage() {
         return
       }
 
-      const ship = trimShippingForm(shippingForm)
+      const ship = trimShippingFormFields(shippingForm)
 
       setProcessingStage('creating')
       const createOrderResponse = await fetch('/api/orders/create', {
@@ -548,7 +664,7 @@ export default function CheckoutPage() {
           })),
           coupon_code: couponState.appliedCode ?? undefined,
           customer: {
-            full_name: ship.fullName,
+            full_name: `${ship.firstName} ${ship.lastName}`.trim(),
             email: ship.email,
             phone: ship.phone,
           },
@@ -637,7 +753,7 @@ export default function CheckoutPage() {
             body: JSON.stringify({
               email: ship.email,
               password: newPassword,
-              name: ship.fullName,
+              name: `${ship.firstName} ${ship.lastName}`.trim(),
             }),
           })
           if (accountResponse.ok) {
@@ -740,18 +856,6 @@ export default function CheckoutPage() {
       )}
 
       <Container className="max-w-6xl relative">
-        {activeStep === 2 && !authOk && (
-          <button
-            type="button"
-            className="fixed top-[max(5.25rem,env(safe-area-inset-top))] right-4 z-[70] text-sm font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-4 decoration-amber-400/70 bg-transparent border-0 shadow-none rounded-none px-0 py-0 cursor-pointer max-w-[45%] text-right leading-snug sm:top-28"
-            onClick={() => {
-              setLoginOpen(true)
-              setLoginError('')
-            }}
-          >
-            Iniciar sesión
-          </button>
-        )}
         <Link
           href="/menu"
           className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary-dark transition-colors mb-3"
@@ -1001,7 +1105,7 @@ export default function CheckoutPage() {
 
               {activeStep === 2 && (
                 <div className="relative">
-                  <div className="mb-4 pr-24 sm:pr-0">
+                  <div className="mb-4">
                     <h2 className="text-xl font-semibold text-primary-dark">Paso 2 · Datos de envío</h2>
                     <p className="text-sm text-gray-500">Completa tu dirección de entrega.</p>
                   </div>
@@ -1015,151 +1119,208 @@ export default function CheckoutPage() {
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre completo</label>
+                    <div data-checkout-field="firstName">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre</label>
                       <Input
-                        value={shippingForm.fullName}
-                        onChange={(event) => updateShippingField('fullName', event.target.value)}
+                        value={shippingForm.firstName}
+                        onChange={(event) => updateShippingField('firstName', event.target.value)}
                         className="mt-1"
+                        autoComplete="given-name"
                       />
-                      {shippingErrors.fullName && <p className="text-xs text-red-600 mt-1">{shippingErrors.fullName}</p>}
+                      {shippingErrors.firstName && <p className="text-xs text-red-600 mt-1">{shippingErrors.firstName}</p>}
                     </div>
 
-                    <div>
+                    <div data-checkout-field="lastName">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Apellido</label>
+                      <Input
+                        value={shippingForm.lastName}
+                        onChange={(event) => updateShippingField('lastName', event.target.value)}
+                        className="mt-1"
+                        autoComplete="family-name"
+                      />
+                      {shippingErrors.lastName && <p className="text-xs text-red-600 mt-1">{shippingErrors.lastName}</p>}
+                    </div>
+
+                    <div data-checkout-field="email">
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</label>
                       <Input
                         value={shippingForm.email}
                         onChange={(event) => updateShippingField('email', event.target.value)}
                         className="mt-1"
+                        autoComplete="email"
                       />
                       {shippingErrors.email && <p className="text-xs text-red-600 mt-1">{shippingErrors.email}</p>}
                     </div>
 
-                    <div>
+                    <div data-checkout-field="phone">
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Teléfono</label>
                       <Input
                         value={shippingForm.phone}
                         onChange={(event) => updateShippingField('phone', event.target.value)}
                         className="mt-1"
+                        autoComplete="tel"
                       />
                       {shippingErrors.phone && <p className="text-xs text-red-600 mt-1">{shippingErrors.phone}</p>}
                     </div>
 
-                    {!authOk && (
-                      <div className="sm:col-span-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCreateAccount((v) => !v)
-                            setPasswordError('')
-                            setNewPassword('')
-                          }}
-                          className={`w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-all ${
-                            createAccount
-                              ? 'border-primary-cyan bg-primary-cyan/8'
-                              : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="text-left">
-                            <p className="text-sm font-semibold text-primary-dark">¿Quieres guardar tu pedido en tu cuenta?</p>
-                            <p className="text-xs text-gray-500 mt-0.5">Crea una cuenta para rastrear tus pedidos fácilmente.</p>
+                    <div className="sm:col-span-2 rounded-2xl border border-gray-200 bg-gray-50/80 px-4 py-4 space-y-4">
+                      {authOk ? (
+                        <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
+                          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 mt-0.5" />
+                          <div>
+                            <p className="font-semibold">Pedido en tu cuenta</p>
+                            <p className="text-xs text-emerald-800 mt-0.5">
+                              Este pedido se guardará y asociará a <span className="font-medium">{authEmail ?? 'tu sesión'}</span>.
+                            </p>
                           </div>
-                          <div
-                            className={`flex-shrink-0 w-11 h-6 rounded-full transition-colors relative ${
-                              createAccount ? 'bg-primary-cyan' : 'bg-gray-300'
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCreateAccount((v) => !v)
+                              setPasswordError('')
+                              setNewPassword('')
+                            }}
+                            className={`w-full flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-all ${
+                              createAccount
+                                ? 'border-primary-cyan bg-white'
+                                : 'border-gray-200 bg-white hover:bg-gray-50'
                             }`}
                           >
-                            <span
-                              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
-                                createAccount ? 'left-5' : 'left-0.5'
+                            <div className="text-left min-w-0">
+                              <p className="text-sm font-semibold text-primary-dark">¿Guardar pedido en cuenta?</p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                Activa para crear cuenta al finalizar y ver tus pedidos después.
+                              </p>
+                            </div>
+                            <div
+                              className={`flex-shrink-0 w-11 h-6 rounded-full transition-colors relative ${
+                                createAccount ? 'bg-primary-cyan' : 'bg-gray-300'
                               }`}
-                            />
-                          </div>
-                        </button>
+                            >
+                              <span
+                                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                                  createAccount ? 'left-5' : 'left-0.5'
+                                }`}
+                              />
+                            </div>
+                          </button>
 
-                        {createAccount && (
-                          <div className="mt-3">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              Contraseña para tu cuenta nueva
-                            </label>
-                            <Input
-                              type="password"
-                              value={newPassword}
-                              onChange={(event) => {
-                                setNewPassword(event.target.value)
-                                setPasswordError('')
+                          {createAccount && (
+                            <div data-checkout-field="account-password">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Contraseña para tu cuenta nueva
+                              </label>
+                              <Input
+                                type="password"
+                                value={newPassword}
+                                onChange={(event) => {
+                                  setNewPassword(event.target.value)
+                                  setPasswordError('')
+                                }}
+                                placeholder="Mínimo 6 caracteres"
+                                className="mt-1 bg-white"
+                              />
+                              {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
+                            </div>
+                          )}
+
+                          <div className="border-t border-gray-200 pt-3 space-y-2">
+                            <p className="text-xs text-gray-600 leading-snug">
+                              ¿Ya tienes cuenta? Inicia sesión para autocompletar datos y asociar este pedido.
+                            </p>
+                            <button
+                              type="button"
+                              className="text-sm font-semibold text-amber-500 hover:text-amber-400 underline underline-offset-4"
+                              onClick={() => {
+                                setLoginOpen(true)
+                                setLoginError('')
                               }}
-                              placeholder="Mínimo 6 caracteres"
-                              className="mt-1"
-                            />
-                            {passwordError && <p className="text-xs text-red-600 mt-1">{passwordError}</p>}
+                            >
+                              Iniciar sesión
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    )}
+                        </>
+                      )}
+                    </div>
 
                     <div className="sm:col-span-2 border-t border-gray-100 pt-4 mt-1">
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Dirección de entrega</p>
                     </div>
 
-                    <div>
+                    <div data-checkout-field="country">
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">País</label>
-                      <Input
+                      <select
                         value={shippingForm.country}
                         onChange={(event) => updateShippingField('country', event.target.value)}
-                        className="mt-1"
-                      />
+                        className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <option value="México">México</option>
+                        <option value="Estados Unidos">Estados Unidos</option>
+                      </select>
                       {shippingErrors.country && <p className="text-xs text-red-600 mt-1">{shippingErrors.country}</p>}
                     </div>
 
-                    <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</label>
-                      <Input
+                    <div data-checkout-field="state">
+                      <SearchableSelect
+                        label="Estado / entidad"
                         value={shippingForm.state}
-                        onChange={(event) => updateShippingField('state', event.target.value)}
-                        placeholder="Ej: CDMX"
-                        className="mt-1"
+                        options={locationStateOptions}
+                        onChange={(v) => updateShippingField('state', v)}
+                        placeholder="Busca y selecciona tu estado…"
+                        disabled={!shippingForm.country}
+                        error={shippingErrors.state}
                       />
-                      {shippingErrors.state && <p className="text-xs text-red-600 mt-1">{shippingErrors.state}</p>}
                     </div>
 
-                    <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ciudad</label>
-                      <Input
+                    <div data-checkout-field="city" className="md:col-span-2">
+                      <SearchableSelect
+                        label="Ciudad / municipio"
                         value={shippingForm.city}
-                        onChange={(event) => updateShippingField('city', event.target.value)}
-                        className="mt-1"
+                        options={locationCityOptions}
+                        onChange={(v) => updateShippingField('city', v)}
+                        placeholder={
+                          !shippingForm.state ? 'Primero elige un estado' : 'Busca y selecciona tu ciudad…'
+                        }
+                        disabled={!shippingForm.state}
+                        error={shippingErrors.city}
                       />
-                      {shippingErrors.city && <p className="text-xs text-red-600 mt-1">{shippingErrors.city}</p>}
                     </div>
 
-                    <div>
+                    <div data-checkout-field="neighborhood">
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Colonia</label>
                       <Input
                         value={shippingForm.neighborhood}
                         onChange={(event) => updateShippingField('neighborhood', event.target.value)}
                         className="mt-1"
+                        autoComplete="address-level2"
                       />
-                      {shippingErrors.neighborhood && <p className="text-xs text-red-600 mt-1">{shippingErrors.neighborhood}</p>}
+                      {shippingErrors.neighborhood && (
+                        <p className="text-xs text-red-600 mt-1">{shippingErrors.neighborhood}</p>
+                      )}
                     </div>
 
-                    <div>
+                    <div data-checkout-field="zipCode">
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Código postal</label>
                       <Input
                         value={shippingForm.zipCode}
                         onChange={(event) => updateShippingField('zipCode', event.target.value)}
                         className="mt-1"
+                        autoComplete="postal-code"
                       />
                       {shippingErrors.zipCode && <p className="text-xs text-red-600 mt-1">{shippingErrors.zipCode}</p>}
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div data-checkout-field="address" className="sm:col-span-2">
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Calle y número</label>
                       <Input
                         value={shippingForm.address}
                         onChange={(event) => updateShippingField('address', event.target.value)}
                         placeholder="Calle, número exterior e interior"
                         className="mt-1"
+                        autoComplete="street-address"
                       />
                       {shippingErrors.address && <p className="text-xs text-red-600 mt-1">{shippingErrors.address}</p>}
                     </div>
@@ -1459,23 +1620,33 @@ export default function CheckoutPage() {
                   Resumen del pedido
                 </p>
 
-                <div className="space-y-1.5 max-h-52 lg:max-h-64 overflow-auto pr-1">
-                  {items.map((item) => (
-                    <div key={item.product.id} className="flex items-start justify-between gap-2 text-xs lg:text-[13px] leading-snug">
-                      <p className="text-gray-600">
-                        {item.quantity} × {item.product.name}
-                      </p>
-                      <p className="font-medium text-primary-dark">{formatPrice(item.product.price * item.quantity)}</p>
-                    </div>
-                  ))}
+                <div className="space-y-1 max-h-52 lg:max-h-64 overflow-auto pr-1">
+                  {items.map((item) => {
+                    const unit = item.product.base_price ?? item.product.price
+                    const lineTotal = unit * item.quantity
+                    return (
+                      <div
+                        key={item.product.id}
+                        className="flex items-baseline gap-2 text-[11px] lg:text-[12px] leading-snug"
+                      >
+                        <span className="tabular-nums text-gray-500 shrink-0">{item.quantity}×</span>
+                        <span className="flex-1 min-w-0 text-gray-700 truncate">{item.product.name}</span>
+                        <span className="font-semibold text-primary-dark tabular-nums shrink-0">
+                          {formatPrice(lineTotal)}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
 
-                <div className="mt-3 lg:mt-3 border-t border-gray-200 pt-3 text-sm space-y-1.5">
-                  <div className="flex items-center justify-between">
+                <div className="my-3 border-t border-dashed border-gray-200" />
+
+                <div className="mt-0 lg:mt-0 text-[11px] lg:text-xs space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-500">Subtotal</span>
-                    <span className="font-medium">{formatPrice(subtotal)}</span>
+                    <span className="font-medium tabular-nums">{formatPrice(subtotal)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-500">Envío</span>
                     <span className="font-medium text-right">
                       {selectedMethod?.id === 'standard' &&
@@ -1485,24 +1656,30 @@ export default function CheckoutPage() {
                           <span className="text-[10px] text-gray-400 line-through">
                             {formatPrice(storeBootstrap?.shipping.standard_fee_cents ?? 0)}
                           </span>
-                          <span className="text-emerald-600 font-semibold">GRATIS</span>
+                          <span className="text-emerald-600 font-semibold">Gratis</span>
                         </span>
                       ) : shippingFee === 0 ? (
-                        <span className="text-emerald-600">Gratis</span>
+                        <span className="text-emerald-600 font-semibold">Gratis</span>
                       ) : (
                         formatPrice(shippingFee)
                       )}
                     </span>
                   </div>
-                  {effectiveCouponDiscount > 0 && (
-                    <div className="flex items-center justify-between text-emerald-700">
-                      <span>Descuento</span>
-                      <span className="font-medium">-{formatPrice(effectiveCouponDiscount)}</span>
+                  {effectiveCouponDiscount > 0 && couponState.appliedCode && (
+                    <div className="flex items-start justify-between gap-2 text-emerald-700">
+                      <span className="min-w-0 truncate">
+                        Cupón <span className="font-semibold">{couponState.appliedCode}</span>
+                      </span>
+                      <span className="font-medium shrink-0 tabular-nums">
+                        −{formatPrice(effectiveCouponDiscount)}
+                      </span>
                     </div>
                   )}
-                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between gap-2">
                     <span className="font-semibold text-primary-dark">Total</span>
-                    <span className="text-lg font-bold text-primary-dark">{formatPrice(total)}</span>
+                    <span className="text-base lg:text-lg font-bold text-primary-dark tabular-nums">
+                      {formatPrice(total)}
+                    </span>
                   </div>
                 </div>
 
@@ -1533,14 +1710,50 @@ export default function CheckoutPage() {
               {mobileSummaryOpen ? 'Ocultar resumen del pedido' : 'Ver resumen del pedido'}
             </button>
             {mobileSummaryOpen && (
-              <div className="mt-2 rounded-xl border border-gray-200 bg-white p-4">
-                <div className="space-y-1 text-sm">
-                  <p className="text-gray-600">Subtotal: {formatPrice(subtotal)}</p>
-                  <p className="text-gray-600">Envío: {shippingFee === 0 ? 'Gratis' : formatPrice(shippingFee)}</p>
-                  {effectiveCouponDiscount > 0 && (
-                    <p className="text-emerald-700">Descuento: -{formatPrice(effectiveCouponDiscount)}</p>
+              <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3">
+                <div className="space-y-1 max-h-44 overflow-auto pr-0.5">
+                  {items.map((item) => {
+                    const unit = item.product.base_price ?? item.product.price
+                    const lineTotal = unit * item.quantity
+                    return (
+                      <div key={item.product.id} className="flex gap-2 text-[11px] leading-snug">
+                        <span className="tabular-nums text-gray-500 shrink-0">{item.quantity}×</span>
+                        <span className="flex-1 min-w-0 text-gray-700 truncate">{item.product.name}</span>
+                        <span className="font-semibold text-primary-dark tabular-nums shrink-0">
+                          {formatPrice(lineTotal)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="my-2 border-t border-dashed border-gray-200" />
+                <div className="space-y-1 text-[11px]">
+                  <div className="flex justify-between gap-2 text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="tabular-nums font-medium">{formatPrice(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2 text-gray-600">
+                    <span>Envío</span>
+                    <span className="tabular-nums font-semibold text-right">
+                      {shippingFee === 0 ? (
+                        <span className="text-emerald-600">Gratis</span>
+                      ) : (
+                        formatPrice(shippingFee)
+                      )}
+                    </span>
+                  </div>
+                  {effectiveCouponDiscount > 0 && couponState.appliedCode && (
+                    <div className="flex justify-between gap-2 text-emerald-700">
+                      <span className="min-w-0 truncate">
+                        Cupón <span className="font-semibold">{couponState.appliedCode}</span>
+                      </span>
+                      <span className="tabular-nums shrink-0">−{formatPrice(effectiveCouponDiscount)}</span>
+                    </div>
                   )}
-                  <p className="font-semibold text-primary-dark">Total: {formatPrice(total)}</p>
+                  <div className="flex justify-between gap-2 pt-2 border-t border-gray-200 font-bold text-primary-dark text-xs">
+                    <span>Total</span>
+                    <span className="tabular-nums">{formatPrice(total)}</span>
+                  </div>
                 </div>
               </div>
             )}
