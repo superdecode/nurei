@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, ArrowRight, Flame, Truck, Star, Check, Plus, Heart, ChevronDown, ChevronRight } from 'lucide-react'
+import { Search, ArrowRight, Flame, Truck, Star, Check, Plus, Heart, ChevronDown, ChevronRight, Ban } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/layout/Container'
@@ -58,7 +58,10 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
-      className="card-product group overflow-hidden flex flex-col"
+      whileHover={isOutOfStock ? {} : { y: -3, transition: { type: 'spring', stiffness: 300, damping: 28 } }}
+      className={`card-product group overflow-hidden flex flex-col ${
+        isOutOfStock ? 'ring-1 ring-amber-200/80' : ''
+      }`}
     >
       {/* Image area */}
       <div className="relative aspect-square bg-yellow-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
@@ -66,54 +69,67 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
           <motion.img
             src={product.images[product.primary_image_index ?? 0] || product.images[0]}
             alt={product.name}
-            className="w-full h-full object-cover"
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+              isOutOfStock ? '' : 'group-hover:scale-110'
+            }`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
           />
         ) : (
           <motion.span
-            className="text-6xl sm:text-7xl select-none"
-            whileHover={{ scale: 1.2, rotate: [0, -8, 8, 0] }}
+            className="text-6xl sm:text-7xl select-none opacity-40"
+            whileHover={isOutOfStock ? {} : { scale: 1.2, rotate: [0, -8, 8, 0] }}
             transition={{ duration: 0.5 }}
           >
             {emoji}
           </motion.span>
         )}
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-          {product.is_limited && (
-            <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full shadow-lg">
-              🔥 Edición Limitada
-            </span>
-          )}
-          {product.compare_at_price && product.compare_at_price > (product.price || 0) && (
-            <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-nurei-black rounded-full shadow-lg">
-              Oferta
-            </span>
-          )}
-        </div>
-
-        {/* Origin flag */}
-        <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/70 backdrop-blur-md rounded-full border border-stone-200">
-          <span className="text-[10px] font-medium text-stone-500">
-            {product.origin}
-          </span>
-        </div>
-
-        {/* Out of stock overlay */}
+        {/* Out of stock — warm amber wash + pill */}
         {isOutOfStock && (
-          <div className="absolute bottom-3 left-3 right-3">
-            <div className="px-3 py-1.5 bg-amber-400 rounded-full text-center shadow-sm">
-              <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wide">Agotado</span>
+          <>
+            <div className="absolute inset-0 bg-[#FFF3CE]/65" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#FFF3CE] border border-amber-300/80 text-amber-800 text-[11px] font-bold uppercase tracking-widest shadow-sm">
+                <Ban className="w-3 h-3 shrink-0" />
+                Agotado
+              </span>
             </div>
-          </div>
+          </>
+        )}
+
+        {/* Badges (hidden when out of stock) */}
+        {!isOutOfStock && (
+          <>
+            <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+              {product.is_limited && (
+                <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full shadow-lg">
+                  🔥 Edición Limitada
+                </span>
+              )}
+              {product.compare_at_price && product.compare_at_price > (product.price || 0) && (
+                <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-nurei-black rounded-full shadow-lg">
+                  Oferta
+                </span>
+              )}
+            </div>
+
+            {/* Origin flag */}
+            <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/70 backdrop-blur-md rounded-full border border-stone-200">
+              <span className="text-[10px] font-medium text-stone-500">
+                {product.origin}
+              </span>
+            </div>
+          </>
         )}
       </div>
 
       {/* Info */}
-      <div className="p-4 sm:p-5 flex flex-col flex-1">
-        <h3 className="text-[15px] font-black text-gray-900 line-clamp-2 leading-snug group-hover:text-nurei-cta transition-colors duration-300">
+      <div className={`p-4 sm:p-5 flex flex-col flex-1 transition-colors duration-300 ${isOutOfStock ? 'bg-amber-50/40' : ''}`}>
+        <h3 className={`text-[15px] font-black line-clamp-2 leading-snug transition-colors duration-300 ${
+          isOutOfStock ? 'text-amber-900/60' : 'text-gray-900 group-hover:text-nurei-cta'
+        }`}>
           {product.name}
         </h3>
 
@@ -122,78 +138,79 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         </p>
 
         {/* Spice + Weight row */}
-        <div className="mt-3 flex items-center gap-3">
-          {product.spice_level > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-nurei-promo/10 rounded-full">
-              <SpiceDots level={product.spice_level} />
-              <span className="text-[10px] text-nurei-promo font-medium">
-                {SPICE_LABELS[product.spice_level]}
-              </span>
-            </div>
-          )}
-          <span className="text-[10px] text-nurei-muted/70">{product.weight_g}g</span>
-        </div>
+        {!isOutOfStock && (
+          <div className="mt-3 flex items-center gap-3">
+            {product.spice_level > 0 && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-nurei-promo/10 rounded-full">
+                <SpiceDots level={product.spice_level} />
+                <span className="text-[10px] text-nurei-promo font-medium">
+                  {SPICE_LABELS[product.spice_level]}
+                </span>
+              </div>
+            )}
+            <span className="text-[10px] text-nurei-muted/70">{product.weight_g}g</span>
+          </div>
+        )}
 
         {/* Price + CTA */}
         <div className="mt-auto pt-4 flex items-end justify-between gap-3">
           <div className="flex items-baseline gap-2">
             {product.compare_at_price && (
-              <span className="text-xs text-nurei-muted/50 line-through">
+              <span className="text-xs text-nurei-muted/50 line-through tabular-nums">
                 {formatPrice(product.compare_at_price)}
               </span>
             )}
-            <span className="text-xl font-black text-gray-900 tabular-nums">
+            <span className={`text-xl font-black tabular-nums tracking-tight transition-colors duration-300 ${
+              isOutOfStock ? 'text-amber-400' : 'text-gray-900'
+            }`}>
               {formatPrice(product.price)}
             </span>
           </div>
 
-          <motion.button
-            whileTap={{ scale: 0.88 }}
-            whileHover={{ scale: isOutOfStock ? 1 : 1.05 }}
-            onClick={handleAdd}
-            disabled={isOutOfStock}
-            className={`flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold rounded-full transition-all duration-300 ${
-              added
-                ? 'bg-nurei-stock text-white shadow-lg shadow-nurei-stock/25'
-                : isOutOfStock
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-nurei-cta hover:bg-nurei-cta-hover text-nurei-black shadow-lg shadow-nurei-cta/20'
-            }`}
-          >
-            <AnimatePresence mode="wait">
-              {added ? (
-                <motion.span
-                  key="added"
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  className="flex items-center gap-1"
-                >
-                  <Check className="w-3.5 h-3.5" /> ¡Listo!
-                </motion.span>
-              ) : isOutOfStock ? (
-                <motion.span
-                  key="oos"
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  className="flex items-center gap-1"
-                >
-                  Sin stock
-                </motion.span>
-              ) : (
-                <motion.span
-                  key="add"
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  className="flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Agregar
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </motion.button>
+          {isOutOfStock ? (
+            <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+              <Ban className="w-3 h-3 shrink-0" />
+              Sin stock
+            </span>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.06 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              onClick={handleAdd}
+              className={`flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold rounded-full transition-colors duration-300 shadow-lg ${
+                added
+                  ? 'bg-nurei-stock text-white shadow-nurei-stock/25'
+                  : 'bg-nurei-cta text-nurei-black shadow-nurei-cta/20'
+              }`}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {added ? (
+                  <motion.span
+                    key="added"
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.5, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                    className="flex items-center gap-1"
+                  >
+                    <Check className="w-3.5 h-3.5" /> ¡Listo!
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="add"
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.5, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          )}
         </div>
       </div>
     </motion.div>

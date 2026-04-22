@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Ban } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
@@ -33,6 +34,9 @@ const CheckIcon = () => (
     <path d="M20 6L9 17l-5-5" />
   </svg>
 )
+
+const SPRING_SNAP = { type: 'spring', stiffness: 400, damping: 20 } as const
+const SPRING_SMOOTH = { type: 'spring', stiffness: 350, damping: 28 } as const
 
 interface MobileProductCardProps {
   product: Product
@@ -85,8 +89,11 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
     <Link href={`/producto/${product.slug}`}>
       <motion.div
         layout
-        whileTap={{ scale: 0.98 }}
-        className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-gray-100 shadow-sm"
+        transition={SPRING_SMOOTH}
+        whileTap={isOutOfStock ? {} : { scale: 0.98 }}
+        className={`flex items-center gap-3 p-3 bg-white rounded-2xl border shadow-sm transition-colors duration-300 ${
+          isOutOfStock ? 'border-amber-200/70' : 'border-gray-100'
+        }`}
       >
         {/* Image */}
         <div className="relative w-[76px] h-[76px] flex-shrink-0 rounded-xl overflow-hidden bg-gray-50">
@@ -101,26 +108,40 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
               <span className="text-2xl opacity-30">{getCategoryEmoji(product.category)}</span>
             </div>
           )}
-          {discountPercent > 0 && (
+
+          {/* Out of stock — amber wash + pill */}
+          {isOutOfStock && (
+            <>
+              <div className="absolute inset-0 bg-[#FFF3CE]/70" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-full bg-[#FFF3CE] border border-amber-300/80 text-amber-800 text-[8px] font-bold uppercase tracking-wider">
+                  <Ban className="w-2 h-2 shrink-0" />
+                  Agotado
+                </span>
+              </div>
+            </>
+          )}
+
+          {/* Discount badge */}
+          {discountPercent > 0 && !isOutOfStock && (
             <span className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-black bg-red-500 text-white rounded-full leading-none">
               -{discountPercent}%
             </span>
           )}
-          {product.is_limited && !discountPercent && (
+
+          {/* Limited badge */}
+          {product.is_limited && !discountPercent && !isOutOfStock && (
             <span className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-bold bg-nurei-promo text-white rounded-full leading-none">
               Ltd
             </span>
-          )}
-          {isOutOfStock && (
-            <div className="absolute inset-0 bg-amber-400/80 flex items-center justify-center">
-              <span className="text-[9px] font-bold text-amber-900 uppercase tracking-wide">Agotado</span>
-            </div>
           )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900 line-clamp-1 leading-tight">
+          <p className={`text-sm font-bold line-clamp-1 leading-tight transition-colors duration-300 ${
+            isOutOfStock ? 'text-amber-900/60' : 'text-gray-900'
+          }`}>
             {product.name}
           </p>
           {product.description && (
@@ -139,7 +160,9 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
                 {formatPrice(product.compare_at_price!)}
               </span>
             )}
-            <span className={`text-base font-black tabular-nums tracking-tight ${hasDiscount ? 'text-nurei-promo' : 'text-gray-900'}`}>
+            <span className={`text-base font-black tabular-nums tracking-tight transition-colors duration-300 ${
+              isOutOfStock ? 'text-amber-400' : hasDiscount ? 'text-nurei-promo' : 'text-gray-900'
+            }`}>
               {formatPrice(price)}
             </span>
           </div>
@@ -147,13 +170,18 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
 
         {/* Qty controls */}
         <div className="flex-shrink-0">
-          {qty > 0 ? (
+          {isOutOfStock ? (
+            <span className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+              <Ban className="w-2.5 h-2.5 shrink-0" />
+              Sin stock
+            </span>
+          ) : qty > 0 ? (
             <div className="flex items-center gap-1.5">
               <motion.button
                 whileTap={{ scale: 0.8 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                transition={SPRING_SNAP}
                 onClick={handleMinus}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 active:bg-gray-200"
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 active:bg-gray-200 transition-colors duration-150"
               >
                 <MinusIcon />
               </motion.button>
@@ -164,7 +192,7 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
                   initial={{ y: -10, opacity: 0, scale: 0.8 }}
                   animate={{ y: 0, opacity: 1, scale: 1 }}
                   exit={{ y: 10, opacity: 0, scale: 0.8 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  transition={SPRING_SNAP}
                   className="w-6 text-center text-sm font-black text-gray-900 tabular-nums"
                 >
                   {qty}
@@ -173,10 +201,9 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
 
               <motion.button
                 whileTap={{ scale: 0.8 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                transition={SPRING_SNAP}
                 onClick={handleAdd}
-                disabled={isOutOfStock}
-                className="w-8 h-8 rounded-full bg-nurei-cta flex items-center justify-center text-gray-900 shadow-sm shadow-nurei-cta/30 disabled:opacity-40"
+                className="w-8 h-8 rounded-full bg-nurei-cta flex items-center justify-center text-gray-900 shadow-sm shadow-nurei-cta/30 active:brightness-95 transition-all duration-150"
               >
                 <PlusIcon />
               </motion.button>
@@ -184,22 +211,29 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
           ) : (
             <motion.button
               whileTap={{ scale: 0.85 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              transition={SPRING_SNAP}
               onClick={handleAdd}
-              disabled={isOutOfStock}
-              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-colors ${
-                isOutOfStock
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-nurei-cta text-gray-900 shadow-nurei-cta/30'
-              }`}
+              className="w-9 h-9 rounded-full flex items-center justify-center shadow-md bg-nurei-cta text-gray-900 shadow-nurei-cta/30 active:brightness-95 transition-all duration-150"
             >
-              <AnimatePresence mode="wait">
+              <AnimatePresence mode="wait" initial={false}>
                 {added ? (
-                  <motion.span key="check" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
+                  <motion.span
+                    key="check"
+                    initial={{ scale: 0, rotate: -90 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0, rotate: 90 }}
+                    transition={SPRING_SNAP}
+                  >
                     <CheckIcon />
                   </motion.span>
                 ) : (
-                  <motion.span key="plus" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                  <motion.span
+                    key="plus"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    transition={SPRING_SNAP}
+                  >
                     <PlusIcon />
                   </motion.span>
                 )}
