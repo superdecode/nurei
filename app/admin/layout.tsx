@@ -18,9 +18,9 @@ import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { useAdminAuthStore } from '@/lib/stores/adminAuth'
 import { useSidebarStore, SIDEBAR_W_EXPANDED, SIDEBAR_W_COLLAPSED } from '@/lib/stores/sidebarStore'
 
-/** Pedidos badge: only brand-new orders awaiting confirmation/first processing step. */
+/** Pedidos badge: orders awaiting action — paid, confirmed, or pending payment. */
 function countOpenOrdersFromStatusMap(counts: Record<string, number>): number {
-  return (counts.paid ?? 0) + (counts.confirmed ?? 0)
+  return (counts.paid ?? 0) + (counts.confirmed ?? 0) + (counts.pending_payment ?? 0)
 }
 
 const NAV_ITEMS = [

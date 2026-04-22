@@ -48,7 +48,7 @@ export default function MenuPage() {
         const meta = Object.fromEntries(
           (catJson.data ?? []).map((c: { slug: string; name: string; emoji?: string | null }) => [
             c.slug,
-            { label: c.name, emoji: c.emoji || '📦' },
+            { label: c.name, emoji: c.emoji || '🍜' },
           ]),
         )
         setCategoryMeta(meta)
@@ -82,7 +82,7 @@ export default function MenuPage() {
       ...categories.map((slug) => ({
         value: slug,
         label: categoryMeta[slug]?.label ?? slug,
-        emoji: categoryMeta[slug]?.emoji ?? '📦',
+        emoji: categoryMeta[slug]?.emoji ?? '🍜',
       })),
     ],
     [categories, categoryMeta],

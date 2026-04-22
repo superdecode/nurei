@@ -83,7 +83,7 @@ const MOTIVO_PRESETS = [
 const STATUS_COLORS: Record<StockStatus, string> = {
   available: 'bg-emerald-100 text-emerald-700',
   low_stock: 'bg-amber-100 text-amber-900',
-  out_of_stock: 'bg-red-100 text-red-800',
+  out_of_stock: 'bg-amber-100 text-amber-900',
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -753,7 +753,7 @@ export default function InventoryAdminPage() {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Estado de stock</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {[{v:'available',l:'Disponible',dot:'bg-emerald-400'},{v:'low_stock',l:'Pocas unidades',dot:'bg-amber-400'},{v:'out_of_stock',l:'Agotado',dot:'bg-red-400'}].map(({v,l,dot}) => {
+                      {[{v:'available',l:'Disponible',dot:'bg-emerald-400'},{v:'low_stock',l:'Pocas unidades',dot:'bg-amber-400'},{v:'out_of_stock',l:'Agotado',dot:'bg-amber-500'}].map(({v,l,dot}) => {
                         const isActive = stockStatusFilter === v
                         return (
                           <button key={v} type="button" onClick={() => { setStockStatusFilter((isActive ? '' : v) as '' | StockStatus); setPage(1) }}
@@ -978,7 +978,7 @@ export default function InventoryAdminPage() {
                         <span
                           className={cn(
                             'text-sm font-semibold tabular-nums',
-                            st === 'out_of_stock' ? 'text-red-600' : st === 'low_stock' ? 'text-amber-700' : 'text-emerald-700'
+                            st === 'out_of_stock' ? 'text-amber-700' : st === 'low_stock' ? 'text-amber-700' : 'text-emerald-700'
                           )}
                         >
                           {product.stock_quantity ?? 0}

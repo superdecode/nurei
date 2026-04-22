@@ -33,7 +33,10 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
   const addItem = useCartStore((s) => s.addItem)
   const [added, setAdded] = useState(false)
 
+  const isOutOfStock = product.stock_status === 'out_of_stock'
+
   const handleAdd = () => {
+    if (isOutOfStock) return
     addItem(product)
     setAdded(true)
     toast.success(`${product.name} agregado al carrito`, {
@@ -97,6 +100,15 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
             {product.origin}
           </span>
         </div>
+
+        {/* Out of stock overlay */}
+        {isOutOfStock && (
+          <div className="absolute bottom-3 left-3 right-3">
+            <div className="px-3 py-1.5 bg-gray-900/85 rounded-full text-center shadow-sm">
+              <span className="text-[10px] font-bold text-white uppercase tracking-wide">Agotado</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -137,11 +149,14 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 
           <motion.button
             whileTap={{ scale: 0.88 }}
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: isOutOfStock ? 1 : 1.05 }}
             onClick={handleAdd}
+            disabled={isOutOfStock}
             className={`flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold rounded-full transition-all duration-300 ${
               added
                 ? 'bg-nurei-stock text-white shadow-lg shadow-nurei-stock/25'
+                : isOutOfStock
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-nurei-cta hover:bg-nurei-cta-hover text-nurei-black shadow-lg shadow-nurei-cta/20'
             }`}
           >
@@ -155,6 +170,16 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
                   className="flex items-center gap-1"
                 >
                   <Check className="w-3.5 h-3.5" /> ¡Listo!
+                </motion.span>
+              ) : isOutOfStock ? (
+                <motion.span
+                  key="oos"
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  className="flex items-center gap-1"
+                >
+                  Sin stock
                 </motion.span>
               ) : (
                 <motion.span
@@ -205,7 +230,7 @@ export default function LandingPage() {
             .map((c: any) => ({
               value: c.slug,
               label: c.name,
-              emoji: c.emoji || '📦'
+              emoji: c.emoji || '🍜'
             }))
           setCategories([{ value: 'all', label: 'Todo', emoji: '✨' }, ...dbCats])
         }

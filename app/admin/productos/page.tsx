@@ -638,7 +638,7 @@ export default function ProductosAdminPage() {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Stock</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {[{v:'available',l:'Disponible',dot:'bg-emerald-400'},{v:'low_stock',l:'Stock bajo',dot:'bg-amber-400'},{v:'out_of_stock',l:'Agotado',dot:'bg-red-400'}].map(({v,l,dot}) => (
+                      {[{v:'available',l:'Disponible',dot:'bg-emerald-400'},{v:'low_stock',l:'Stock bajo',dot:'bg-amber-400'},{v:'out_of_stock',l:'Agotado',dot:'bg-amber-500'}].map(({v,l,dot}) => (
                         <button key={v} type="button" onClick={() => { setStockFilterProd(stockFilterProd === v ? '' : v) }}
                           className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
                             stockFilterProd === v ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'

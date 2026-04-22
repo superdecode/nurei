@@ -83,7 +83,7 @@ const ALL_STATUSES: OrderStatus[] = [
 // Tab groups: "active" statuses that need operator attention vs. done/cancelled
 const STATUS_TABS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'all', label: 'Todos' },
-  { key: 'pending_payment', label: 'Pendiente pago' },
+  { key: 'pending_payment', label: 'Pendiente de pago' },
   { key: 'paid', label: 'Pendiente' },
   { key: 'preparing', label: 'Procesando' },
   { key: 'shipped', label: 'En camino' },

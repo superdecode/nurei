@@ -30,7 +30,7 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
           const dbCats = json.data.map((c: any) => ({
             value: c.slug,
             label: c.name,
-            emoji: c.emoji || '📦'
+            emoji: c.emoji || '🍜'
           }))
           setCategories([{ value: 'all', label: 'Todo', emoji: '✨' }, ...dbCats])
         }
