@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, MessageCircle, MapPin, Package, PartyPopper } from 'lucide-react'
+import {
+  ChevronDown, MessageCircle, MapPin, Package, PartyPopper,
+  Clock, CreditCard, CheckCircle2, Truck, Send, XCircle, RotateCcw, AlertTriangle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Container } from '@/components/layout/Container'
@@ -109,28 +112,58 @@ function CelebrationParticles() {
 // ──────────────────────────────────────────────
 // Status icon with animation
 // ──────────────────────────────────────────────
-function StatusIcon({ status, icon }: { status: OrderStatus; icon: string }) {
+const STATUS_ICON_MAP: Record<OrderStatus, React.ElementType> = {
+  pending_payment: Clock,
+  pending:         Clock,
+  paid:            CreditCard,
+  confirmed:       CheckCircle2,
+  preparing:       Package,
+  ready_to_ship:   Truck,
+  shipped:         Send,
+  delivered:       CheckCircle2,
+  cancelled:       XCircle,
+  refunded:        RotateCcw,
+  failed:          AlertTriangle,
+}
+
+const STATUS_ICON_COLOR: Partial<Record<OrderStatus, string>> = {
+  pending_payment: 'text-yellow-500',
+  paid:            'text-blue-500',
+  confirmed:       'text-blue-500',
+  preparing:       'text-indigo-500',
+  ready_to_ship:   'text-sky-500',
+  shipped:         'text-sky-500',
+  delivered:       'text-emerald-500',
+  cancelled:       'text-red-500',
+  refunded:        'text-gray-500',
+  failed:          'text-red-500',
+  pending:         'text-blue-500',
+}
+
+function StatusIcon({ status }: { status: OrderStatus }) {
   const isDelivered = status === 'delivered'
   const isShipped = status === 'shipped'
   const isCancelled = status === 'cancelled' || status === 'failed'
+  const Icon = STATUS_ICON_MAP[status] ?? Package
+  const colorClass = STATUS_ICON_COLOR[status] ?? 'text-gray-400'
 
   return (
     <motion.span
-      className="text-6xl sm:text-7xl block"
+      className="block"
       initial={{ scale: 0, rotate: -20 }}
       animate={{ scale: 1, rotate: 0 }}
       transition={{ type: 'spring', stiffness: 200, damping: 15 }}
     >
       <motion.span
-        className="inline-block"
+        className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white shadow-lg"
         animate={
           isShipped
-            ? { x: [0, 4, -2, 4, 0], rotate: [0, 2, -1, 2, 0] }
+            ? { x: [0, 4, -2, 4, 0] }
             : isDelivered
-              ? { scale: [1, 1.15, 1] }
+              ? { scale: [1, 1.1, 1] }
               : isCancelled
-                ? { opacity: [1, 0.5, 1] }
-                : { scale: [1, 1.08, 1] }
+                ? { opacity: [1, 0.6, 1] }
+                : { scale: [1, 1.05, 1] }
         }
         transition={{
           duration: isShipped ? 1.5 : 2,
@@ -138,7 +171,7 @@ function StatusIcon({ status, icon }: { status: OrderStatus; icon: string }) {
           ease: 'easeInOut',
         }}
       >
-        {icon}
+        <Icon className={`w-10 h-10 sm:w-12 sm:h-12 ${colorClass}`} />
       </motion.span>
     </motion.span>
   )
@@ -254,7 +287,7 @@ export default function TrackingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          <StatusIcon status={order.status} icon={statusInfo.icon ?? '📦'} />
+          <StatusIcon status={order.status} />
 
           <motion.h1
             className={`text-2xl sm:text-3xl font-bold mt-3 ${statusInfo.color}`}

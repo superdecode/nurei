@@ -8,7 +8,7 @@ import {
   MapPin, Plus, Edit2, Trash2, Star, Check, X, Ticket,
   ArrowLeft, Clock, Truck, CheckCircle2, XCircle, AlertCircle,
   Copy, ExternalLink, ShoppingBag, Calendar, Tag, CreditCard, RotateCcw,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Send, AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -18,6 +18,25 @@ import { formatPrice, formatDate } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import type { Order, OrderStatus, OrderUpdate, Address, UserCoupon } from '@/types'
+
+const STATUS_ICON_MAP: Partial<Record<OrderStatus, React.ElementType>> = {
+  pending_payment: Clock,
+  pending:         Clock,
+  paid:            CreditCard,
+  confirmed:       CheckCircle2,
+  preparing:       Package,
+  ready_to_ship:   Truck,
+  shipped:         Send,
+  delivered:       CheckCircle2,
+  cancelled:       XCircle,
+  refunded:        RotateCcw,
+  failed:          AlertTriangle,
+}
+
+function OrderStatusIcon({ status }: { status: OrderStatus }) {
+  const Icon = STATUS_ICON_MAP[status] ?? Package
+  return <Icon className="w-3 h-3 inline-block shrink-0" />
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -144,8 +163,9 @@ function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) 
           </div>
           <p className="text-xs text-gray-400">{formatDateTime(order.created_at)}</p>
         </div>
-        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusInfo.bgColor} ${statusInfo.color}`}>
-          {statusInfo.icon} {statusInfo.label}
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full ${statusInfo.bgColor} ${statusInfo.color}`}>
+          <OrderStatusIcon status={order.status} />
+          {statusInfo.label}
         </span>
       </div>
 
@@ -377,8 +397,9 @@ function TabPedidos({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`px-2.5 py-1 text-[11px] font-bold rounded-full ${status.bgColor} ${status.color}`}>
-                      {status.icon} {status.label}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-full ${status.bgColor} ${status.color}`}>
+                      <OrderStatusIcon status={order.status} />
+                      {status.label}
                     </span>
                     <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
                   </div>
