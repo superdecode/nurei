@@ -61,16 +61,6 @@ const STATUS_LABELS: Record<string, string> = {
   archived: 'Archivado',
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  crunchy: 'bg-amber-100 text-amber-800',
-  spicy: 'bg-red-100 text-red-800',
-  limited_edition: 'bg-emerald-100 text-emerald-800',
-  drinks: 'bg-blue-100 text-blue-800',
-  snacks: 'bg-purple-100 text-purple-800',
-  ramen: 'bg-orange-100 text-orange-800',
-  dulces: 'bg-pink-100 text-pink-800',
-  salsas: 'bg-green-100 text-green-800',
-}
 
 
 
@@ -128,7 +118,7 @@ const cardVariants = {
 export default function ProductosAdminPage() {
   const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([])
+  const [categories, setCategories] = useState<{value: string, label: string, emoji: string, color?: string}[]>([])
   const [loading, setLoading] = useState(true)
 
   // UI state
@@ -194,8 +184,9 @@ export default function ProductosAdminPage() {
       const json = await res.json()
       setCategories((json.data as CategoryOption[] | undefined)?.map((c) => ({
         value: c.slug,
-        label: c.name,
-        emoji: c.emoji || '📦'
+        label: c.name ? c.name.charAt(0).toUpperCase() + c.name.slice(1) : c.slug,
+        emoji: c.emoji || '📦',
+        color: (c as { color?: string }).color ?? undefined,
       })) || [])
     } catch {
       console.error('Error fetching categories')
@@ -778,7 +769,7 @@ export default function ProductosAdminPage() {
                   <TableBody>
                     <AnimatePresence mode="popLayout">
                       {paginatedProducts.map((product, idx) => {
-                        const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦' }
+                        const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦', color: undefined }
                         const price = product.base_price ?? product.price
                         return (
                           <motion.tr
@@ -832,7 +823,12 @@ export default function ProductosAdminPage() {
                               </div>
                             </TableCell>
                             <TableCell className="min-w-0 p-1.5">
-                              <span className={cn('inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium', CATEGORY_COLORS[product.category] ?? 'bg-gray-100 text-gray-600')}>
+                              <span
+                                className="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium"
+                                style={catInfo.color
+                                  ? { backgroundColor: `${catInfo.color}18`, borderColor: `${catInfo.color}55`, color: catInfo.color, border: '1px solid' }
+                                  : { backgroundColor: '#f3f4f6', color: '#4b5563' }}
+                              >
                                 {catInfo.label}
                               </span>
                             </TableCell>
@@ -879,7 +875,7 @@ export default function ProductosAdminPage() {
                                   onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
                                   className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
                                 >
-                                  <Eye className="h-3.5 w-3.5" />
+                                  <Pencil className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   type="button"
@@ -935,7 +931,7 @@ export default function ProductosAdminPage() {
             >
               <AnimatePresence mode="popLayout">
                 {filteredProducts.map((product, idx) => {
-                  const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦' }
+                  const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦', color: undefined }
                   const price = product.base_price ?? product.price
                   return (
                     <motion.div
@@ -975,7 +971,12 @@ export default function ProductosAdminPage() {
                         )}
                       </div>
                       <div className="p-3 sm:p-4">
-                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', CATEGORY_COLORS[product.category] ?? 'bg-gray-100 text-gray-600')}>
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                          style={catInfo.color
+                            ? { backgroundColor: `${catInfo.color}18`, borderColor: `${catInfo.color}55`, color: catInfo.color, border: '1px solid' }
+                            : { backgroundColor: '#f3f4f6', color: '#4b5563' }}
+                        >
                           {catInfo.label}
                         </span>
                         <p className="font-medium text-primary-dark text-sm mt-2 line-clamp-2 leading-tight">{product.name}</p>

@@ -189,22 +189,25 @@ export default function TrackingPage() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [showConfetti, setShowConfetti] = useState(isSuccess)
 
-  // Fetch order
+  // Fetch order — retry up to 2 times on network failure
   useEffect(() => {
     async function fetchOrder() {
-      try {
-        const res = await fetch(`/api/orders/${params.id}`)
-        if (res.ok) {
-          const { data } = await res.json()
-          setOrder(data)
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(`/api/orders/${params.id}`)
+          if (res.ok) {
+            const { data } = await res.json()
+            setOrder(data.order ?? data)
+          }
+          break
+        } catch {
+          if (attempt === 2) break
+          await new Promise((r) => setTimeout(r, 800 * (attempt + 1)))
         }
-      } catch {
-        // Order not found
-      } finally {
-        setLoading(false)
       }
+      setLoading(false)
     }
-    fetchOrder()
+    void fetchOrder()
   }, [params.id])
 
   // Hide confetti after animation
@@ -405,15 +408,30 @@ export default function TrackingPage() {
                     {order.items.map((item, idx) => (
                       <motion.div
                         key={item.product_id}
-                        className="flex justify-between text-sm"
+                        className="flex items-center gap-3 text-sm"
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.08, duration: 0.3 }}
                       >
-                        <span className="text-gray-600">
-                          {item.name} &times; {item.quantity}
+                        {/* Product thumbnail */}
+                        <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-lg">🍘</div>
+                          )}
+                        </div>
+                        <span className="flex-1 text-gray-600 leading-snug">
+                          {item.name} <span className="font-semibold text-gray-800">&times; {item.quantity}</span>
                         </span>
-                        <span className="font-medium">{formatPrice(item.subtotal)}</span>
+                        <span className="font-medium tabular-nums">{formatPrice(item.subtotal)}</span>
                       </motion.div>
                     ))}
                     <motion.div

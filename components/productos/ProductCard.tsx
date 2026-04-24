@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
-import { formatPrice } from '@/lib/utils/format'
+import { formatPrice, stripHtml } from '@/lib/utils/format'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { SPICE_LABELS } from '@/lib/utils/constants'
 import type { Product } from '@/types'
@@ -198,8 +198,15 @@ export function ProductCard({ product }: ProductCardProps) {
 
           {product.description && (
             <p className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">
-              {product.description}
+              {stripHtml(product.description)}
             </p>
+          )}
+
+          {/* Origin country badge */}
+          {product.origin_country && (
+            <span className="mt-1.5 inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
+              🌍 {product.origin_country}
+            </span>
           )}
 
           {/* Spice + Weight */}

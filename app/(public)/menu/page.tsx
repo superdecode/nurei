@@ -97,8 +97,10 @@ export default function MenuPage() {
   useEffect(() => {
     if (!containerRef.current || categories.length === 0) return
     const root = containerRef.current
+
     const observer = new IntersectionObserver(
       (entries) => {
+        // Find the section with the highest intersection ratio currently visible
         const visible = entries
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
@@ -107,13 +109,24 @@ export default function MenuPage() {
           if (cat) setActiveMobileCategory(cat)
         }
       },
-      { root, threshold: [0.25, 0.5, 0.75] },
+      { root, threshold: [0.1, 0.25, 0.5, 0.75] },
     )
+
     categories.forEach((cat) => {
       const section = sectionRefsMap.current[cat]
       if (section) observer.observe(section)
     })
-    return () => observer.disconnect()
+
+    // Reset to 'all' when scrolled back to the very top
+    const handleScroll = () => {
+      if (root.scrollTop < 60) setActiveMobileCategory('all')
+    }
+    root.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      observer.disconnect()
+      root.removeEventListener('scroll', handleScroll)
+    }
   }, [categories])
 
   const scrollToCategory = (cat: string) => {

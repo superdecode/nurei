@@ -775,6 +775,18 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Presentación</p>
                   <p className="text-sm font-semibold text-gray-800 tabular-nums">{formatProductPresentation(product)}</p>
                 </div>
+                {product.brand && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Marca</p>
+                    <p className="text-sm font-semibold text-gray-800">{product.brand}</p>
+                  </div>
+                )}
+                {product.origin_country && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">País de origen</p>
+                    <p className="text-sm font-semibold text-gray-800">{product.origin_country}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Etiquetas</p>
                   {product.tags && product.tags.length > 0 ? (

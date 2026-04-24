@@ -5,7 +5,8 @@ export const REFERRAL_TTL_SECONDS = 30 * 24 * 60 * 60 // 30 days
 
 export function setReferralCookie(response: NextResponse, referralLinkId: string): NextResponse {
   response.cookies.set(REFERRAL_COOKIE_NAME, referralLinkId, {
-    httpOnly: false,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: REFERRAL_TTL_SECONDS,
     path: '/',

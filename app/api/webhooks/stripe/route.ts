@@ -61,20 +61,24 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (order) {
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-          fetch(`${baseUrl}/api/affiliate/attribution`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              orderId,
-              orderTotalCents: order.total,
-              couponCode: order.coupon_code ?? null,
-              // cookie-based attribution: pass referral_link_id stored in checkout session metadata
-              cookieHeader: session.metadata?.referral_link_id
-                ? `_nurei_ref=${session.metadata.referral_link_id}`
-                : null,
-            }),
-          }).catch(() => {})
+          const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+          const attributionSecret = process.env.AFFILIATE_ATTRIBUTION_SECRET
+          if (attributionSecret) {
+            fetch(`${baseUrl}/api/affiliate/attribution`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${attributionSecret}`,
+              },
+              body: JSON.stringify({
+                orderId,
+                couponCode: order.coupon_code ?? null,
+                cookieHeader: session.metadata?.referral_link_id
+                  ? `_nurei_ref=${session.metadata.referral_link_id}`
+                  : null,
+              }),
+            }).catch(() => {})
+          }
         }
         break
       }

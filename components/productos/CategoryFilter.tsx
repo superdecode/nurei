@@ -72,7 +72,6 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
           >
             {categories.map((cat) => {
               const isActive = selected === cat.value
-              const catColor = cat.color
 
               return (
                 <motion.button
@@ -80,19 +79,10 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
                   ref={isActive ? activeRef : undefined}
                   onClick={() => onChange(cat.value)}
                   whileTap={{ scale: 0.95 }}
-                  style={
-                    isActive
-                      ? undefined
-                      : catColor
-                      ? { backgroundColor: `${catColor}18`, borderColor: `${catColor}55`, color: catColor }
-                      : undefined
-                  }
                   className={cn(
                     'relative flex-shrink-0 flex items-center gap-1.5 px-4 sm:px-5 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border',
                     isActive
                       ? 'text-gray-900 bg-nurei-cta border-nurei-cta font-bold shadow-md'
-                      : catColor
-                      ? ''
                       : 'bg-white border-gray-100 text-gray-500 hover:text-gray-900 hover:border-yellow-300 hover:bg-yellow-50'
                   )}
                 >

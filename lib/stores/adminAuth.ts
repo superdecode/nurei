@@ -7,6 +7,7 @@ import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 interface AdminUser {
   id: string
   email: string
+  full_name?: string | null
   role: string
 }
 
@@ -67,6 +68,7 @@ export const useAdminAuthStore = create<AdminAuthStore>()(
               user: {
                 id: json.data.profile.id,
                 email: json.data.email,
+                full_name: json.data.profile.full_name ?? null,
                 role: 'admin',
               },
               isAuthenticated: true,

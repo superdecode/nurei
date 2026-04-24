@@ -6,7 +6,7 @@ import { Ban } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
-import { formatPrice } from '@/lib/utils/format'
+import { formatPrice, stripHtml } from '@/lib/utils/format'
 import type { Product } from '@/types'
 
 function getCategoryEmoji(category: string): string {
@@ -146,8 +146,13 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
           </p>
           {product.description && (
             <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5 leading-tight">
-              {product.description}
+              {stripHtml(product.description)}
             </p>
+          )}
+          {product.origin_country && (
+            <span className="inline-block mt-0.5 px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-gray-100 text-gray-500 leading-none">
+              🌍 {product.origin_country}
+            </span>
           )}
           {isLowStock && (
             <p className="text-[10px] font-bold text-nurei-promo animate-pulse mt-0.5">

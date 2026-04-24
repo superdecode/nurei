@@ -66,6 +66,7 @@ export default function MediaPage() {
   const [copiedUrl, setCopiedUrl] = useState(false)
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+  const [convertToWebp, setConvertToWebp] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch media on mount
@@ -89,7 +90,7 @@ export default function MediaPage() {
     }
   }
 
-  const uploadFiles = async (files: FileList | File[]) => {
+  const uploadFiles = async (files: FileList | File[], webp = convertToWebp) => {
     const fileArray = Array.from(files)
     if (fileArray.length === 0) return
 
@@ -99,6 +100,7 @@ export default function MediaPage() {
       try {
         const formData = new FormData()
         formData.append('file', file)
+        if (webp) formData.append('convertToWebp', 'true')
         const res = await fetch('/api/admin/media', { method: 'POST', body: formData })
         const json = await res.json()
         if (json.error) {
@@ -750,7 +752,24 @@ export default function MediaPage() {
                 JPG, PNG, SVG, WebP, GIF &middot; Max. 5 MB
               </p>
             </div>
-            <div className="flex gap-4 mt-6">
+            <label className="flex items-center gap-2.5 mt-4 cursor-pointer select-none">
+              <button
+                type="button"
+                onClick={() => setConvertToWebp((v) => !v)}
+                className={cn(
+                  'relative h-5 w-9 rounded-full transition-colors duration-200 shrink-0',
+                  convertToWebp ? 'bg-primary-cyan' : 'bg-gray-300'
+                )}
+              >
+                <span className={cn(
+                  'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200',
+                  convertToWebp ? 'translate-x-[18px] left-0.5' : 'left-0.5'
+                )} />
+              </button>
+              <span className="text-sm font-medium text-gray-700">Convertir a WebP</span>
+              <span className="text-xs text-gray-400">Optimiza el tamaño automáticamente</span>
+            </label>
+            <div className="flex gap-4 mt-4">
               <Button variant="ghost" className="flex-1 rounded-xl h-10 font-bold text-gray-500 hover:bg-gray-100" onClick={() => setUploadOpen(false)}>
                 Cancelar
               </Button>

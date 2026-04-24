@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 
-export async function requireAffiliate() {
+type AffiliateGuard =
+  | { userId: string; error?: never }
+  | { userId?: never; error: NextResponse }
+
+export async function requireAffiliate(): Promise<AffiliateGuard> {
   const supabase = await createServerSupabaseClient()
   const {
     data: { user },
@@ -18,8 +22,12 @@ export async function requireAffiliate() {
     service.from('affiliate_profiles').select('id').eq('id', user.id).maybeSingle(),
   ])
 
-  const isAffiliate = profileRes.data?.role === 'affiliate' || Boolean(affiliateRes.data)
-  if (!isAffiliate) {
+  // Require BOTH the affiliate role AND a valid affiliate_profiles row.
+  // A downgraded user with a stale profile row (or role without a profile) is denied.
+  const hasRole = profileRes.data?.role === 'affiliate'
+  const hasProfile = Boolean(affiliateRes.data)
+
+  if (!hasRole || !hasProfile) {
     return { error: NextResponse.json({ error: 'Sin permisos' }, { status: 403 }) }
   }
 

@@ -568,7 +568,7 @@ export default function AdminAffiliateDetailPage() {
                 key={coupon.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border border-gray-100 p-4 hover:border-gray-200 transition-colors"
+                className="rounded-xl border border-gray-100 p-4 shadow-md hover:border-gray-200 transition-colors"
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-mono font-bold text-primary-dark text-sm tracking-wide">{coupon.code}</span>

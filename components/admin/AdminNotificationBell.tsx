@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 type NotificationPriority = 'alta' | 'media' | 'baja'
 type NotificationType = 'stock_bajo' | 'stock_agotado' | 'nuevo_pedido'
@@ -30,6 +31,19 @@ type NotificationItem = {
 const POPUP_DURATION = 5000
 const MAX_INDIVIDUAL_POPUPS = 3
 const LS_KEY = 'nurei-admin-notif-read'
+const SOUND_UNLOCK_KEY = 'nurei-admin-sound-unlocked'
+
+type NotificationPrefs = {
+  sound_enabled: boolean
+  browser_notifications: boolean
+  email_on_new_order: boolean
+}
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  sound_enabled: true,
+  browser_notifications: true,
+  email_on_new_order: true,
+}
 
 function getReadIds(): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -55,9 +69,14 @@ function getIcon(type: NotificationType, priority: NotificationPriority) {
   return <Bell className="h-[18px] w-[18px] text-primary-cyan" />
 }
 
-function playOrderSound() {
+async function playOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>) {
   try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const ctx = audioCtxRef.current ?? new Ctx()
+    audioCtxRef.current = ctx
+    if (ctx.state === 'suspended') {
+      await ctx.resume()
+    }
     const play = (freq: number, start: number, duration: number, type: OscillatorType = 'sine') => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -78,6 +97,11 @@ function playOrderSound() {
   } catch {
     // AudioContext not available
   }
+}
+
+function getInitialSoundUnlocked() {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(SOUND_UNLOCK_KEY) === '1'
 }
 
 const PRIORITY_LABELS: Record<NotificationPriority, string> = {
@@ -112,6 +136,66 @@ export function AdminNotificationBell() {
   const bellRef = useRef<HTMLButtonElement>(null)
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevItemIdsRef = useRef<Set<string>>(new Set())
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
+  const [soundUnlocked, setSoundUnlocked] = useState<boolean>(getInitialSoundUnlocked())
+
+  const unlockSound = useCallback(async () => {
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      const ctx = audioCtxRef.current ?? new Ctx()
+      audioCtxRef.current = ctx
+      if (ctx.state === 'suspended') {
+        await ctx.resume()
+      }
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.connect(g)
+      g.connect(ctx.destination)
+      g.gain.value = 0.00001
+      o.frequency.value = 440
+      o.start()
+      o.stop(ctx.currentTime + 0.01)
+      window.localStorage.setItem(SOUND_UNLOCK_KEY, '1')
+      setSoundUnlocked(true)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    const onUserInteract = () => {
+      void unlockSound()
+      window.removeEventListener('pointerdown', onUserInteract)
+      window.removeEventListener('keydown', onUserInteract)
+      window.removeEventListener('touchstart', onUserInteract)
+    }
+    window.addEventListener('pointerdown', onUserInteract, { passive: true })
+    window.addEventListener('keydown', onUserInteract, { passive: true })
+    window.addEventListener('touchstart', onUserInteract, { passive: true })
+    return () => {
+      window.removeEventListener('pointerdown', onUserInteract)
+      window.removeEventListener('keydown', onUserInteract)
+      window.removeEventListener('touchstart', onUserInteract)
+    }
+  }, [unlockSound])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        const json = await res.json()
+        const raw = (json?.data?.profile?.notification_prefs ?? {}) as Record<string, unknown>
+        setPrefs({
+          sound_enabled: raw.sound_enabled !== false,
+          browser_notifications: raw.browser_notifications !== false,
+          email_on_new_order: raw.email_on_new_order !== false,
+        })
+      } catch {
+        setPrefs(DEFAULT_PREFS)
+      }
+    })()
+  }, [])
 
 
   const markRead = useCallback((id: string) => {
@@ -140,6 +224,24 @@ export function AdminNotificationBell() {
     [markRead]
   )
 
+  const notifyBrowserNewOrder = useCallback((item: NotificationItem) => {
+    if (!prefs.browser_notifications || typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission === 'granted') {
+      new Notification(item.title, {
+        body: item.message,
+        tag: item.id,
+      })
+      return
+    }
+    if (Notification.permission === 'default') {
+      void Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') {
+          new Notification(item.title, { body: item.message, tag: item.id })
+        }
+      })
+    }
+  }, [prefs.browser_notifications])
+
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/notifications')
@@ -161,7 +263,11 @@ export function AdminNotificationBell() {
 
         const hasNewOrder = newCritical.some(i => i.type === 'nuevo_pedido')
         if (hasNewOrder && prevItemIdsRef.current.size > 0) {
-          playOrderSound()
+          if (prefs.sound_enabled && soundUnlocked) {
+            void playOrderSound(audioCtxRef)
+          }
+          const firstOrder = newCritical.find((i) => i.type === 'nuevo_pedido')
+          if (firstOrder) notifyBrowserNewOrder(firstOrder)
         }
 
         if (newCritical.length <= MAX_INDIVIDUAL_POPUPS) {
@@ -184,15 +290,29 @@ export function AdminNotificationBell() {
     } catch {
       /* ignore */
     }
-  }, [open])
+  }, [notifyBrowserNewOrder, open, prefs.sound_enabled, soundUnlocked])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
-    const id = window.setInterval(() => { void load() }, 60_000)
+    const id = window.setInterval(() => { void load() }, 20_000)
     return () => {
       window.clearInterval(id)
       if (popupTimerRef.current) clearTimeout(popupTimerRef.current)
+    }
+  }, [load])
+
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('admin-orders-live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
+        void load()
+      })
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
     }
   }, [load])
 

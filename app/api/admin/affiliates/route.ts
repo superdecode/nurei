@@ -151,11 +151,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `El handle "@${handle}" ya está en uso` }, { status: 409 })
   }
 
-  const { data: usersList } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : ''
+
+  // Use targeted lookups instead of paginated listUsers (which caps at 1000)
   const existingUserFromEmail = normalizedEmail
-    ? usersList?.users?.find(u => u.email?.toLowerCase() === normalizedEmail)
-    : undefined
+    ? await supabase
+        .rpc('get_auth_user_by_email', { p_email: normalizedEmail })
+        .then(r => (r.data?.[0] as { id: string; email: string } | undefined) ?? null)
+    : null
   if (normalizedEmail && existingUserFromEmail && !existing_user_id) {
     return NextResponse.json(
       { error: 'Este correo ya existe como usuario. Debes seleccionarlo desde "Buscar usuario/cliente".' },
@@ -164,20 +167,21 @@ export async function POST(request: NextRequest) {
   }
 
   const existingUserById = existing_user_id
-    ? usersList?.users?.find(u => u.id === existing_user_id)
-    : undefined
+    ? await supabase.auth.admin.getUserById(existing_user_id).then(r => r.data?.user ?? null)
+    : null
   if (existing_user_id && !existingUserById) {
     return NextResponse.json(
       { error: 'Usuario seleccionado inválido. Vuelve a buscar y selecciona el usuario/cliente.' },
       { status: 400 }
     )
   }
-  const existingUser = existingUserById ?? existingUserFromEmail
+  const existingUser = existingUserById ?? (existingUserFromEmail
+    ? await supabase.auth.admin.getUserById(existingUserFromEmail.id).then(r => r.data?.user ?? null)
+    : null)
 
   let userId: string
   let isNewUser = false
   let originalRole: string | null = null
-  const defaultAffiliatePassword = 'Nureiafiliados20'
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   const affiliateLoginRedirect = `${siteUrl || 'http://localhost:3500'}/affiliates/login`
 
@@ -217,10 +221,12 @@ export async function POST(request: NextRequest) {
     if (!email) {
       return NextResponse.json({ error: 'Debes seleccionar un usuario existente o proporcionar email' }, { status: 400 })
     }
+    // Generate a random throwaway password — an invite email is sent immediately after
+    const randomPassword = require('crypto').randomBytes(24).toString('hex')
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: normalizedEmail,
       email_confirm: false,
-      password: defaultAffiliatePassword,
+      password: randomPassword,
     })
 
     if (authError || !authData.user) {

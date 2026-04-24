@@ -7,7 +7,7 @@ function resolveOrigin(request: NextRequest): string {
 
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? ''
   const proto = request.headers.get('x-forwarded-proto')?.split(',')[0].trim() ?? 'https'
-  if (host) return `${proto}://${host}`
+  if (host && !host.includes('localhost')) return `${proto}://${host}`
 
   return request.nextUrl.origin
 }

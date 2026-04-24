@@ -154,7 +154,7 @@ export default function InventoryAdminPage() {
     products: [],
     summary: { total_in: 0, total_out: 0, total_adjustments: 0 },
   })
-  const [categories, setCategories] = useState<{ value: string; label: string }[]>([])
+  const [categories, setCategories] = useState<{ value: string; label: string; color?: string }[]>([])
   const [inventoryView, setInventoryView] = useState<
     'todos' | 'stock_bajo' | 'mejores_ventas' | 'nuevas_entradas'
   >('todos')
@@ -262,8 +262,8 @@ export default function InventoryAdminPage() {
     fetch('/api/admin/categories')
       .then((r) => r.json())
       .then((j) => {
-        const rows = (j.data ?? []) as Array<{ slug: string; name: string }>
-        setCategories(rows.map((c) => ({ value: c.slug, label: c.name })))
+        const rows = (j.data ?? []) as Array<{ slug: string; name: string; color?: string | null }>
+        setCategories(rows.map((c) => ({ value: c.slug, label: c.name, color: c.color ?? undefined })))
       })
       .catch(() => {})
   }, [fetchInventory])
@@ -928,7 +928,7 @@ export default function InventoryAdminPage() {
             ) : (
               paginatedProducts.map((product) => {
                 const st = computeStockStatus(product)
-                const catColor = CATEGORY_COLORS[product.category] ?? 'bg-gray-100 text-gray-600'
+                const catInfo = categories.find((c) => c.value === product.category)
                 return (
                   <TableRow
                     key={product.id}
@@ -969,8 +969,13 @@ export default function InventoryAdminPage() {
                       </div>
                     </TableCell>
                     <TableCell className="min-w-0 p-1.5">
-                      <span className={cn('inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full', catColor)}>
-                        {categories.find((c) => c.value === product.category)?.label ?? product.category}
+                      <span
+                        className="inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full"
+                        style={catInfo?.color
+                          ? { backgroundColor: `${catInfo.color}18`, borderColor: `${catInfo.color}55`, color: catInfo.color, border: '1px solid' }
+                          : { backgroundColor: '#f3f4f6', color: '#4b5563' }}
+                      >
+                        {catInfo?.label ?? product.category}
                       </span>
                     </TableCell>
                     <TableCell className="min-w-0 p-1.5 text-center">

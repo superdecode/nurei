@@ -17,29 +17,45 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
     const formData = await request.formData()
     const file = formData.get('file') as File | null
+    const convertToWebp = formData.get('convertToWebp') === 'true'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+    let uploadBuffer: ArrayBuffer | Buffer = await file.arrayBuffer()
+    let mimeType = file.type
+    let originalName = file.name
+    let uploadSize = file.size
 
-    // Upload to storage
+    if (convertToWebp && file.type.startsWith('image/') && file.type !== 'image/webp' && file.type !== 'image/svg+xml') {
+      const sharp = (await import('sharp')).default
+      const webpBuffer = await sharp(Buffer.from(uploadBuffer))
+        .resize({ width: 1200, withoutEnlargement: true })
+        .webp({ quality: 85 })
+        .toBuffer()
+      uploadBuffer = webpBuffer
+      mimeType = 'image/webp'
+      uploadSize = webpBuffer.byteLength
+      originalName = originalName.replace(/\.[^.]+$/, '.webp')
+    }
+
+    const filename = `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+
     const { error: uploadError } = await supabase.storage
       .from('media')
-      .upload(filename, file, { cacheControl: '3600', upsert: false })
+      .upload(filename, uploadBuffer, { cacheControl: '3600', upsert: false, contentType: mimeType })
     if (uploadError) throw uploadError
 
     const { data: urlData } = supabase.storage.from('media').getPublicUrl(filename)
 
-    // Create media record
     const { data, error } = await supabase
       .from('media')
       .insert({
-        filename: file.name,
+        filename: originalName,
         url: urlData.publicUrl,
-        size_bytes: file.size,
-        mime_type: file.type,
+        size_bytes: uploadSize,
+        mime_type: mimeType,
       })
       .select()
       .single()

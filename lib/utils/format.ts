@@ -67,3 +67,15 @@ export function formatPhone(phone: string): string {
 export function formatProductMeta(weightG: number, origin: string): string {
   return `${weightG}g · ${origin}`
 }
+
+/** Strip HTML tags — used for plain-text card previews of rich-text descriptions */
+export function stripHtml(html: string | null | undefined): string {
+  if (!html) return ''
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim()
+}

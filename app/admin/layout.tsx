@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Package, BarChart3, LogOut, ShoppingBag, FolderTree,
   Image as ImageIcon, Settings, Menu, X, ChevronRight, Ticket,
-  Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff, Boxes, UserCheck, Share2,
+  Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff, Boxes, UserCheck, Users2,
 } from 'lucide-react'
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell'
 import { AdminTopBar } from '@/components/admin/AdminTopBar'
@@ -18,9 +18,9 @@ import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { useAdminAuthStore } from '@/lib/stores/adminAuth'
 import { useSidebarStore, SIDEBAR_W_EXPANDED, SIDEBAR_W_COLLAPSED } from '@/lib/stores/sidebarStore'
 
-/** Pedidos badge: orders awaiting action — paid, confirmed, or pending payment. */
+/** Pedidos badge: only brand-new orders awaiting confirmation/first processing step. */
 function countOpenOrdersFromStatusMap(counts: Record<string, number>): number {
-  return (counts.paid ?? 0) + (counts.confirmed ?? 0) + (counts.pending_payment ?? 0)
+  return (counts.paid ?? 0) + (counts.confirmed ?? 0)
 }
 
 const NAV_ITEMS = [
@@ -31,12 +31,12 @@ const NAV_ITEMS = [
   { href: '/admin/categorias', label: 'Categorias', icon: FolderTree },
   { href: '/admin/media', label: 'Multimedia', icon: ImageIcon },
   { href: '/admin/cupones', label: 'Cupones', icon: Ticket },
-  { href: '/admin/affiliates', label: 'Afiliados', icon: Share2 },
+  { href: '/admin/affiliates', label: 'Afiliados', icon: Users2 },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/admin/clientes', label: 'Clientes', icon: UserCheck },
   { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/admin/configuracion', label: 'Configuracion', icon: Settings },
+  { href: '/admin/configuracion', label: 'Administracion', icon: Settings },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

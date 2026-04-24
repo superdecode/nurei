@@ -47,7 +47,9 @@ export async function getUserById(supabase: SupabaseClient, id: string): Promise
 export async function updateUserProfile(
   supabase: SupabaseClient,
   id: string,
-  updates: Partial<Pick<UserProfile, 'full_name' | 'phone' | 'role' | 'admin_role_id' | 'is_active'>>
+  updates: Partial<
+    Pick<UserProfile, 'full_name' | 'phone' | 'role' | 'admin_role_id' | 'is_active' | 'notification_prefs'>
+  >
 ): Promise<UserProfile> {
   const { data, error } = await supabase
     .from('user_profiles')

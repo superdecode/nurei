@@ -117,7 +117,35 @@ export async function getOrderDetail(
     .eq('order_id', orderId)
     .order('created_at', { ascending: false })
 
-  return { ...(data as unknown as Order), updates: (updates ?? []) as unknown as OrderUpdate[] }
+  const order = { ...(data as unknown as Order), updates: (updates ?? []) as unknown as OrderUpdate[] }
+
+  // Enrich items that are missing image_url with current product images
+  const items = (order.items ?? []) as unknown as Array<Record<string, unknown>>
+  const missingImageIds = items
+    .filter((item) => !item.image_url && item.product_id)
+    .map((item) => item.product_id as string)
+
+  if (missingImageIds.length > 0) {
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, image_thumbnail_url, images, primary_image_index')
+      .in('id', missingImageIds)
+
+    if (products) {
+      const productMap = new Map(products.map((p: Record<string, unknown>) => [p.id, p]))
+      order.items = items.map((item) => {
+        if (item.image_url || !item.product_id) return item
+        const p = productMap.get(item.product_id as string) as Record<string, unknown> | undefined
+        if (!p) return item
+        const imgs = (p.images as string[] | null) ?? []
+        const idx = (p.primary_image_index as number | null) ?? 0
+        const thumb = (p.image_thumbnail_url as string | null) ?? (imgs.length ? imgs[idx] ?? imgs[0] : null)
+        return { ...item, image_url: thumb }
+      }) as unknown as typeof order.items
+    }
+  }
+
+  return order
 }
 
 // ── Adjacent orders for prev/next navigation ────────────────────────────

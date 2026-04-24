@@ -1,8 +1,29 @@
 import Link from 'next/link'
 import { Container } from './Container'
 import { APP_NAME, SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from '@/lib/utils/constants'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getSettings } from '@/lib/supabase/queries/settings'
 
-export function Footer() {
+async function getStoreInfo() {
+  try {
+    const supabase = createServiceClient()
+    const settings = await getSettings(supabase)
+    const info = settings.store_info as Record<string, string> | undefined
+    return {
+      notes: info?.notes ?? '',
+      slogan: info?.slogan ?? '',
+    }
+  } catch {
+    return { notes: '', slogan: '' }
+  }
+}
+
+export async function Footer() {
+  const { notes } = await getStoreInfo()
+
+  const brandText = notes.trim() ||
+    'Los mejores snacks asiáticos, seleccionados con amor y entregados frescos a tu puerta en CDMX 🇲🇽'
+
   return (
     <footer className="bg-white border-t border-gray-100 py-16">
       <Container>
@@ -16,7 +37,7 @@ export function Footer() {
               </span>
             </div>
             <p className="mt-4 text-gray-500 text-sm leading-relaxed max-w-xs">
-              Los mejores snacks asiáticos, seleccionados con amor y entregados frescos a tu puerta en CDMX 🇲🇽
+              {brandText}
             </p>
             <div className="mt-4 flex items-center gap-2">
               <span className="badge-fresh">Pedidos activos</span>

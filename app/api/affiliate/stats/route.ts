@@ -60,14 +60,17 @@ export async function GET(request: NextRequest) {
     .filter((a) => a.payout_status === 'pending')
     .reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
 
-  // Chart: 8 buckets covering the requested period (or last 8 weeks)
-  const now = new Date()
+  // Chart: 8 weekly buckets aligned to the requested period (falls back to last 8 weeks)
+  const chartEnd = to ? new Date(`${to}T23:59:59.999Z`) : new Date()
+  const chartStart = from
+    ? new Date(`${from}T00:00:00.000Z`)
+    : (() => { const d = new Date(chartEnd); d.setDate(d.getDate() - 56); return d })()
+  const spanMs = chartEnd.getTime() - chartStart.getTime()
+  const bucketMs = spanMs / 8
+
   const chartData = Array.from({ length: 8 }, (_, i) => {
-    const bucketStart = new Date(now)
-    bucketStart.setDate(now.getDate() - 7 * (7 - i))
-    bucketStart.setHours(0, 0, 0, 0)
-    const bucketEnd = new Date(bucketStart)
-    bucketEnd.setDate(bucketStart.getDate() + 7)
+    const bucketStart = new Date(chartStart.getTime() + bucketMs * i)
+    const bucketEnd = new Date(chartStart.getTime() + bucketMs * (i + 1))
     const bucket = attributions.filter((a) => {
       const d = new Date(a.created_at)
       return d >= bucketStart && d < bucketEnd

@@ -284,6 +284,7 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
   const [mediaSort, setMediaSort] = useState('newest')
   const [mediaSelection, setMediaSelection] = useState<string[]>([])
   const [mediaUploading, setMediaUploading] = useState(false)
+  const [mediaConvertToWebp, setMediaConvertToWebp] = useState(false)
   const [mediaUrlInput, setMediaUrlInput] = useState('')
   const [mediaUrlImporting, setMediaUrlImporting] = useState(false)
   const [mediaDeleting, setMediaDeleting] = useState<string | null>(null)
@@ -414,6 +415,7 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
       for (const file of Array.from(files)) {
         const fd = new FormData()
         fd.append('file', file)
+        if (mediaConvertToWebp) fd.append('convertToWebp', 'true')
         const res = await fetchWithCredentials('/api/admin/media', { method: 'POST', body: fd })
         const json = await res.json()
         if (json.data) {
@@ -1575,6 +1577,25 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
 
                   <div className="h-10 w-px bg-gray-200 mx-1" />
 
+                  {/* WebP toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setMediaConvertToWebp((v) => !v)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 h-10 rounded-xl text-xs font-bold border transition-all',
+                      mediaConvertToWebp
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                        : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                    )}
+                    title="Convertir a WebP al subir"
+                  >
+                    <span className={cn('w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-colors',
+                      mediaConvertToWebp ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'
+                    )}>
+                      {mediaConvertToWebp && <Check className="w-2 h-2 text-white" />}
+                    </span>
+                    WebP
+                  </button>
                   <label className="cursor-pointer">
                     <input
                       type="file"

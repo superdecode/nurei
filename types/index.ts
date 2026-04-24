@@ -313,6 +313,11 @@ export interface UserProfile {
   admin_role_id: string | null
   admin_role?: AdminRole | null
   is_active: boolean
+  notification_prefs?: {
+    sound_enabled?: boolean
+    browser_notifications?: boolean
+    email_on_new_order?: boolean
+  } | null
   last_login_at: string | null
   created_at: string
   updated_at: string

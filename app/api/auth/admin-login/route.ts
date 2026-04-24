@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const serviceClient = createServiceClient()
     const { data: profile } = await serviceClient
       .from('user_profiles')
-      .select('role')
+      .select('role, full_name')
       .eq('id', authData.user.id)
       .single()
 
@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
         user: {
           id: authData.user.id,
           email: authData.user.email,
+          full_name: profile.full_name ?? null,
           role: 'admin',
         },
         session: authData.session,

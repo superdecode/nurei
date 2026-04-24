@@ -9,59 +9,53 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id: affiliateId } = await params
   const { attributionIds, notes, periodFrom, periodTo } = await request.json()
 
-  if (!attributionIds?.length || !periodFrom || !periodTo) {
+  if (!Array.isArray(attributionIds) || attributionIds.length === 0 || !periodFrom || !periodTo) {
     return NextResponse.json({ error: 'attributionIds, periodFrom y periodTo requeridos' }, { status: 400 })
   }
 
   const supabase = createServiceClient()
 
-  const { data: attrs, error: fetchError } = await supabase
+  // Verify which of the submitted IDs are actually pending for this affiliate
+  const { data: pending, error: fetchError } = await supabase
     .from('affiliate_attributions')
-    .select('id, commission_amount_cents')
+    .select('id')
     .in('id', attributionIds)
     .eq('affiliate_id', affiliateId)
     .eq('payout_status', 'pending')
 
-  if (fetchError || !attrs?.length) {
+  if (fetchError) {
+    return NextResponse.json({ error: 'Error al verificar atribuciones' }, { status: 500 })
+  }
+  if (!pending?.length) {
     return NextResponse.json({ error: 'No se encontraron atribuciones pendientes' }, { status: 400 })
   }
 
-  const totalCents = attrs.reduce((s, a) => s + a.commission_amount_cents, 0)
-  const now = new Date().toISOString()
+  // Warn if some submitted IDs were skipped (already paid or wrong affiliate)
+  const skippedCount = attributionIds.length - pending.length
+  const validIds = pending.map((a) => a.id)
 
-  const { error: payError } = await supabase.from('commission_payments').insert({
-    affiliate_id: affiliateId,
-    amount_cents: totalCents,
-    period_from: periodFrom,
-    period_to: periodTo,
-    attribution_ids: attrs.map((a) => a.id),
-    notes: notes ?? null,
-    paid_by: guard.userId,
-    paid_at: now,
+  // Use atomic DB function: marks attributions paid + updates balance in one transaction
+  const { data: amountPaid, error: rpcErr } = await supabase.rpc('process_affiliate_payout_atomic', {
+    p_affiliate_id:    affiliateId,
+    p_attribution_ids: validIds,
+    p_period_from:     periodFrom,
+    p_period_to:       periodTo,
+    p_paid_by:         guard.userId,
+    p_notes:           notes ?? null,
   })
 
-  if (payError) return NextResponse.json({ error: 'Error al registrar pago' }, { status: 500 })
-
-  await supabase
-    .from('affiliate_attributions')
-    .update({ payout_status: 'paid', paid_at: now })
-    .in('id', attrs.map((a) => a.id))
-
-  const { data: profile } = await supabase
-    .from('affiliate_profiles')
-    .select('pending_payout_cents, total_earned_cents')
-    .eq('id', affiliateId)
-    .single()
-
-  if (profile) {
-    await supabase
-      .from('affiliate_profiles')
-      .update({
-        pending_payout_cents: Math.max(0, profile.pending_payout_cents - totalCents),
-        total_earned_cents: profile.total_earned_cents + totalCents,
-      })
-      .eq('id', affiliateId)
+  if (rpcErr) {
+    return NextResponse.json({ error: 'Error al procesar pago' }, { status: 500 })
+  }
+  if (!amountPaid || amountPaid === 0) {
+    return NextResponse.json({ error: 'No se procesó ningún pago' }, { status: 400 })
   }
 
-  return NextResponse.json({ ok: true, amountPaidCents: totalCents })
+  return NextResponse.json({
+    ok: true,
+    amountPaidCents: amountPaid,
+    ...(skippedCount > 0 && {
+      warning: `${skippedCount} atribución(es) omitida(s) porque ya estaban pagadas o no pertenecen a este afiliado`,
+    }),
+  })
 }

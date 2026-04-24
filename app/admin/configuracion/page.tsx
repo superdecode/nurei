@@ -27,6 +27,8 @@ interface StoreSettings {
     email: string
     address: string
     description: string
+    slogan: string
+    notes: string
   }
   shipping: {
     standard_fee_cents: number
@@ -78,6 +80,8 @@ const DEFAULT_SETTINGS: StoreSettings = {
     email: '',
     address: '',
     description: '',
+    slogan: '',
+    notes: '',
   },
   shipping: {
     standard_fee_cents: 2900,
@@ -430,6 +434,25 @@ export default function ConfigPage() {
               value={settings.store_info.description}
               onChange={(e) => updateInfo('description', e.target.value)}
               rows={3}
+              className="w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-cyan focus-visible:ring-offset-2 resize-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Slogan</label>
+            <Input
+              value={settings.store_info.slogan}
+              onChange={(e) => updateInfo('slogan', e.target.value)}
+              placeholder="Tu slogan de la tienda"
+              className="h-10"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Notas de la tienda</label>
+            <textarea
+              value={settings.store_info.notes}
+              onChange={(e) => updateInfo('notes', e.target.value)}
+              rows={3}
+              placeholder="Información adicional visible en el footer y otras secciones"
               className="w-full rounded-md border border-gray-200 bg-transparent px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-cyan focus-visible:ring-offset-2 resize-none"
             />
           </div>

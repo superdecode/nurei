@@ -38,6 +38,40 @@ type NormalizedPayload = {
   items: OrderEmailLineItem[]
 }
 
+async function getInternalRecipientsByPreference(supabase = createServiceClient()): Promise<string[]> {
+  try {
+    const { data: admins } = await supabase
+      .from('user_profiles')
+      .select('id, is_active, role, notification_prefs, admin_role:admin_roles(permissions)')
+      .eq('role', 'admin')
+      .eq('is_active', true)
+
+    const enabledAdminIds = (admins ?? [])
+      .filter((row) => {
+        const prefs = (row.notification_prefs ?? {}) as Record<string, unknown>
+        const perms =
+          (row.admin_role as { permissions?: Record<string, string> } | null)?.permissions ?? {}
+        const pedidosLevel = perms.pedidos ?? 'sin_acceso'
+        return prefs.email_on_new_order !== false && pedidosLevel !== 'sin_acceso'
+      })
+      .map((row) => row.id)
+
+    if (enabledAdminIds.length === 0) return []
+
+    const { data: authData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const emails =
+      authData.users
+        .filter((u) => enabledAdminIds.includes(u.id))
+        .map((u) => u.email?.trim().toLowerCase())
+        .filter((e): e is string => Boolean(e)) ?? []
+
+    return Array.from(new Set(emails))
+  } catch (e) {
+    console.error('[email] Could not load internal recipients by preference:', e)
+    return []
+  }
+}
+
 async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | null> {
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
@@ -165,8 +199,10 @@ export async function sendOrderConfirmationEmails(
     return { sent: false, reason: 'resend_customer_failed' }
   }
 
-  const notifyAdmin = process.env.ORDERS_NOTIFY_EMAIL?.trim()
-  if (notifyAdmin) {
+  const envAdminEmail = process.env.ORDERS_NOTIFY_EMAIL?.trim().toLowerCase()
+  const preferredRecipients = await getInternalRecipientsByPreference()
+  const notifyRecipients = Array.from(new Set([...(envAdminEmail ? [envAdminEmail] : []), ...preferredRecipients]))
+  if (notifyRecipients.length > 0) {
     const adminHtml = renderAdminNewOrderHtml({
       brandName,
       shortId: payload.shortId,
@@ -181,7 +217,7 @@ export async function sendOrderConfirmationEmails(
     try {
       await resend.emails.send({
         from,
-        to: [notifyAdmin],
+        to: notifyRecipients,
         subject: `[${brandName}] Nuevo pedido ${payload.shortId} · ${formatPrice(payload.total)}`,
         html: adminHtml,
       })

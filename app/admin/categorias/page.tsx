@@ -243,6 +243,16 @@ export default function CategoriesPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-1">
                   <button
+                    onClick={() => openEdit(cat)}
+                    className="group/btn relative p-2 rounded-lg text-gray-400 hover:text-primary-cyan hover:bg-primary-cyan/10 transition-colors"
+                    title="Editar"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
+                      Editar
+                    </span>
+                  </button>
+                  <button
                     onClick={() => setToggleConfirm(cat)}
                     className="group/btn relative p-2 rounded-lg transition-colors text-gray-400 hover:bg-gray-100"
                     title={cat.is_active ? 'Desactivar' : 'Activar'}
@@ -253,17 +263,9 @@ export default function CategoriesPage() {
                     </span>
                   </button>
                   <button
-                    onClick={() => openEdit(cat)}
-                    className="group/btn relative p-2 rounded-lg text-gray-400 hover:text-primary-cyan hover:bg-primary-cyan/10 transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">
-                      Editar
-                    </span>
-                  </button>
-                  <button
                     onClick={() => setDeleteConfirm(cat.id)}
                     className="group/btn relative p-2 rounded-lg text-gray-300 hover:text-error hover:bg-error/10 transition-colors"
+                    title="Eliminar"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover/btn:opacity-100">

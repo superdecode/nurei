@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('commission_payments')
-    .select('*')
+    .select('id, affiliate_id, amount_cents, period_from, period_to, attribution_ids, notes, paid_at')
     .eq('affiliate_id', affiliateId)
     .order('paid_at', { ascending: false })
 
