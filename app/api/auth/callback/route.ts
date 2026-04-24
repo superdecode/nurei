@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-
-function resolveOrigin(request: NextRequest): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
-  if (appUrl && !appUrl.includes('localhost')) return appUrl
-
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? ''
-  const proto = request.headers.get('x-forwarded-proto')?.split(',')[0].trim() ?? 'https'
-  if (host && !host.includes('localhost')) return `${proto}://${host}`
-
-  return request.nextUrl.origin
-}
+import { resolveOrigin } from '@/lib/utils/resolve-origin'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
