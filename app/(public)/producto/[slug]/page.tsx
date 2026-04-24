@@ -194,7 +194,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const [descHasOverflow, setDescHasOverflow] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
-  const desktopDescRef = useRef<HTMLParagraphElement | null>(null)
+  const desktopDescRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -520,15 +520,14 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           {product.description && (
             <div
               className="relative cursor-pointer"
-                  onClick={() => descHasOverflow && setDescExpanded(!descExpanded)}
+              onClick={() => descHasOverflow && setDescExpanded(!descExpanded)}
             >
-              <p
-                className="text-[11px] text-gray-500 leading-relaxed overflow-hidden transition-all duration-300"
-                    style={!descExpanded && descHasOverflow ? { maxHeight: '54px' } : undefined}
-              >
-                {product.description}
-              </p>
-                  {!descExpanded && descHasOverflow && (
+              <div
+                className="text-[11px] text-gray-500 leading-relaxed overflow-hidden transition-all duration-300 prose prose-xs max-w-none [&_p]:mb-1 [&_ul]:pl-4 [&_ol]:pl-4 [&_strong]:font-bold [&_em]:italic"
+                style={!descExpanded && descHasOverflow ? { maxHeight: '54px' } : undefined}
+                dangerouslySetInnerHTML={{ __html: product.description }}
+              />
+              {!descExpanded && descHasOverflow && (
                 <div className="absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-white via-white/70 to-transparent pointer-events-none" />
               )}
             </div>
@@ -758,9 +757,11 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               {product.description && (
                 <div className="mb-5">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Descripción</p>
-                  <p ref={desktopDescRef} className={cn('text-gray-500 leading-relaxed', !descExpanded && 'line-clamp-4')}>
-                    {product.description}
-                  </p>
+                  <div
+                    ref={desktopDescRef}
+                    className={cn('text-gray-500 leading-relaxed prose prose-sm max-w-none [&_p]:mb-1.5 [&_ul]:pl-4 [&_ol]:pl-4 [&_strong]:font-bold [&_em]:italic', !descExpanded && 'line-clamp-4')}
+                    dangerouslySetInnerHTML={{ __html: product.description }}
+                  />
                   {descHasOverflow && (
                     <button onClick={() => setDescExpanded(!descExpanded)} className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-primary-cyan">
                       {descExpanded ? <><ChevronUp className="w-3.5 h-3.5" /> Ver menos</> : <><ChevronDown className="w-3.5 h-3.5" /> Ver más</>}

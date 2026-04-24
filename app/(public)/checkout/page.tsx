@@ -732,11 +732,19 @@ export default function CheckoutPage() {
       }
 
       setProcessingStage('confirming')
-      const confirmationResponse = await fetch(`/api/orders/${nextOrderId}/confirm`)
-      const confirmationPayload = await confirmationResponse.json()
+      let confirmationPayload: Record<string, unknown> = {}
+      let confirmOk = false
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt))
+        try {
+          const res = await fetch(`/api/orders/${nextOrderId}/confirm`)
+          confirmationPayload = await res.json()
+          if (res.ok) { confirmOk = true; break }
+        } catch { /* retry */ }
+      }
 
-      if (!confirmationResponse.ok) {
-        toast.error(confirmationPayload?.error ?? 'No se pudo cargar la confirmación.')
+      if (!confirmOk) {
+        toast.error((confirmationPayload as { error?: string })?.error ?? 'No se pudo cargar la confirmación.')
         setProcessingStage(null)
         return
       }

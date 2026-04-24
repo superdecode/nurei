@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { RichTextEditor } from '@/components/admin/RichTextEditor'
 import { Badge } from '@/components/ui/badge'
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -283,6 +284,8 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
   const [mediaSort, setMediaSort] = useState('newest')
   const [mediaSelection, setMediaSelection] = useState<string[]>([])
   const [mediaUploading, setMediaUploading] = useState(false)
+  const [mediaUrlInput, setMediaUrlInput] = useState('')
+  const [mediaUrlImporting, setMediaUrlImporting] = useState(false)
   const [mediaDeleting, setMediaDeleting] = useState<string | null>(null)
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false)
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string, color?: string}[]>([])
@@ -424,6 +427,30 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
       toast.error('Error al subir archivos')
     } finally {
       setMediaUploading(false)
+    }
+  }, [])
+
+  const handleMediaFromUrl = useCallback(async (url: string) => {
+    if (!url.trim()) return
+    setMediaUrlImporting(true)
+    try {
+      const res = await fetchWithCredentials('/api/admin/media/from-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url.trim() }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setMedia(prev => [json.data, ...prev])
+        setMediaUrlInput('')
+        toast.success('Imagen importada como WebP')
+      } else {
+        toast.error(json.error ?? 'Error al importar imagen')
+      }
+    } catch {
+      toast.error('Error al importar desde URL')
+    } finally {
+      setMediaUrlImporting(false)
     }
   }, [])
 
@@ -926,11 +953,11 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-xs font-medium text-gray-500">Descripcion</label>
-                <Textarea
+                <RichTextEditor
                   value={form.description}
-                  onChange={(e) => update({ description: e.target.value })}
+                  onChange={(html) => update({ description: html })}
                   placeholder="Descripcion del producto..."
-                  className="min-h-[80px]"
+                  minHeight="100px"
                 />
               </div>
 
@@ -1564,6 +1591,27 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
                       Subir fotos
                     </div>
                   </label>
+                </div>
+
+                {/* URL import */}
+                <div className="flex gap-2 px-2 pb-2">
+                  <Input
+                    value={mediaUrlInput}
+                    onChange={(e) => setMediaUrlInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleMediaFromUrl(mediaUrlInput) } }}
+                    placeholder="Pega URL de imagen para importar como WebP…"
+                    className="h-9 text-xs rounded-xl border-gray-200 flex-1"
+                    disabled={mediaUrlImporting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleMediaFromUrl(mediaUrlInput)}
+                    disabled={!mediaUrlInput.trim() || mediaUrlImporting}
+                    className="h-9 px-4 rounded-xl bg-primary-dark text-white text-xs font-bold hover:bg-black transition disabled:opacity-40 flex items-center gap-1.5 shrink-0"
+                  >
+                    {mediaUrlImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                    Importar
+                  </button>
                 </div>
               </div>
 
