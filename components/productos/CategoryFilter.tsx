@@ -42,8 +42,12 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
     if (!activeRef.current || !scrollRef.current) return
     const container = scrollRef.current
     const button = activeRef.current
-    const scrollLeft =
-      button.offsetLeft - container.offsetWidth / 2 + button.offsetWidth / 2
+    const btnLeft = button.offsetLeft
+    const btnRight = btnLeft + button.offsetWidth
+    const visLeft = container.scrollLeft + 32
+    const visRight = container.scrollLeft + container.offsetWidth - 32
+    if (btnLeft >= visLeft && btnRight <= visRight) return
+    const scrollLeft = btnLeft - container.offsetWidth / 2 + button.offsetWidth / 2
     container.scrollTo({ left: scrollLeft, behavior: 'smooth' })
   }, [])
 
@@ -65,9 +69,20 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
             className="flex flex-nowrap gap-2 overflow-x-auto py-3 sm:py-4 px-1"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
           >
-            {categories.map((cat) => {
+            {categories.map((cat, idx) => {
               const isActive = selected === cat.value
               const emoji = cat.emoji
+              const palette = [
+                'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100',
+                'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100',
+                'bg-violet-50 border-violet-200 text-violet-800 hover:bg-violet-100',
+                'bg-sky-50 border-sky-200 text-sky-800 hover:bg-sky-100',
+                'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100',
+                'bg-orange-50 border-orange-200 text-orange-800 hover:bg-orange-100',
+                'bg-pink-50 border-pink-200 text-pink-800 hover:bg-pink-100',
+                'bg-teal-50 border-teal-200 text-teal-800 hover:bg-teal-100',
+              ]
+              const inactiveColor = idx === 0 ? 'bg-white border-gray-100 text-gray-500 hover:text-gray-900 hover:border-yellow-300 hover:bg-yellow-50' : palette[(idx - 1) % palette.length]
 
               return (
                 <motion.button
@@ -79,7 +94,7 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
                     'relative flex-shrink-0 flex items-center gap-1.5 px-4 sm:px-5 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border',
                     isActive
                       ? 'text-gray-900 bg-nurei-cta border-nurei-cta font-bold shadow-md'
-                      : 'text-gray-500 bg-white border-gray-100 hover:text-gray-900 hover:border-yellow-300 hover:bg-yellow-50'
+                      : inactiveColor
                   )}
                 >
                   <span className="text-base leading-none">

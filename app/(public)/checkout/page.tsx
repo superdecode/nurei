@@ -1228,19 +1228,21 @@ export default function CheckoutPage() {
                           )}
 
                           <div className="border-t border-gray-200 pt-3 space-y-2">
-                            <p className="text-xs text-gray-600 leading-snug">
-                              ¿Ya tienes cuenta? Inicia sesión para autocompletar datos y asociar este pedido.
-                            </p>
-                            <button
-                              type="button"
-                              className="text-sm font-semibold text-amber-500 hover:text-amber-400 underline underline-offset-4"
-                              onClick={() => {
-                                setLoginOpen(true)
-                                setLoginError('')
-                              }}
-                            >
-                              Iniciar sesión
-                            </button>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs text-gray-600 leading-snug">
+                                ¿Ya tienes cuenta? Inicia sesión para autocompletar datos y asociar este pedido.
+                              </p>
+                              <button
+                                type="button"
+                                className="shrink-0 text-sm font-semibold text-amber-500 hover:text-amber-400 underline underline-offset-4"
+                                onClick={() => {
+                                  setLoginOpen(true)
+                                  setLoginError('')
+                                }}
+                              >
+                                Iniciar sesión
+                              </button>
+                            </div>
                           </div>
                         </>
                       )}
@@ -1705,58 +1707,83 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={() => setMobileSummaryOpen((prev) => !prev)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm font-semibold text-primary-dark"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 flex items-center justify-between gap-2 text-sm font-semibold text-primary-dark"
             >
-              {mobileSummaryOpen ? 'Ocultar resumen del pedido' : 'Ver resumen del pedido'}
+              <span>{mobileSummaryOpen ? 'Ocultar resumen' : 'Ver resumen del pedido'}</span>
+              <div className="flex items-center gap-2">
+                <span className="tabular-nums text-amber-600 font-bold">{formatPrice(total)}</span>
+                <motion.svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16" height="16" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  animate={{ rotate: mobileSummaryOpen ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-gray-400 shrink-0"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </motion.svg>
+              </div>
             </button>
-            {mobileSummaryOpen && (
-              <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3">
-                <div className="space-y-1 max-h-44 overflow-auto pr-0.5">
-                  {items.map((item) => {
-                    const unit = item.product.base_price ?? item.product.price
-                    const lineTotal = unit * item.quantity
-                    return (
-                      <div key={item.product.id} className="flex gap-2 text-[11px] leading-snug">
-                        <span className="tabular-nums text-gray-500 shrink-0">{item.quantity}×</span>
-                        <span className="flex-1 min-w-0 text-gray-700 truncate">{item.product.name}</span>
-                        <span className="font-semibold text-primary-dark tabular-nums shrink-0">
-                          {formatPrice(lineTotal)}
+            <AnimatePresence initial={false}>
+              {mobileSummaryOpen && (
+                <motion.div
+                  key="mobile-summary"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3">
+                    <div className="space-y-1 max-h-44 overflow-auto pr-0.5">
+                      {items.map((item) => {
+                        const unit = item.product.base_price ?? item.product.price
+                        const lineTotal = unit * item.quantity
+                        return (
+                          <div key={item.product.id} className="flex gap-2 text-[11px] leading-snug">
+                            <span className="tabular-nums text-gray-500 shrink-0">{item.quantity}×</span>
+                            <span className="flex-1 min-w-0 text-gray-700 truncate">{item.product.name}</span>
+                            <span className="font-semibold text-primary-dark tabular-nums shrink-0">
+                              {formatPrice(lineTotal)}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="my-2 border-t border-dashed border-gray-200" />
+                    <div className="space-y-1 text-[11px]">
+                      <div className="flex justify-between gap-2 text-gray-600">
+                        <span>Subtotal</span>
+                        <span className="tabular-nums font-medium">{formatPrice(subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2 text-gray-600">
+                        <span>Envío</span>
+                        <span className="tabular-nums font-semibold text-right">
+                          {shippingFee === 0 ? (
+                            <span className="text-emerald-600">Gratis</span>
+                          ) : (
+                            formatPrice(shippingFee)
+                          )}
                         </span>
                       </div>
-                    )
-                  })}
-                </div>
-                <div className="my-2 border-t border-dashed border-gray-200" />
-                <div className="space-y-1 text-[11px]">
-                  <div className="flex justify-between gap-2 text-gray-600">
-                    <span>Subtotal</span>
-                    <span className="tabular-nums font-medium">{formatPrice(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between gap-2 text-gray-600">
-                    <span>Envío</span>
-                    <span className="tabular-nums font-semibold text-right">
-                      {shippingFee === 0 ? (
-                        <span className="text-emerald-600">Gratis</span>
-                      ) : (
-                        formatPrice(shippingFee)
+                      {effectiveCouponDiscount > 0 && couponState.appliedCode && (
+                        <div className="flex justify-between gap-2 text-emerald-700">
+                          <span className="min-w-0 truncate">
+                            Cupón <span className="font-semibold">{couponState.appliedCode}</span>
+                          </span>
+                          <span className="tabular-nums shrink-0">−{formatPrice(effectiveCouponDiscount)}</span>
+                        </div>
                       )}
-                    </span>
-                  </div>
-                  {effectiveCouponDiscount > 0 && couponState.appliedCode && (
-                    <div className="flex justify-between gap-2 text-emerald-700">
-                      <span className="min-w-0 truncate">
-                        Cupón <span className="font-semibold">{couponState.appliedCode}</span>
-                      </span>
-                      <span className="tabular-nums shrink-0">−{formatPrice(effectiveCouponDiscount)}</span>
+                      <div className="flex justify-between gap-2 pt-2 border-t border-gray-200 font-bold text-primary-dark text-xs">
+                        <span>Total</span>
+                        <span className="tabular-nums">{formatPrice(total)}</span>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex justify-between gap-2 pt-2 border-t border-gray-200 font-bold text-primary-dark text-xs">
-                    <span>Total</span>
-                    <span className="tabular-nums">{formatPrice(total)}</span>
                   </div>
-                </div>
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 

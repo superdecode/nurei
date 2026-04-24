@@ -6,7 +6,7 @@ import {
   Search, X, RefreshCcw, Download, ChevronLeft, ChevronRight,
   Package, Eye, MoreHorizontal, Printer, ChevronDown, ChevronUp,
   MessageSquare, MapPin, Phone, Mail, Clock, FileText, Loader2,
-  Check, CreditCard, Truck, CheckCircle2, XCircle, AlertTriangle,
+  Check, Minus, CreditCard, Truck, CheckCircle2, XCircle, AlertTriangle,
   ArrowRight, Copy, Send, Ban, RotateCcw, Filter,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -361,6 +361,7 @@ export default function PedidosAdminPage() {
   // ── Selection helpers ─────────────────────────────────────────────
 
   const allPageSelected = data.orders.length > 0 && data.orders.every((o) => selectedIds.has(o.id))
+  const somePageSelected = !allPageSelected && data.orders.some((o) => selectedIds.has(o.id))
 
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -598,8 +599,9 @@ export default function PedidosAdminPage() {
           <TableHeader>
             <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
               <TableHead className="w-10 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                <button type="button" onClick={toggleSelectAll} className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors', allPageSelected ? 'bg-primary-cyan border-primary-cyan' : 'border-gray-300 hover:border-gray-400')}>
+                <button type="button" onClick={toggleSelectAll} className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors', allPageSelected ? 'bg-primary-cyan border-primary-cyan' : somePageSelected ? 'bg-primary-cyan/20 border-primary-cyan/60' : 'border-gray-300 hover:border-gray-400')}>
                   {allPageSelected && <Check className="w-3 h-3 text-primary-dark" />}
+                  {somePageSelected && <Minus className="w-3 h-3 text-primary-dark/70" />}
                 </button>
               </TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500"><SortHeader col="short_id">Orden</SortHeader></TableHead>

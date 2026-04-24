@@ -369,7 +369,16 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
         {/* ── Image section — full bleed on mobile ── */}
         <div className="sm:hidden">
-          <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
+          <motion.div
+            className="relative w-full aspect-square bg-gray-100 overflow-hidden"
+            drag={allImages.length > 1 ? 'x' : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.15}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -60) setPrimaryIndex((p) => (p + 1) % allImages.length)
+              else if (info.offset.x > 60) setPrimaryIndex((p) => (p - 1 + allImages.length) % allImages.length)
+            }}
+          >
             {/* Image */}
             <AnimatePresence mode="wait">
               {activeImage ? (
@@ -492,7 +501,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 <span className="text-sm font-bold text-white bg-gray-900/60 px-4 py-2 rounded-full uppercase tracking-wide">Agotado</span>
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
 
         {/* ── Info section (mobile) ── */}

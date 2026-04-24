@@ -132,18 +132,18 @@ function TicketView({ orders }: { orders: Order[] }) {
         return (
           <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
             {/* Ticket header */}
-            <div className="bg-gray-900 text-white px-5 py-4">
+            <div className="bg-amber-400 text-amber-950 px-5 py-4">
               <div className="flex items-start justify-between">
                 <div>
                   <h1 className="text-2xl font-black tracking-tight leading-none">
-                    nu<span style={{ color: '#00E5CC' }}>rei</span>
+                    nu<span style={{ color: '#78350f' }}>rei</span>
                   </h1>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-white/50 mt-0.5">Comprobante de venta</p>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-amber-900/60 mt-0.5">Comprobante de venta</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-black font-mono text-primary-cyan">{order.short_id}</p>
-                  <p className="text-[11px] text-white/60 mt-0.5">{formatDate(order.created_at)}</p>
-                  <p className="text-[10px] text-white/50 mt-0.5 uppercase tracking-wider">
+                  <p className="text-lg font-black font-mono text-amber-900">{order.short_id}</p>
+                  <p className="text-[11px] text-amber-800/80 mt-0.5">{formatDate(order.created_at)}</p>
+                  <p className="text-[10px] text-amber-800/70 mt-0.5 uppercase tracking-wider">
                     {ORDER_STATUS_MAP[order.status as OrderStatus]?.label ?? order.status}
                   </p>
                 </div>

@@ -314,7 +314,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
   const update = useCallback((updates: Partial<ProductFormData>) => {
     setForm(prev => {
       const next = { ...prev, ...updates }
-      if ('name' in updates && !isEdit) {
+      if ('name' in updates && (!isEdit || !prev.slug)) {
         next.slug = slugify(updates.name ?? '')
       }
       return next
@@ -1124,7 +1124,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           </Section>
 
           {/* 3. Images */}
-          <Section title="Galería de imágenes" icon={ImageIcon} titleClassName="text-nurei-cta" defaultOpen={false}>
+          <Section title="Galería de imágenes" icon={ImageIcon} titleClassName="text-nurei-cta" defaultOpen>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] text-gray-400">Arrastra para reordenar. Primera imagen = portada.</p>
@@ -1190,7 +1190,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           </Section>
 
           {/* 5. Optional Attributes */}
-          <Section title="Atributos opcionales" icon={Settings2} defaultOpen={false}>
+          <Section title="Atributos opcionales" icon={Settings2} defaultOpen>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-8 rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50/80 to-white p-4">
                 <Toggle value={form.is_featured} onChange={(v) => update({ is_featured: v })} label="Destacado (Popular)" />
@@ -1279,7 +1279,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
           </Section>
 
           {/* Inventario */}
-          <Section title="Inventario" icon={Package} defaultOpen={false}>
+          <Section title="Inventario" icon={Package} defaultOpen>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {form.track_inventory && (
@@ -1750,9 +1750,9 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
 
       <Dialog open={brandManageOpen} onOpenChange={setBrandManageOpen}>
         <DialogContent className="max-w-md overflow-hidden rounded-2xl border-0 p-0 gap-0 shadow-2xl">
-          <div className="bg-gradient-to-br from-primary-dark via-primary-dark to-primary-cyan/90 px-6 py-5 text-white">
+          <div className="bg-gradient-to-br from-amber-400 via-amber-400 to-yellow-300 px-6 py-5 text-amber-950">
             <DialogTitle className="text-lg font-black tracking-tight">Gestionar marcas</DialogTitle>
-            <p className="text-xs text-white/80 mt-1.5 leading-relaxed">
+            <p className="text-xs text-amber-900/70 mt-1.5 leading-relaxed">
               Lista de marcas en catálogo. Al eliminar, los productos vinculados quedarán sin marca hasta que asignes otra.
             </p>
           </div>

@@ -223,7 +223,7 @@ export async function duplicateProduct(id: string) {
   const copy = {
     ...original,
     name: `${original.name} (copia)`,
-    slug: `${original.slug}-copia-${now}`,
+    slug: '',
     sku: `${original.sku}-COPY-${now}`,
     status: 'draft' as const,
     is_active: false,
