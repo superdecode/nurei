@@ -20,7 +20,7 @@ export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [activeMobileCategory, setActiveMobileCategory] = useState<string>('all')
   const [categoryOrder, setCategoryOrder] = useState<string[]>([])
-  const [categoryMeta, setCategoryMeta] = useState<Record<string, { label: string; emoji: string }>>({})
+  const [categoryMeta, setCategoryMeta] = useState<Record<string, { label: string; emoji: string; color?: string }>>({})
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const sectionRefsMap = useRef<Record<string, HTMLElement | null>>({})
@@ -46,9 +46,13 @@ export default function MenuPage() {
         const order = (catJson.data ?? []).map((c: { slug: string }) => c.slug)
         setCategoryOrder(order)
         const meta = Object.fromEntries(
-          (catJson.data ?? []).map((c: { slug: string; name: string; emoji?: string | null }) => [
+          (catJson.data ?? []).map((c: { slug: string; name: string; emoji?: string | null; color?: string | null }) => [
             c.slug,
-            { label: c.name, emoji: c.emoji || '🍜' },
+            {
+              label: c.name ? c.name.charAt(0).toUpperCase() + c.name.slice(1) : c.slug,
+              emoji: c.emoji || '🍜',
+              color: c.color ?? undefined,
+            },
           ]),
         )
         setCategoryMeta(meta)
@@ -78,11 +82,12 @@ export default function MenuPage() {
 
   const categoryChips = useMemo(
     () => [
-      { value: 'all', label: 'Todo', emoji: '✨' },
+      { value: 'all', label: 'Todo', emoji: '✨', color: undefined as string | undefined },
       ...categories.map((slug) => ({
         value: slug,
         label: categoryMeta[slug]?.label ?? slug,
         emoji: categoryMeta[slug]?.emoji ?? '🍜',
+        color: categoryMeta[slug]?.color,
       })),
     ],
     [categories, categoryMeta],

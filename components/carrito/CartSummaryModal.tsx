@@ -221,10 +221,19 @@ export function CartSummaryModal({ open, onClose }: CartSummaryModalProps) {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 32 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.3 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 100 || info.velocity.y > 500) onClose()
+            }}
             className="fixed inset-x-0 bottom-0 z-50 sm:hidden flex flex-col bg-white rounded-t-3xl shadow-2xl max-h-[85dvh]"
           >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+            {/* Drag handle — tap or drag down to dismiss */}
+            <div
+              className="flex justify-center pt-3 pb-1 flex-shrink-0 cursor-grab active:cursor-grabbing"
+              style={{ touchAction: 'none' }}
+            >
               <div className="w-10 h-1.5 bg-gray-200 rounded-full" />
             </div>
 

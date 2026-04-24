@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Save, Plus, X, ChevronDown, ChevronUp, Package, ImageIcon,
   DollarSign, Tag, Layers, Settings2, Flame, Copy, Trash2,
-  ArrowLeft, Loader2, GripVertical, Check, Sparkles, Search,
+  ArrowLeft, ChevronLeft, ChevronRight, Loader2, GripVertical, Check, Sparkles, Search,
   SortDesc, Calendar, Trash, UploadCloud, CheckCircle2, Circle, AlertCircle, Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -77,9 +77,17 @@ interface CategoryOption {
   emoji?: string | null
 }
 
+interface NavProps {
+  prev: { id: string; name: string } | null
+  next: { id: string; name: string } | null
+  current: number
+  total: number
+}
+
 interface ProductFormProps {
   initialProduct?: Product
   initialVariants?: ProductVariant[]
+  navProps?: NavProps
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────
@@ -254,7 +262,7 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 
 // ─── Main Component ─────────────────────────────────────────────────────
 
-export default function ProductForm({ initialProduct, initialVariants }: ProductFormProps) {
+export default function ProductForm({ initialProduct, initialVariants, navProps }: ProductFormProps) {
   const router = useRouter()
   const isEdit = !!initialProduct
 
@@ -277,7 +285,7 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
   const [mediaUploading, setMediaUploading] = useState(false)
   const [mediaDeleting, setMediaDeleting] = useState<string | null>(null)
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false)
-  const [categories, setCategories] = useState<{value: string, label: string, emoji: string}[]>([])
+  const [categories, setCategories] = useState<{value: string, label: string, emoji: string, color?: string}[]>([])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [brandSuggestions, setBrandSuggestions] = useState<Array<{ id: string; name: string }>>([])
   const [brandSuggestOpen, setBrandSuggestOpen] = useState(false)
@@ -291,10 +299,11 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
       .then(res => res.json())
       .then(json => {
         if (json.data) {
-          setCategories((json.data as CategoryOption[]).map((c) => ({
+          setCategories((json.data as (CategoryOption & { color?: string })[]).map((c) => ({
             value: c.slug,
-            label: c.name,
-            emoji: c.emoji || '📦'
+            label: c.name ? c.name.charAt(0).toUpperCase() + c.name.slice(1) : c.slug,
+            emoji: c.emoji || '📦',
+            color: c.color ?? undefined,
           })))
         }
       })
@@ -658,26 +667,58 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
     <div className="max-w-7xl mx-auto">
       {/* Sticky header */}
       <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-md -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-gray-200/50 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => router.push('/admin/productos')}
-              className="rounded-xl text-gray-400 hover:text-gray-600"
+              className="rounded-xl text-gray-400 hover:text-gray-600 shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">
-                {isEdit ? 'Editar producto' : 'Nuevo producto'}
+            {navProps && navProps.total > 1 && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => navProps.prev && router.push(`/admin/productos/${navProps.prev.id}/edit`)}
+                  disabled={!navProps.prev}
+                  title={navProps.prev?.name}
+                  className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] text-gray-400 tabular-nums font-mono">{navProps.current}/{navProps.total}</span>
+                <button
+                  type="button"
+                  onClick={() => navProps.next && router.push(`/admin/productos/${navProps.next.id}/edit`)}
+                  disabled={!navProps.next}
+                  title={navProps.next?.name}
+                  className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-gray-900 truncate">
+                {isEdit ? (form.name || 'Editar producto') : 'Nuevo producto'}
               </h1>
-              {form.name && (
-                <p className="text-xs text-gray-400 truncate max-w-[200px]">{form.name}</p>
-              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+            {isEdit && initialProduct?.created_at && (
+              <div className="hidden sm:flex flex-col items-end gap-0 text-right">
+                <span className="text-[10px] text-gray-400 leading-none">
+                  Creado {new Date(initialProduct.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                {initialProduct.updated_at && initialProduct.updated_at !== initialProduct.created_at && (
+                  <span className="text-[10px] text-gray-300 leading-none mt-0.5">
+                    Editado {new Date(initialProduct.updated_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            )}
             {!isEdit ? (
               <>
                 <Button
@@ -971,7 +1012,11 @@ export default function ProductForm({ initialProduct, initialVariants }: Product
                       <SelectContent>
                         {categories.map(c => (
                           <SelectItem key={c.value} value={c.value}>
-                            <span className="mr-1.5">{c.emoji}</span>{c.label}
+                            <span className="flex items-center gap-1.5">
+                              {c.color && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />}
+                              <span>{c.emoji}</span>
+                              <span>{c.label}</span>
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
