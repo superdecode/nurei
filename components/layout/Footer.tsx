@@ -1,25 +1,22 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Container } from './Container'
 import { APP_NAME, SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from '@/lib/utils/constants'
-import { createServiceClient } from '@/lib/supabase/server'
-import { getSettings } from '@/lib/supabase/queries/settings'
 
-async function getStoreInfo() {
-  try {
-    const supabase = createServiceClient()
-    const settings = await getSettings(supabase)
-    const info = settings.store_info as Record<string, string> | undefined
-    return {
-      notes: info?.notes ?? '',
-      slogan: info?.slogan ?? '',
-    }
-  } catch {
-    return { notes: '', slogan: '' }
-  }
-}
+export function Footer() {
+  const [notes, setNotes] = useState('')
 
-export async function Footer() {
-  const { notes } = await getStoreInfo()
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then((r) => r.json())
+      .then((data) => {
+        const info = data.data?.store_info as Record<string, string> | undefined
+        setNotes(info?.notes ?? '')
+      })
+      .catch(() => {})
+  }, [])
 
   const brandText = notes.trim() ||
     'Los mejores snacks asiáticos, seleccionados con amor y entregados frescos a tu puerta en CDMX 🇲🇽'
