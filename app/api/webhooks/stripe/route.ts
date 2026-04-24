@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
+import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 
 /** Lazy-init: avoid instantiating Stripe at module load (breaks build when STRIPE_SECRET_KEY is unset). */
 function getStripe() {
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (order) {
-          const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+          const baseUrl = resolvePublicUrl()
           const attributionSecret = process.env.AFFILIATE_ATTRIBUTION_SECRET
           if (attributionSecret) {
             fetch(`${baseUrl}/api/affiliate/attribution`, {

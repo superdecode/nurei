@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/server/require-admin'
 import { resolveAffiliateFirstLast } from '@/lib/server/affiliate-display-name'
+import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 
 export async function GET(req: NextRequest) {
   const guard = await requireAdmin()
@@ -182,8 +183,7 @@ export async function POST(request: NextRequest) {
   let userId: string
   let isNewUser = false
   let originalRole: string | null = null
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
-  const affiliateLoginRedirect = `${siteUrl || 'http://localhost:3500'}/affiliates/login`
+  const affiliateLoginRedirect = `${resolvePublicUrl()}/affiliates/login`
 
   if (existingUser) {
     const { data: roleProfile, error: roleError } = await supabase

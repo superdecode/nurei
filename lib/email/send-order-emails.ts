@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { createServiceClient } from '@/lib/supabase/server'
+import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 import { getCheckoutOrder } from '@/lib/server/checkout-session-store'
 import { formatPrice } from '@/lib/utils/format'
 import type { OrderItem } from '@/types'
@@ -164,7 +165,7 @@ export async function sendOrderConfirmationEmails(
   }
 
   const brandName = process.env.NEXT_PUBLIC_APP_NAME ?? 'nurei'
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+  const baseUrl = resolvePublicUrl()
   const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}`)
   const adminBase = process.env.ADMIN_APP_URL ?? baseUrl
   const adminOrderUrl = safeAttrUrl(`${adminBase.replace(/\/$/, '')}/admin/pedidos/${orderId}`)
@@ -252,7 +253,7 @@ export async function sendOrderStatusEmail(
   if (error || !data?.customer_email) return { sent: false, reason: 'order_not_found' }
 
   const brandName = process.env.NEXT_PUBLIC_APP_NAME ?? 'nurei'
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+  const baseUrl = resolvePublicUrl()
   const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}`)
   const from = process.env.EMAIL_FROM ?? `${brandName} <onboarding@resend.dev>`
 
