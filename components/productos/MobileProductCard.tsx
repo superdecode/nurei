@@ -39,11 +39,27 @@ const CheckIcon = () => (
 const SPRING_SNAP = { type: 'spring', stiffness: 400, damping: 20 } as const
 const SPRING_SMOOTH = { type: 'spring', stiffness: 350, damping: 28 } as const
 
-interface MobileProductCardProps {
-  product: Product
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-200 text-gray-900 rounded-sm not-italic">{part}</mark>
+        ) : part
+      )}
+    </>
+  )
 }
 
-export function MobileProductCard({ product }: MobileProductCardProps) {
+interface MobileProductCardProps {
+  product: Product
+  searchQuery?: string
+}
+
+export function MobileProductCard({ product, searchQuery = '' }: MobileProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const qty = useCartStore((s) => s.items.find((i) => i.product.id === product.id)?.quantity ?? 0)
@@ -137,11 +153,6 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
             </span>
           )}
 
-          {(product.origin_country || product.origin) && (
-            <span className="absolute right-1 top-1 inline-flex items-center rounded-full bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-white leading-none backdrop-blur-sm">
-              {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
-            </span>
-          )}
         </div>
 
         {/* Info */}
@@ -149,7 +160,7 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
           <p className={`text-sm font-bold line-clamp-1 leading-tight transition-colors duration-300 ${
             isOutOfStock ? 'text-amber-900/60' : 'text-gray-900'
           }`}>
-            {product.name}
+            <HighlightText text={product.name} query={searchQuery} />
           </p>
           {product.description && (
             <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5 leading-tight">
@@ -161,17 +172,24 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
               ¡Últimas unidades!
             </p>
           )}
-          <div className="flex items-center gap-2 mt-1.5">
-            {hasDiscount && (
-              <span className="text-[11px] text-gray-300 line-through font-medium tabular-nums">
-                {formatPrice(product.compare_at_price!)}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              {hasDiscount && (
+                <span className="text-[11px] text-gray-300 line-through font-medium tabular-nums">
+                  {formatPrice(product.compare_at_price!)}
+                </span>
+              )}
+              <span className={`text-base font-black tabular-nums tracking-tight transition-colors duration-300 ${
+                isOutOfStock ? 'text-amber-400' : hasDiscount ? 'text-nurei-promo' : 'text-gray-900'
+              }`}>
+                {formatPrice(price)}
+              </span>
+            </div>
+            {(product.origin_country || product.origin) && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-500 leading-none">
+                {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
               </span>
             )}
-            <span className={`text-base font-black tabular-nums tracking-tight transition-colors duration-300 ${
-              isOutOfStock ? 'text-amber-400' : hasDiscount ? 'text-nurei-promo' : 'text-gray-900'
-            }`}>
-              {formatPrice(price)}
-            </span>
           </div>
         </div>
 

@@ -8,6 +8,7 @@ import type { Product } from '@/types'
 interface ProductGridProps {
   products: Product[]
   category?: string
+  searchQuery?: string
 }
 
 const containerVariants = {
@@ -43,7 +44,7 @@ const itemVariants = {
   },
 }
 
-export function ProductGrid({ products, category = 'all' }: ProductGridProps) {
+export function ProductGrid({ products, category = 'all', searchQuery = '' }: ProductGridProps) {
   return (
     <AnimatePresence mode="wait">
       {products.length === 0 ? (
@@ -99,7 +100,7 @@ export function ProductGrid({ products, category = 'all' }: ProductGridProps) {
                   layout
                   exit="exit"
                 >
-                  <MobileProductCard product={product} />
+                  <MobileProductCard product={product} searchQuery={searchQuery} />
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -122,7 +123,7 @@ export function ProductGrid({ products, category = 'all' }: ProductGridProps) {
                   layout
                   exit="exit"
                 >
-                  <ProductCard product={product} />
+                  <ProductCard product={product} searchQuery={searchQuery} />
                 </motion.div>
               ))}
             </AnimatePresence>

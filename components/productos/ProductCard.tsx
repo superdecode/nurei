@@ -13,8 +13,24 @@ import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { SPICE_LABELS } from '@/lib/utils/constants'
 import type { Product } from '@/types'
 
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-200 text-gray-900 rounded-sm not-italic">{part}</mark>
+        ) : part
+      )}
+    </>
+  )
+}
+
 interface ProductCardProps {
   product: Product
+  searchQuery?: string
 }
 
 function getCategoryEmoji(category: string): string {
@@ -41,7 +57,7 @@ function SpiceDots({ level }: { level: number }) {
 const SPRING_SNAP = { type: 'spring', stiffness: 400, damping: 20 } as const
 const SPRING_SMOOTH = { type: 'spring', stiffness: 300, damping: 28 } as const
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
   const currentCartQuantity = useCartStore((s) => s.items.find((item) => item.product.id === product.id)?.quantity ?? 0)
   const { isFavorite, toggleFavorite } = useFavoritesStore()
@@ -203,7 +219,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <h3 className={`text-[15px] font-bold line-clamp-2 leading-snug transition-colors duration-300 ${
             isOutOfStock ? 'text-amber-900/60' : 'text-gray-900 group-hover:text-nurei-cta'
           }`}>
-            {product.name}
+            <HighlightText text={product.name} query={searchQuery} />
           </h3>
 
           {product.description && (

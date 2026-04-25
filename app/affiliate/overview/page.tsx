@@ -110,7 +110,7 @@ export default function AffiliateOverviewPage() {
       .finally(() => setProfileLoading(false))
   }, [])
 
-  const referralUrl = profile?.referral_slug ? `${siteUrl}/r/${profile.referral_slug}` : null
+  const referralUrl = profile?.referral_slug ? `${siteUrl}/r/${profile.referral_slug.trim()}` : null
 
   const copyLink = () => {
     if (!referralUrl) return
@@ -172,9 +172,9 @@ export default function AffiliateOverviewPage() {
           value={`${stats.conversion_rate}%`}
           sub="Clics → compra" color="text-primary-cyan" accent="bg-primary-cyan/10"
         />
-        <div className="bg-gradient-to-br from-primary-dark to-[#0D2A3F] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">Ver ventas</p>
-          <Link href="/affiliate/ventas" className="flex items-center gap-1 text-white text-sm font-bold mt-2">
+        <div className="bg-gradient-to-br from-amber-400 to-amber-500 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900/70">Ver ventas</p>
+          <Link href="/affiliate/ventas" className="flex items-center gap-1 text-amber-900 text-sm font-bold mt-2">
             Historial <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
