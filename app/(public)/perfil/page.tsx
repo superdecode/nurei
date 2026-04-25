@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   User, Mail, Phone, LogOut, Heart, Package, ChevronRight,
@@ -1178,6 +1178,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 
 export default function PerfilPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, email, isAuthenticated, isLoading, checkSession, refreshUser, loadAddresses } = useAuthStore()
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
   const [activeTab, setActiveTab] = useState<TabId>('pedidos')
@@ -1189,6 +1190,15 @@ export default function PerfilPage() {
   const [showAccountSummary, setShowAccountSummary] = useState(true)
 
   useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'pedidos' || tab === 'cupones' || tab === 'direcciones' || tab === 'cuenta') {
+      setActiveTab(tab)
+    } else {
+      setActiveTab('pedidos')
+    }
+  }, [searchParams])
 
   const loadOrders = useCallback(() => {
     setOrdersLoading(true)

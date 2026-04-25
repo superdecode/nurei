@@ -22,12 +22,12 @@ export async function requireAffiliate(): Promise<AffiliateGuard> {
     service.from('affiliate_profiles').select('id').eq('id', user.id).maybeSingle(),
   ])
 
-  // Require BOTH the affiliate role AND a valid affiliate_profiles row.
-  // A downgraded user with a stale profile row (or role without a profile) is denied.
+  // Allow access if either the role is affiliate OR a valid affiliate profile exists.
+  // This keeps legacy/backfill accounts working while still denying non-affiliates.
   const hasRole = profileRes.data?.role === 'affiliate'
   const hasProfile = Boolean(affiliateRes.data)
 
-  if (!hasRole || !hasProfile) {
+  if (!hasRole && !hasProfile) {
     return { error: NextResponse.json({ error: 'Sin permisos' }, { status: 403 }) }
   }
 

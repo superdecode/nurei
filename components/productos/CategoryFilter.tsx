@@ -13,7 +13,6 @@ interface CategoryFilterProps {
 
 export function CategoryFilter({ selected, onChange, categoriesOverride }: CategoryFilterProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const activeRef = useRef<HTMLButtonElement>(null)
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string, color?: string}[]>([
     { value: 'all', label: 'Todo', emoji: '✨' }
   ])
@@ -40,21 +39,25 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
   }, [categoriesOverride])
 
   const scrollToActive = useCallback(() => {
-    if (!activeRef.current || !scrollRef.current) return
     const container = scrollRef.current
-    const button = activeRef.current
-    const btnLeft = button.offsetLeft
-    const btnRight = btnLeft + button.offsetWidth
-    const visLeft = container.scrollLeft + 32
-    const visRight = container.scrollLeft + container.offsetWidth - 32
-    if (btnLeft >= visLeft && btnRight <= visRight) return
-    const scrollLeft = btnLeft - container.offsetWidth / 2 + button.offsetWidth / 2
-    container.scrollTo({ left: scrollLeft, behavior: 'smooth' })
-  }, [])
+    if (!container) return
+
+    const buttons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[data-category-chip]')
+    )
+    const button = buttons.find((el) => el.dataset.categoryChip === selected)
+    if (!button) return
+
+    const targetLeft = button.offsetLeft - (container.clientWidth - button.clientWidth) / 2
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
+    const clampedLeft = Math.min(maxScrollLeft, Math.max(0, targetLeft))
+
+    container.scrollTo({ left: clampedLeft, behavior: 'smooth' })
+  }, [selected])
 
   useEffect(() => {
     scrollToActive()
-  }, [selected, scrollToActive])
+  }, [selected, categories, scrollToActive])
 
   return (
     <div className="sticky top-16 z-40 bg-background/80 backdrop-blur-md border-b">
@@ -76,7 +79,7 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
               return (
                 <motion.button
                   key={cat.value}
-                  ref={isActive ? activeRef : undefined}
+                  data-category-chip={cat.value}
                   onClick={() => onChange(cat.value)}
                   whileTap={{ scale: 0.95 }}
                   className={cn(

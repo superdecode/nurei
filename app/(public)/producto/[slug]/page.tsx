@@ -755,7 +755,9 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
             {/* Product info — desktop */}
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col">
-              {/* Marca + País de origen — above title */}
+              <h1 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight mb-3">{product.name}</h1>
+
+              {/* Marca + País de origen — after title */}
               {(product.brand || product.origin_country || product.origin) && (
                 <div className="flex flex-wrap gap-3 mb-4">
                   {product.brand && (
@@ -775,8 +777,6 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                   )}
                 </div>
               )}
-
-              <h1 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight mb-3">{product.name}</h1>
 
               {product.description && (
                 <div className="mb-5">

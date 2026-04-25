@@ -34,13 +34,13 @@ export const useAffiliateAuthStore = create<AffiliateAuthState>((set) => ({
       .from('user_profiles')
       .select('role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     const { data: affiliateProfile } = await supabase
       .from('affiliate_profiles')
       .select('handle')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     // Allow access if either role is affiliate OR affiliate profile exists.
     // This avoids login loops for legacy accounts with incomplete role backfill.

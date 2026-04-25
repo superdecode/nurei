@@ -94,7 +94,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // rendering admin + API calls with a stale "admin" flag while cookies are still a storefront session).
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-dark to-[#0D2A3F] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-black via-[#0a0a0a] to-[#050505] flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary-cyan animate-spin" />
       </div>
     )
@@ -103,7 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Login form
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-dark to-[#0D2A3F] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-b from-black via-[#0a0a0a] to-[#050505] flex items-center justify-center p-4">
         <motion.form
           onSubmit={handleLogin}
           initial={{ opacity: 0, scale: 0.95 }}

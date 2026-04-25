@@ -199,17 +199,6 @@ export default function MenuPage() {
                     {desktopProducts.length} productos disponibles
                   </p>
                 </div>
-                {cartItemCount > 0 && (
-                  <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-right shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                      Tu carrito
-                    </p>
-                    <p className="text-xs text-gray-600 tabular-nums">
-                      {cartItemCount} {cartItemCount === 1 ? 'ítem' : 'ítems'}
-                    </p>
-                    <p className="text-sm font-bold text-primary-dark tabular-nums">{formatPrice(cartSubtotal)}</p>
-                  </div>
-                )}
               </div>
             </motion.div>
 

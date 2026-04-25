@@ -187,31 +187,19 @@ export function ProductCard({ product }: ProductCardProps) {
               </div>
             </div>
           )}
+
+          {/* Desktop meta chips over image */}
+          {(product.origin_country || product.origin) && (
+            <div className="hidden sm:flex absolute right-3 bottom-3 z-10 flex-col items-end gap-1.5">
+              <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/70 border border-white/40 text-gray-800 backdrop-blur-sm">
+                {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ── Card body ── */}
-        <div className={`p-4 sm:p-5 flex flex-col flex-1 transition-colors duration-300 ${isOutOfStock ? 'bg-amber-50/40' : ''}`}>
-          {(product.brand || product.origin_country || product.origin) && (
-            <div className="hidden sm:flex justify-end gap-2 mb-2.5">
-              {product.brand && (
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Marca</span>
-                  <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-600">
-                    {product.brand}
-                  </span>
-                </div>
-              )}
-              {(product.origin_country || product.origin) && (
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pais Origen</span>
-                  <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-gray-100 text-gray-600">
-                    {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
+        <div className={`p-4 sm:px-4 sm:py-3.5 flex flex-col flex-1 transition-colors duration-300 ${isOutOfStock ? 'bg-amber-50/40' : ''}`}>
           <h3 className={`text-[15px] font-bold line-clamp-2 leading-snug transition-colors duration-300 ${
             isOutOfStock ? 'text-amber-900/60' : 'text-gray-900 group-hover:text-nurei-cta'
           }`}>
