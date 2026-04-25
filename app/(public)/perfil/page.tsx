@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -1176,7 +1176,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'cuenta', label: 'Cuenta', icon: <User className="w-4 h-4" /> },
 ]
 
-export default function PerfilPage() {
+function PerfilPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, email, isAuthenticated, isLoading, checkSession, refreshUser, loadAddresses } = useAuthStore()
@@ -1349,5 +1349,13 @@ export default function PerfilPage() {
         </AnimatePresence>
       </div>
     </div>
+  )
+}
+
+export default function PerfilPage() {
+  return (
+    <Suspense fallback={null}>
+      <PerfilPageContent />
+    </Suspense>
   )
 }
