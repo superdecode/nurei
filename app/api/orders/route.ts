@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
           status: 'pending',
           payment_status: 'pending',
           source: 'web',
+          shipping_method: 'standard',
         })
         .select()
         .single()

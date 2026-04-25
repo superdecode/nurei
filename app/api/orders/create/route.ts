@@ -197,6 +197,7 @@ export async function POST(request: NextRequest) {
       payment_status: 'pending',
       source: 'web-checkout',
       payment_method: payload.payment_method,
+      shipping_method: payload.shipping.method_id,
     }
 
     for (let attempt = 0; attempt < 10; attempt++) {

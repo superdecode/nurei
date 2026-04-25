@@ -48,10 +48,12 @@ export function CategoryFilter({ selected, onChange, categoriesOverride }: Categ
     const button = buttons.find((el) => el.dataset.categoryChip === selected)
     if (!button) return
 
+    // First, ask browser to reveal and center the active chip.
+    button.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    // Then clamp with explicit scroll as fallback for some mobile browsers.
     const targetLeft = button.offsetLeft - (container.clientWidth - button.clientWidth) / 2
     const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth)
     const clampedLeft = Math.min(maxScrollLeft, Math.max(0, targetLeft))
-
     container.scrollTo({ left: clampedLeft, behavior: 'smooth' })
   }, [selected])
 

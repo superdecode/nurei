@@ -110,7 +110,7 @@ export default function AffiliateOverviewPage() {
       .finally(() => setProfileLoading(false))
   }, [])
 
-  const referralUrl = profile?.referral_slug ? `${siteUrl}/?ref=${profile.referral_slug}` : null
+  const referralUrl = profile?.referral_slug ? `${siteUrl}/r/${profile.referral_slug}` : null
 
   const copyLink = () => {
     if (!referralUrl) return

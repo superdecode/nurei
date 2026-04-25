@@ -15,7 +15,7 @@ interface AuthStore {
   // Auth actions
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  loginWithGoogle: () => void
+  loginWithGoogle: (nextPath?: string) => void
   logout: () => Promise<void>
   checkSession: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -101,11 +101,14 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      loginWithGoogle: () => {
-        const next =
+      loginWithGoogle: (nextPath?: string) => {
+        const fallbackNext =
           typeof window !== 'undefined'
             ? `${window.location.pathname}${window.location.search}` || '/'
             : '/'
+        const next = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//')
+          ? nextPath
+          : fallbackNext
         window.location.href = `/api/auth/google?next=${encodeURIComponent(next)}`
       },
 

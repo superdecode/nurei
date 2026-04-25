@@ -13,9 +13,60 @@ import { Badge } from '@/components/ui/badge'
 import { Container } from '@/components/layout/Container'
 import { OrderTimeline } from '@/components/pedido/OrderTimeline'
 import { formatPrice } from '@/lib/utils/format'
-import { ORDER_STATUS_MAP, SUPPORT_PHONE } from '@/lib/utils/constants'
-import { calculateShippingDays } from '@/lib/utils/calculations'
+import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import type { Order, OrderStatus } from '@/types'
+
+type StoreInfoResponse = {
+  store_info: {
+    whatsapp: string
+  }
+  shipping: {
+    standard_estimated_time: string
+    express_estimated_time: string
+  }
+}
+
+function addBusinessDays(base: Date, businessDays: number) {
+  const date = new Date(base)
+  let remaining = Math.max(1, businessDays)
+  while (remaining > 0) {
+    date.setDate(date.getDate() + 1)
+    const day = date.getDay()
+    if (day !== 0 && day !== 6) {
+      remaining -= 1
+    }
+  }
+  return date
+}
+
+function parseDeliveryDays(label: string | null | undefined, fallback: number) {
+  if (!label) return fallback
+  const normalized = label.toLowerCase()
+  const matches = normalized.match(/\d+/g)
+  if (!matches || matches.length === 0) return fallback
+  const maxRaw = Math.max(...matches.map((n) => Number(n)).filter((n) => Number.isFinite(n)))
+  if (!Number.isFinite(maxRaw)) return fallback
+  if (normalized.includes('hora')) {
+    return Math.max(1, Math.ceil(maxRaw / 24))
+  }
+  return Math.max(1, maxRaw)
+}
+
+function formatEstimatedDate(date: Date) {
+  return date.toLocaleDateString('es-MX', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+}
+
+function normalizeWhatsApp(phone: string | null | undefined) {
+  const digits = (phone ?? '').replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('52')) return digits
+  if (digits.length === 10) return `52${digits}`
+  return digits
+}
 
 // ──────────────────────────────────────────────
 // Confetti particles
@@ -185,6 +236,7 @@ export default function TrackingPage() {
   const searchParams = useSearchParams()
   const isSuccess = searchParams.get('success') === 'true'
   const [order, setOrder] = useState<Order | null>(null)
+  const [storeInfo, setStoreInfo] = useState<StoreInfoResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [showConfetti, setShowConfetti] = useState(isSuccess)
@@ -209,6 +261,19 @@ export default function TrackingPage() {
     }
     void fetchOrder()
   }, [params.id])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/store/info')
+        if (!res.ok) return
+        const json = await res.json()
+        setStoreInfo((json.data ?? null) as StoreInfoResponse | null)
+      } catch {
+        setStoreInfo(null)
+      }
+    })()
+  }, [])
 
   // Hide confetti after animation
   useEffect(() => {
@@ -249,7 +314,18 @@ export default function TrackingPage() {
   const statusInfo = ORDER_STATUS_MAP[order.status]
   const isDelivered = order.status === 'delivered'
   const isCancelled = order.status === 'cancelled' || order.status === 'failed'
-  const shippingEstimate = calculateShippingDays(order.status)
+  const isExpress = (order.shipping_method ?? '').toLowerCase().includes('express')
+  const etaLabel = isExpress
+    ? storeInfo?.shipping?.express_estimated_time
+    : storeInfo?.shipping?.standard_estimated_time
+  const shippingDays = parseDeliveryDays(etaLabel, isExpress ? 2 : 4)
+  const shippingEstimate = `Entrega estimada: ${formatEstimatedDate(
+    addBusinessDays(new Date(order.created_at), shippingDays),
+  )}`
+  const supportWhatsapp = normalizeWhatsApp(storeInfo?.store_info?.whatsapp)
+  const supportHref = supportWhatsapp
+    ? `https://wa.me/${supportWhatsapp}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido #${order.short_id}`)}`
+    : null
 
   return (
     <motion.section
@@ -332,7 +408,7 @@ export default function TrackingPage() {
               />
               <div className="relative z-10">
                 <p className="text-gray-500 font-medium text-sm mb-2">Tiempo estimado de entrega</p>
-                <p className="text-3xl sm:text-4xl font-black text-primary-dark">{shippingEstimate}</p>
+                <p className="text-xl sm:text-2xl font-black text-primary-dark">{shippingEstimate}</p>
                 <p className="text-xs text-gray-400 mt-2">Gestionado por empresa de paquetería externa</p>
               </div>
             </motion.div>
@@ -481,31 +557,29 @@ export default function TrackingPage() {
         </motion.div>
 
         {/* WhatsApp support */}
-        <motion.div
-          className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-        >
-          <p className="text-sm text-gray-500 mb-3">Necesitas ayuda?</p>
-          <a
-            href={`https://wa.me/52${SUPPORT_PHONE}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido ${order.short_id}`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
+        {supportHref && (
+          <motion.div
+            className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="relative">
-              <motion.div
-                className="absolute inset-0 rounded-lg bg-whatsapp/20"
-                animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0, 0.4] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-              />
-              <Button className="w-full bg-whatsapp text-white hover:bg-whatsapp/90 relative z-10 h-10 text-sm font-semibold">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                WhatsApp soporte
-              </Button>
-            </motion.div>
-          </a>
-        </motion.div>
+            <p className="text-sm text-gray-500 mb-3">¿Necesitas ayuda?</p>
+            <a href={supportHref} target="_blank" rel="noopener noreferrer">
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="relative">
+                <motion.div
+                  className="absolute inset-0 rounded-lg bg-whatsapp/20"
+                  animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0, 0.4] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <Button className="w-full bg-whatsapp text-white hover:bg-whatsapp/90 relative z-10 h-10 text-sm font-semibold">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  WhatsApp soporte
+                </Button>
+              </motion.div>
+            </a>
+          </motion.div>
+        )}
 
         {/* Back to home */}
         <motion.div

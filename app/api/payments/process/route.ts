@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendOrderConfirmationEmails } from '@/lib/email/send-order-emails'
+import { createServiceClient } from '@/lib/supabase/server'
+import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
 
 function notifyOrderEmails(
   orderId: string,
@@ -75,6 +77,38 @@ export async function POST(request: NextRequest) {
       method === 'stripe_card' ||
       method.endsWith('_card')
 
+    const supabase = createServiceClient()
+
+    async function markOrderAsPaid(currentMethod: string) {
+      const now = new Date().toISOString()
+      const { data: order } = await supabase
+        .from('orders')
+        .select('id, coupon_code')
+        .eq('id', orderId)
+        .single()
+
+      await supabase
+        .from('orders')
+        .update({
+          payment_status: 'paid',
+          status: 'paid',
+          paid_at: now,
+          confirmed_at: now,
+          payment_method: currentMethod,
+        })
+        .eq('id', orderId)
+
+      await supabase.from('order_updates').insert({
+        order_id: orderId,
+        status: 'paid',
+        message: 'Pago confirmado: pedido en pendiente de aceptación',
+        updated_by: 'checkout_payment',
+        metadata: { event: 'payment_confirmed', method: currentMethod },
+      })
+
+      return order?.coupon_code ?? null
+    }
+
     if (cardLike) {
       const card = body?.card ?? {}
       const cardToken = String(card.token ?? '')
@@ -122,6 +156,13 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      const couponCode = await markOrderAsPaid(method)
+      void executeAffiliateAttribution({
+        orderId,
+        couponCode,
+        cookieHeader: request.headers.get('cookie'),
+      }).catch(() => {})
+
       notifyOrderEmails(orderId, method)
 
       return NextResponse.json({
@@ -166,6 +207,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Efectivo / otros métodos configurados en tienda (sin pasarela simulada de tarjeta)
+    const couponCode = await markOrderAsPaid(method)
+    void executeAffiliateAttribution({
+      orderId,
+      couponCode,
+      cookieHeader: request.headers.get('cookie'),
+    }).catch(() => {})
+
     notifyOrderEmails(orderId, method)
 
     return NextResponse.json({

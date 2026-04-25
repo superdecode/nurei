@@ -650,7 +650,7 @@ export default function AdminAffiliatesPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Slug del link (?ref=) *</label>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Slug del link (/r/slug) *</label>
               <Input
                 type="text" value={form.referral_slug}
                 onChange={(e) => setForm({ ...form, referral_slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}

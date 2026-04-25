@@ -191,7 +191,7 @@ export function ProductCard({ product }: ProductCardProps) {
           {/* Desktop meta chips over image */}
           {(product.origin_country || product.origin) && (
             <div className="hidden sm:flex absolute right-3 bottom-3 z-10 flex-col items-end gap-1.5">
-              <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/70 border border-white/40 text-gray-800 backdrop-blur-sm">
+              <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/40 border border-white/40 text-gray-800 backdrop-blur-sm">
                 {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
               </span>
             </div>
@@ -210,13 +210,6 @@ export function ProductCard({ product }: ProductCardProps) {
             <p className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">
               {stripHtml(product.description)}
             </p>
-          )}
-
-          {/* Origin country badge */}
-          {(product.origin_country || product.origin) && (
-            <span className="sm:hidden mt-1.5 inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
-              {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
-            </span>
           )}
 
           {/* Spice + Weight */}

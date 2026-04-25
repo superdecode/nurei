@@ -94,8 +94,9 @@ async function playOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>
     play(659, 0.13, 0.12)
     play(784, 0.26, 0.18)
     play(1047, 0.44, 0.25)
+    return true
   } catch {
-    // AudioContext not available
+    return false
   }
 }
 
@@ -135,10 +136,13 @@ export function AdminNotificationBell() {
   const panelRef = useRef<HTMLDivElement>(null)
   const bellRef = useRef<HTMLButtonElement>(null)
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const titleBlinkRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const baseTitleRef = useRef<string | null>(null)
   const prevItemIdsRef = useRef<Set<string>>(new Set())
   const audioCtxRef = useRef<AudioContext | null>(null)
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
   const [soundUnlocked, setSoundUnlocked] = useState<boolean>(getInitialSoundUnlocked())
+  const [titleAttention, setTitleAttention] = useState(false)
 
   const unlockSound = useCallback(async () => {
     try {
@@ -263,8 +267,12 @@ export function AdminNotificationBell() {
 
         const hasNewOrder = newCritical.some(i => i.type === 'nuevo_pedido')
         if (hasNewOrder && prevItemIdsRef.current.size > 0) {
+          let soundPlayed = false
           if (prefs.sound_enabled && soundUnlocked) {
-            void playOrderSound(audioCtxRef)
+            soundPlayed = await playOrderSound(audioCtxRef)
+          }
+          if (!soundPlayed) {
+            setTitleAttention(true)
           }
           const firstOrder = newCritical.find((i) => i.type === 'nuevo_pedido')
           if (firstOrder) notifyBrowserNewOrder(firstOrder)
@@ -301,6 +309,51 @@ export function AdminNotificationBell() {
       if (popupTimerRef.current) clearTimeout(popupTimerRef.current)
     }
   }, [load])
+
+  useEffect(() => {
+    const hasUnreadOrder = items.some(
+      (item) => item.type === 'nuevo_pedido' && !readIds.has(item.id) && !deletedIds.has(item.id)
+    )
+    if (!hasUnreadOrder || open) {
+      setTitleAttention(false)
+    } else {
+      setTitleAttention(true)
+    }
+  }, [deletedIds, items, open, readIds])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (!titleAttention) {
+      if (titleBlinkRef.current) {
+        clearInterval(titleBlinkRef.current)
+        titleBlinkRef.current = null
+      }
+      if (baseTitleRef.current) {
+        document.title = baseTitleRef.current
+      }
+      return
+    }
+
+    if (!baseTitleRef.current) {
+      baseTitleRef.current = document.title
+    }
+
+    let toggle = false
+    titleBlinkRef.current = setInterval(() => {
+      document.title = toggle ? '🔔 Nueva orden | Nurei' : (baseTitleRef.current ?? 'Nurei')
+      toggle = !toggle
+    }, 1000)
+
+    return () => {
+      if (titleBlinkRef.current) {
+        clearInterval(titleBlinkRef.current)
+        titleBlinkRef.current = null
+      }
+      if (baseTitleRef.current) {
+        document.title = baseTitleRef.current
+      }
+    }
+  }, [titleAttention])
 
   useEffect(() => {
     const supabase = createClient()

@@ -43,6 +43,7 @@ import {
   type ShippingForm,
 } from '@/lib/types/checkout-shipping'
 import { SearchableSelect } from '@/components/forms/SearchableSelect'
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 
 type CheckoutStep = 1 | 2 | 3 | 4
 type Direction = 'forward' | 'backward'
@@ -280,11 +281,24 @@ export default function CheckoutPage() {
   const authEmail = useAuthStore((s) => s.email)
   const authOk = useAuthStore((s) => s.isAuthenticated)
   const authLogin = useAuthStore((s) => s.login)
+  const authLoginWithGoogle = useAuthStore((s) => s.loginWithGoogle)
   const refreshUser = useAuthStore((s) => s.refreshUser)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    const rawStep = new URLSearchParams(window.location.search).get('step')
+    if (!rawStep) return
+    const parsed = Number(rawStep)
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 3) return
+    setActiveStep(parsed as CheckoutStep)
+    setPanelKey((key) => key + 1)
+    const nextUrl = `${window.location.pathname}${window.location.hash}`
+    window.history.replaceState({}, '', nextUrl)
+  }, [mounted])
 
   useEffect(() => {
     if (!mounted) return
@@ -1811,6 +1825,15 @@ export default function CheckoutPage() {
                   </p>
                 </DialogHeader>
                 <div className="space-y-4 pt-3">
+                  <GoogleAuthButton
+                    onClick={() => authLoginWithGoogle(`/checkout?step=${activeStep}`)}
+                    className="w-full flex items-center justify-center gap-3 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+                  />
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-gray-100" />
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">o con email</span>
+                    <div className="h-px flex-1 bg-gray-100" />
+                  </div>
                   <div>
                     <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
                       Correo electrónico

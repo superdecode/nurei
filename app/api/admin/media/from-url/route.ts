@@ -4,7 +4,7 @@ import sharp from 'sharp'
 
 export async function POST(request: NextRequest) {
   try {
-    const { url } = await request.json()
+    const { url, convertToWebp } = await request.json()
     if (!url || typeof url !== 'string') {
       return NextResponse.json({ error: 'URL requerida' }, { status: 400 })
     }
@@ -30,20 +30,27 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await fetchRes.arrayBuffer())
 
-    // Convert to WebP, max 1200px wide
-    const webpBuffer = await sharp(buffer)
-      .resize({ width: 1200, withoutEnlargement: true })
-      .webp({ quality: 85 })
-      .toBuffer()
-
     const originalName = parsed.pathname.split('/').pop()?.split('?')[0] ?? 'image'
     const baseName = originalName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'image'
-    const filename = `${Date.now()}-${baseName}.webp`
+    const shouldConvert = Boolean(convertToWebp) && contentType !== 'image/webp' && contentType !== 'image/svg+xml'
+    const extFromMime = contentType.split('/')[1]?.toLowerCase() || 'jpg'
+    const finalExt = shouldConvert ? 'webp' : extFromMime
+    const filename = `${Date.now()}-${baseName}.${finalExt}`
+    let uploadBuffer: Uint8Array = buffer
+    let finalMime = contentType
+
+    if (shouldConvert) {
+      uploadBuffer = await sharp(buffer)
+        .resize({ width: 1200, withoutEnlargement: true })
+        .webp({ quality: 85 })
+        .toBuffer()
+      finalMime = 'image/webp'
+    }
 
     const supabase = createServiceClient()
     const { error: uploadError } = await supabase.storage
       .from('media')
-      .upload(filename, webpBuffer, { contentType: 'image/webp', cacheControl: '3600', upsert: false })
+      .upload(filename, uploadBuffer, { contentType: finalMime, cacheControl: '3600', upsert: false })
     if (uploadError) throw uploadError
 
     const { data: urlData } = supabase.storage.from('media').getPublicUrl(filename)
@@ -51,10 +58,10 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('media')
       .insert({
-        filename: `${baseName}.webp`,
+        filename: `${baseName}.${finalExt}`,
         url: urlData.publicUrl,
-        size_bytes: webpBuffer.length,
-        mime_type: 'image/webp',
+        size_bytes: uploadBuffer.length,
+        mime_type: finalMime,
       })
       .select()
       .single()

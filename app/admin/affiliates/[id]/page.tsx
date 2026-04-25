@@ -287,7 +287,7 @@ export default function AdminAffiliateDetailPage() {
     const slug = data?.referral_link?.slug
     if (!slug) return
     const base = storeDomain || window.location.origin.replace('/admin', '')
-    void navigator.clipboard.writeText(`${base}/?ref=${slug}`)
+    void navigator.clipboard.writeText(`${base}/r/${slug}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -303,7 +303,7 @@ export default function AdminAffiliateDetailPage() {
 
   const { profile, referral_link, coupons, attributions, kpis, chartData } = data
   const base = storeDomain || ''
-  const referralUrl = referral_link ? `${base}/?ref=${referral_link.slug}` : null
+  const referralUrl = referral_link ? `${base}/r/${referral_link.slug}` : null
 
   const attrTotal = attributions.length
   const attrStart = (attrPage - 1) * ATTRS_PAGE_SIZE

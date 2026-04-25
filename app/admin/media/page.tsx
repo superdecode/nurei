@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Image as ImageIcon, Upload, Grid, List, Search, Trash2, Download,
-  Eye, Filter, X, FolderOpen, Check, Copy, HardDrive, Clock, FileImage,
+  Eye, Filter, X, FolderOpen, Check, Copy, HardDrive, Clock, FileImage, Link2, Globe,
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -49,6 +49,52 @@ function mimeShortLabel(mime: string): string {
   return map[mime] ?? mime.split('/')[1]?.toUpperCase() ?? 'IMG'
 }
 
+function supportsWebpEncoding() {
+  if (typeof document === 'undefined') return false
+  const canvas = document.createElement('canvas')
+  return canvas.toDataURL('image/webp').startsWith('data:image/webp')
+}
+
+async function convertImageToWebp(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') || file.type === 'image/webp' || file.type === 'image/svg+xml') {
+    return file
+  }
+  if (!supportsWebpEncoding()) return file
+
+  const objectUrl = URL.createObjectURL(file)
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('No se pudo leer imagen'))
+      img.src = objectUrl
+    })
+
+    const maxWidth = 1200
+    const ratio = image.width > maxWidth ? maxWidth / image.width : 1
+    const width = Math.max(1, Math.round(image.width * ratio))
+    const height = Math.max(1, Math.round(image.height * ratio))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(image, 0, 0, width, height)
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((value) => resolve(value), 'image/webp', 0.85)
+    )
+    if (!blob) return file
+    const webpName = file.name.replace(/\.[^.]+$/, '.webp')
+    return new File([blob], webpName, { type: 'image/webp' })
+  } catch {
+    return file
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
 export default function MediaPage() {
   const [media, setMedia] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,6 +113,8 @@ export default function MediaPage() {
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
   const [convertToWebp, setConvertToWebp] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [importingUrl, setImportingUrl] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch media on mount
@@ -98,9 +146,12 @@ export default function MediaPage() {
       const fileKey = `${file.name}-${Date.now()}`
       setUploadingFiles((prev) => new Set([...prev, fileKey]))
       try {
+        let uploadFile = file
+        if (webp) {
+          uploadFile = await convertImageToWebp(file)
+        }
         const formData = new FormData()
-        formData.append('file', file)
-        if (webp) formData.append('convertToWebp', 'true')
+        formData.append('file', uploadFile)
         const res = await fetch('/api/admin/media', { method: 'POST', body: formData })
         const json = await res.json()
         if (json.error) {
@@ -120,6 +171,61 @@ export default function MediaPage() {
       }
     }
     setUploadOpen(false)
+  }
+
+  const importFromUrl = async () => {
+    const raw = urlInput.trim()
+    if (!raw) {
+      toast.error('Pega una URL de imagen')
+      return
+    }
+
+    let parsed: URL
+    try {
+      parsed = new URL(raw)
+    } catch {
+      toast.error('URL inválida')
+      return
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      toast.error('Solo se permiten URLs http/https')
+      return
+    }
+
+    setImportingUrl(true)
+    try {
+      const fetched = await fetch(parsed.toString())
+      const contentType = fetched.headers.get('content-type') ?? ''
+      if (!fetched.ok || !contentType.startsWith('image/')) {
+        throw new Error('invalid_image')
+      }
+
+      const blob = await fetched.blob()
+      const fallbackName = parsed.pathname.split('/').pop() || 'image'
+      const file = new File([blob], fallbackName, { type: blob.type || contentType || 'image/jpeg' })
+      const uploadFile = convertToWebp ? await convertImageToWebp(file) : file
+      await uploadFiles([uploadFile], false)
+      setUrlInput('')
+    } catch {
+      // Fallback server-side import when browser blocks CORS for remote image.
+      const res = await fetch('/api/admin/media/from-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: parsed.toString(), convertToWebp }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        toast.error(json.error ?? 'No se pudo importar la imagen')
+      } else if (json.data) {
+        setMedia((prev) => [json.data, ...prev])
+        toast.success('Imagen importada correctamente')
+        setUrlInput('')
+        setUploadOpen(false)
+      }
+    } finally {
+      setImportingUrl(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -751,6 +857,28 @@ export default function MediaPage() {
               <p className="text-[10px] text-gray-300 mt-3">
                 JPG, PNG, SVG, WebP, GIF &middot; Max. 5 MB
               </p>
+            </div>
+            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5" />
+                Pegar URL de imagen
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="https://..."
+                  className="h-10 bg-white"
+                />
+                <Button
+                  type="button"
+                  onClick={() => { void importFromUrl() }}
+                  disabled={importingUrl}
+                  className="h-10 bg-primary-dark text-white hover:bg-black px-3"
+                >
+                  {importingUrl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
             <label className="flex items-center gap-2.5 mt-4 cursor-pointer select-none">
               <button

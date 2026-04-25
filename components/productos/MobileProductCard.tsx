@@ -136,6 +136,12 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
               Ltd
             </span>
           )}
+
+          {(product.origin_country || product.origin) && (
+            <span className="absolute right-1 top-1 inline-flex items-center rounded-full bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-white leading-none backdrop-blur-sm">
+              {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
+            </span>
+          )}
         </div>
 
         {/* Info */}
@@ -149,11 +155,6 @@ export function MobileProductCard({ product }: MobileProductCardProps) {
             <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5 leading-tight">
               {stripHtml(product.description)}
             </p>
-          )}
-          {(product.origin_country || product.origin) && (
-            <span className="inline-block mt-0.5 px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-gray-100 text-gray-500 leading-none">
-              {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
-            </span>
           )}
           {isLowStock && (
             <p className="text-[10px] font-bold text-nurei-promo animate-pulse mt-0.5">

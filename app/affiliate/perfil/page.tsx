@@ -108,7 +108,7 @@ export default function AffiliatePerfilPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const referralUrl = profileData?.referral_slug ? `${siteUrl}/?ref=${profileData.referral_slug}` : null
+  const referralUrl = profileData?.referral_slug ? `${siteUrl}/r/${profileData.referral_slug}` : null
 
   const copyLink = () => {
     if (!referralUrl) return
