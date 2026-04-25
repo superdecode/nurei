@@ -1178,7 +1178,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 
 export default function PerfilPage() {
   const router = useRouter()
-  const { user, email, isAuthenticated, refreshUser, loadAddresses } = useAuthStore()
+  const { user, email, isAuthenticated, isLoading, checkSession, refreshUser, loadAddresses } = useAuthStore()
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
   const [activeTab, setActiveTab] = useState<TabId>('pedidos')
   const [mounted, setMounted] = useState(false)
@@ -1209,22 +1209,29 @@ export default function PerfilPage() {
   }, [])
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) { router.push('/login'); return }
-    if (mounted && isAuthenticated) {
-      refreshUser()
-      loadAddresses()
-      loadOrders()
-      fetchWithCredentials('/api/profile/coupons')
-        .then((r) => (r.ok ? r.json() : null))
-        .then((json) => {
-          const arr = (json?.data ?? []) as UserCoupon[]
-          setCouponActiveCount(arr.filter((uc) => !uc.used_at).length)
-        })
-        .catch(() => setCouponActiveCount(0))
-    }
-  }, [mounted, isAuthenticated, router, refreshUser, loadAddresses, loadOrders])
+    if (!mounted) return
+    void checkSession()
+  }, [mounted, checkSession])
 
-  if (!mounted || !isAuthenticated || !user) return null
+  useEffect(() => {
+    if (!mounted || isLoading) return
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
+    }
+    refreshUser()
+    loadAddresses()
+    loadOrders()
+    fetchWithCredentials('/api/profile/coupons')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const arr = (json?.data ?? []) as UserCoupon[]
+        setCouponActiveCount(arr.filter((uc) => !uc.used_at).length)
+      })
+      .catch(() => setCouponActiveCount(0))
+  }, [mounted, isAuthenticated, isLoading, router, refreshUser, loadAddresses, loadOrders])
+
+  if (!mounted || isLoading || !isAuthenticated || !user) return null
 
   const pendingOrders = activeOrderCount
 

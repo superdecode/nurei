@@ -9,6 +9,7 @@ interface AuthStore {
   user: UserProfile | null
   email: string | null
   isAuthenticated: boolean
+  isLoading: boolean
   addresses: Address[]
   isLoadingAddresses: boolean
   // Auth actions
@@ -16,6 +17,7 @@ interface AuthStore {
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
   loginWithGoogle: () => void
   logout: () => Promise<void>
+  checkSession: () => Promise<void>
   refreshUser: () => Promise<void>
   updateProfile: (
     updates: Partial<Pick<UserProfile, 'full_name' | 'phone' | 'avatar_url'>> & Partial<{
@@ -39,6 +41,7 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       email: null,
       isAuthenticated: false,
+      isLoading: true,
       addresses: [],
       isLoadingAddresses: false,
 
@@ -58,9 +61,11 @@ export const useAuthStore = create<AuthStore>()(
             user: json.data.user,
             email,
             isAuthenticated: true,
+            isLoading: false,
           })
           return { success: true }
         } catch {
+          set({ isLoading: false })
           return { success: false, error: 'Error de conexión' }
         }
       },
@@ -84,12 +89,14 @@ export const useAuthStore = create<AuthStore>()(
                 user: profileJson.data.profile ?? { id: json.data.user_id, full_name: name, phone: null, avatar_url: null, role: 'customer', created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
                 email,
                 isAuthenticated: true,
+                isLoading: false,
               })
             }
           }
 
           return { success: true }
         } catch {
+          set({ isLoading: false })
           return { success: false, error: 'Error de conexión' }
         }
       },
@@ -106,23 +113,75 @@ export const useAuthStore = create<AuthStore>()(
         try {
           await fetchWithCredentials('/api/auth/logout', { method: 'POST' })
         } catch { /* ignore */ }
-        set({ user: null, email: null, isAuthenticated: false, addresses: [] })
+        set({ user: null, email: null, isAuthenticated: false, isLoading: false, addresses: [] })
+      },
+
+      checkSession: async () => {
+        try {
+          const res = await fetchWithCredentials('/api/auth/me')
+          if (!res.ok) {
+            set({ user: null, email: null, isAuthenticated: false, isLoading: false })
+            return
+          }
+          const json = await res.json()
+          const nowIso = new Date().toISOString()
+          const fallbackUser: UserProfile = {
+            id: json.data.id,
+            full_name: null,
+            phone: null,
+            avatar_url: null,
+            role: 'customer',
+            admin_role_id: null,
+            admin_role: null,
+            is_active: true,
+            notification_prefs: null,
+            last_login_at: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          }
+          set({
+            user: (json.data.profile ?? fallbackUser) as UserProfile,
+            email: json.data.email ?? null,
+            isAuthenticated: true,
+            isLoading: false,
+          })
+        } catch {
+          set({ user: null, email: null, isAuthenticated: false, isLoading: false })
+        }
       },
 
       refreshUser: async () => {
         try {
           const res = await fetchWithCredentials('/api/auth/me')
           if (!res.ok) {
-            set({ user: null, email: null, isAuthenticated: false })
+            set({ user: null, email: null, isAuthenticated: false, isLoading: false })
             return
           }
           const json = await res.json()
+          const nowIso = new Date().toISOString()
+          const fallbackUser: UserProfile = {
+            id: json.data.id,
+            full_name: null,
+            phone: null,
+            avatar_url: null,
+            role: 'customer',
+            admin_role_id: null,
+            admin_role: null,
+            is_active: true,
+            notification_prefs: null,
+            last_login_at: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          }
           set({
-            user: json.data.profile,
+            user: (json.data.profile ?? fallbackUser) as UserProfile,
             email: json.data.email,
             isAuthenticated: true,
+            isLoading: false,
           })
-        } catch { /* ignore */ }
+        } catch {
+          set({ isLoading: false })
+        }
       },
 
       updateProfile: async (updates) => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -17,12 +17,22 @@ function LoginForm() {
     requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
       ? requestedRedirect
       : '/perfil'
-  const { login, loginWithGoogle } = useAuthStore()
+  const { login, loginWithGoogle, checkSession, isAuthenticated, isLoading } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [resetting, setResetting] = useState(false)
+
+  useEffect(() => {
+    void checkSession()
+  }, [checkSession])
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace(redirectTo)
+    }
+  }, [isAuthenticated, isLoading, redirectTo, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
