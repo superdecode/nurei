@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
+import { countryToFlag } from '@/lib/utils/country-flag'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { SPICE_LABELS } from '@/lib/utils/constants'
 import type { Product } from '@/types'
@@ -203,9 +204,9 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
 
           {/* Origin country badge */}
-          {product.origin_country && (
+          {(product.origin_country || product.origin) && (
             <span className="mt-1.5 inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
-              🌍 {product.origin_country}
+              {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
             </span>
           )}
 

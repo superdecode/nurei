@@ -24,6 +24,7 @@ export default function MenuPage() {
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const sectionRefsMap = useRef<Record<string, HTMLElement | null>>({})
+  const visibleHeightsRef = useRef<Record<string, number>>({})
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 639px)')
@@ -97,19 +98,34 @@ export default function MenuPage() {
   useEffect(() => {
     if (!containerRef.current || categories.length === 0) return
     const root = containerRef.current
+    visibleHeightsRef.current = {}
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // Find the section with the highest intersection ratio currently visible
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
-        if (visible[0]) {
-          const cat = visible[0].target.getAttribute('data-category')
-          if (cat) setActiveMobileCategory(cat)
+        const rootHeight = entries[0]?.rootBounds?.height ?? root.clientHeight
+        for (const entry of entries) {
+          const cat = entry.target.getAttribute('data-category')
+          if (!cat) continue
+          visibleHeightsRef.current[cat] = entry.isIntersecting && rootHeight > 0
+            ? entry.intersectionRect.height / rootHeight
+            : 0
+        }
+
+        let bestCat = ''
+        let bestVisibleHeight = 0
+        for (const [cat, visibleHeight] of Object.entries(visibleHeightsRef.current)) {
+          if (visibleHeight > bestVisibleHeight) { bestVisibleHeight = visibleHeight; bestCat = cat }
+        }
+        if (bestCat && bestVisibleHeight > 0) {
+          setActiveMobileCategory((prev) => (prev === bestCat ? prev : bestCat))
+          return
+        }
+
+        if (root.scrollTop <= 8) {
+          setActiveMobileCategory((prev) => (prev === 'all' ? prev : 'all'))
         }
       },
-      { root, threshold: [0.1, 0.25, 0.5, 0.75] },
+      { root, threshold: [0, 0.05, 0.15, 0.3, 0.5, 0.75, 1] },
     )
 
     categories.forEach((cat) => {
@@ -117,9 +133,12 @@ export default function MenuPage() {
       if (section) observer.observe(section)
     })
 
-    // Reset to 'all' when scrolled back to the very top
     const handleScroll = () => {
-      if (root.scrollTop < 60) setActiveMobileCategory('all')
+      if (root.scrollTop > 8) return
+      const hasVisibleCategory = Object.values(visibleHeightsRef.current).some((value) => value > 0)
+      if (!hasVisibleCategory) {
+        setActiveMobileCategory((prev) => (prev === 'all' ? prev : 'all'))
+      }
     }
     root.addEventListener('scroll', handleScroll, { passive: true })
 

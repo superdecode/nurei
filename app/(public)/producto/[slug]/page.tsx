@@ -20,6 +20,7 @@ import { ProductCard } from '@/components/productos/ProductCard'
 import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
+import { countryToFlag } from '@/lib/utils/country-flag'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,10 @@ function getCategoryEmoji(category: string): string {
     snacks: '🍿', ramen: '🍜', dulces: '🍬', salsas: '🫙',
   }
   return map[category] || '🍘'
+}
+
+function cleanTagLabel(tag: string): string {
+  return tag.replace(/^[\u{1F30D}\u{1F30E}\u{1F30F}\u{1F310}\u{1F5FA}\s\-•·]+/u, '').trim()
 }
 
 function ShareButtons({ name, slug }: { name: string; slug: string }) {
@@ -509,7 +514,10 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           {/* Meta row */}
           <div className="flex items-center gap-1.5 text-[10px] text-gray-400 flex-wrap">
             {product.brand && <><span className="uppercase font-bold tracking-wide">{product.brand}</span><span>·</span></>}
-            <span className="uppercase font-bold tracking-wide">{product.origin_country ?? product.origin}</span>
+            <span className="uppercase font-bold tracking-wide">
+              {countryToFlag(product.origin_country ?? product.origin ?? '')}{' '}
+              {product.origin_country ?? product.origin}
+            </span>
           </div>
 
           {/* Title — compact, try to fit one line */}
@@ -555,8 +563,10 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Etiquetas</p>
           {product.tags && product.tags.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {product.tags.map(tag => (
-                <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+              {product.tags.map((tag, idx) => (
+                <span key={`${tag}-${idx}`} className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 rounded-full">
+                  {cleanTagLabel(tag)}
+                </span>
               ))}
             </div>
           ) : (
@@ -745,12 +755,26 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
             {/* Product info — desktop */}
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col">
-              <div className="flex items-center gap-2 text-xs text-gray-400 mb-2 flex-wrap">
-                {product.brand && <><span className="uppercase font-bold tracking-wide">{product.brand}</span><span>·</span></>}
-                <span className="uppercase font-bold tracking-wide">{product.origin_country ?? product.origin}</span>
-                <span>·</span>
-                <span className="uppercase font-bold tracking-wide">{formatProductPresentation(product)}</span>
-              </div>
+              {/* Marca + País de origen — above title */}
+              {(product.brand || product.origin_country || product.origin) && (
+                <div className="flex flex-wrap gap-3 mb-4">
+                  {product.brand && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Marca</span>
+                      <span className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">{product.brand}</span>
+                    </div>
+                  )}
+                  {(product.origin_country || product.origin) && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pais Origen</span>
+                      <span className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">
+                        {countryToFlag(product.origin_country ?? product.origin ?? '')}{' '}
+                        {product.origin_country ?? product.origin}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight mb-3">{product.name}</h1>
 
@@ -775,24 +799,14 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Presentación</p>
                   <p className="text-sm font-semibold text-gray-800 tabular-nums">{formatProductPresentation(product)}</p>
                 </div>
-                {product.brand && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Marca</p>
-                    <p className="text-sm font-semibold text-gray-800">{product.brand}</p>
-                  </div>
-                )}
-                {product.origin_country && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">País de origen</p>
-                    <p className="text-sm font-semibold text-gray-800">{product.origin_country}</p>
-                  </div>
-                )}
                 <div>
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Etiquetas</p>
                   {product.tags && product.tags.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {product.tags.map(tag => (
-                        <span key={tag} className="px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+                      {product.tags.map((tag, idx) => (
+                        <span key={`${tag}-${idx}`} className="px-2.5 py-1 text-[11px] font-medium bg-gray-100 text-gray-600 rounded-full">
+                          {cleanTagLabel(tag)}
+                        </span>
                       ))}
                     </div>
                   ) : (
