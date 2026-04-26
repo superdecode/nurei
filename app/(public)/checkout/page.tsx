@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
@@ -276,6 +276,7 @@ export default function CheckoutPage() {
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginBusy, setLoginBusy] = useState(false)
+  const shippingLoadedRef = useRef(false)
 
   const authUser = useAuthStore((s) => s.user)
   const authEmail = useAuthStore((s) => s.email)
@@ -305,10 +306,11 @@ export default function CheckoutPage() {
     const raw = loadShippingDraft()
     const merged = migrateLegacyShippingDraft(DEFAULT_SHIPPING_FORM, raw as Record<string, unknown> | null)
     setShippingForm((prev) => ({ ...prev, ...merged }))
+    shippingLoadedRef.current = true
   }, [mounted])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !shippingLoadedRef.current) return
     saveShippingDraft(shippingForm)
   }, [mounted, shippingForm])
 
