@@ -79,7 +79,8 @@ export default function AffiliatePerfilPage() {
 
   const [copied, setCopied] = useState(false)
 
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://nurei.mx'
+  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim() || '') ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
 
   useEffect(() => {
     fetch('/api/affiliate/profile')
