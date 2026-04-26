@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ChevronDown, MessageCircle, MapPin, Package, PartyPopper,
+  ChevronDown, MessageCircle, Mail, MapPin, Package, PartyPopper,
   Clock, CreditCard, CheckCircle2, Truck, Send, XCircle, RotateCcw, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import type { Order, OrderStatus } from '@/types'
 type StoreInfoResponse = {
   store_info: {
     whatsapp: string
+    email: string
   }
   shipping: {
     standard_estimated_time: string
@@ -326,6 +327,10 @@ export default function TrackingPage() {
   const supportHref = supportWhatsapp
     ? `https://wa.me/${supportWhatsapp}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido #${order.short_id}`)}`
     : null
+  const supportEmail = storeInfo?.store_info?.email?.trim() || null
+  const supportEmailHref = supportEmail
+    ? `mailto:${supportEmail}?subject=${encodeURIComponent(`Ayuda con pedido #${order.short_id}`)}`
+    : null
 
   return (
     <motion.section
@@ -556,28 +561,42 @@ export default function TrackingPage() {
           </AnimatePresence>
         </motion.div>
 
-        {/* WhatsApp support */}
-        {supportHref && (
+        {/* Support section */}
+        {(supportHref || supportEmailHref) && (
           <motion.div
-            className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm text-center"
+            className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <p className="text-sm text-gray-500 mb-3">¿Necesitas ayuda?</p>
-            <a href={supportHref} target="_blank" rel="noopener noreferrer">
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="relative">
-                <motion.div
-                  className="absolute inset-0 rounded-lg bg-whatsapp/20"
-                  animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0, 0.4] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                />
-                <Button className="w-full bg-whatsapp text-white hover:bg-whatsapp/90 relative z-10 h-10 text-sm font-semibold">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  WhatsApp soporte
-                </Button>
-              </motion.div>
-            </a>
+            <p className="text-sm text-gray-500 mb-3 text-center">¿Necesitas ayuda?</p>
+            <div className={`grid gap-3 ${supportHref && supportEmailHref ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {supportHref && (
+                <a href={supportHref} target="_blank" rel="noopener noreferrer">
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="relative">
+                    <motion.div
+                      className="absolute inset-0 rounded-lg bg-whatsapp/20"
+                      animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0, 0.4] }}
+                      transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                    <Button className="w-full bg-whatsapp text-white hover:bg-whatsapp/90 relative z-10 h-10 text-sm font-semibold">
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      WhatsApp
+                    </Button>
+                  </motion.div>
+                </a>
+              )}
+              {supportEmailHref && (
+                <a href={supportEmailHref}>
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                    <Button variant="outline" className="w-full h-10 text-sm font-semibold border-gray-200 text-gray-700 hover:bg-gray-50">
+                      <Mail className="w-4 h-4 mr-2 text-primary-cyan" />
+                      Correo
+                    </Button>
+                  </motion.div>
+                </a>
+              )}
+            </div>
           </motion.div>
         )}
 

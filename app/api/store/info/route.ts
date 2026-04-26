@@ -18,6 +18,11 @@ export async function GET() {
       name: typeof storeInfoRaw.name === 'string' ? storeInfoRaw.name : '',
       phone: typeof storeInfoRaw.phone === 'string' ? storeInfoRaw.phone : '',
       whatsapp: typeof storeInfoRaw.whatsapp === 'string' ? storeInfoRaw.whatsapp : '',
+      email: typeof storeInfoRaw.support_email === 'string'
+        ? storeInfoRaw.support_email
+        : typeof storeInfoRaw.email === 'string'
+          ? storeInfoRaw.email
+          : '',
     }
 
     return NextResponse.json({ data: { store_info, shipping } })

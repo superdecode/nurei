@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
         orderId,
         couponCode,
         cookieHeader: request.headers.get('cookie'),
-      }).catch(() => {})
+      }).catch((err) => console.error('[attribution]', err))
 
       notifyOrderEmails(orderId, method)
 
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
       orderId,
       couponCode,
       cookieHeader: request.headers.get('cookie'),
-    }).catch(() => {})
+    }).catch((err) => console.error('[attribution]', err))
 
     notifyOrderEmails(orderId, method)
 
