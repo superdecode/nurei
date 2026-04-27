@@ -195,7 +195,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
 
           {/* Low stock warning */}
           {isLowStock && (
-            <div className="absolute bottom-3 left-3 right-3">
+            <div className="absolute bottom-10 left-3">
               <div className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-center shadow-sm">
                 <span className="text-[10px] font-bold text-nurei-promo animate-pulse">
                   ¡Últimas unidades!

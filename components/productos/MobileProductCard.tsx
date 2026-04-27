@@ -168,11 +168,13 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
             </p>
           )}
           {isLowStock && (
-            <p className="text-[10px] font-bold text-nurei-promo animate-pulse mt-0.5">
-              ¡Últimas unidades!
-            </p>
+            <div className="mt-0.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-nurei-promo bg-nurei-promo/10 rounded-full animate-pulse">
+                ¡Últimas unidades!
+              </span>
+            </div>
           )}
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          <div className="flex items-center justify-between gap-2 mt-1 flex-wrap">
             <div className="flex items-center gap-1.5">
               {hasDiscount && (
                 <span className="text-[11px] text-gray-300 line-through font-medium tabular-nums">
