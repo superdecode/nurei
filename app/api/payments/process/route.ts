@@ -87,20 +87,24 @@ export async function POST(request: NextRequest) {
         .eq('id', orderId)
         .single()
 
-      await supabase
+      // 'paid' is NOT a valid value for status (constraint allows only pending/confirmed/shipped/delivered/cancelled/failed)
+      // Use 'confirmed' for status and 'paid' for payment_status
+      const { error: updateErr } = await supabase
         .from('orders')
         .update({
           payment_status: 'paid',
-          status: 'paid',
+          status: 'confirmed',
           paid_at: now,
           confirmed_at: now,
           payment_method: currentMethod,
         })
         .eq('id', orderId)
 
+      if (updateErr) console.error('[payment] markOrderAsPaid update failed', updateErr.message)
+
       await supabase.from('order_updates').insert({
         order_id: orderId,
-        status: 'paid',
+        status: 'confirmed',
         message: 'Pago confirmado: pedido en pendiente de aceptación',
         updated_by: 'checkout_payment',
         metadata: { event: 'payment_confirmed', method: currentMethod },

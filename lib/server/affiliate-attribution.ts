@@ -31,11 +31,13 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
 
   const supabase = createServiceClient()
 
+  // Use payment_status='paid' — orders.status only accepts ('pending','confirmed','shipped','delivered','cancelled','failed')
+  // 'paid' is a valid payment_status value, NOT a valid status value.
   const { data: order, error: orderErr } = await supabase
     .from('orders')
-    .select('id, total, status')
+    .select('id, total, status, payment_status')
     .eq('id', orderId)
-    .eq('status', 'paid')
+    .eq('payment_status', 'paid')
     .single()
 
   if (orderErr || !order) {

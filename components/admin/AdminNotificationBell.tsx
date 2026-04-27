@@ -71,16 +71,25 @@ function getIcon(type: NotificationType, priority: NotificationPriority) {
 
 type SoundKind = 'order' | 'generic'
 
+// Shared AudioContext — created once on first user interaction, reused thereafter.
+// Browser policy: AudioContext.resume() only works after a user gesture.
 async function ensureCtx(audioCtxRef: MutableRefObject<AudioContext | null>): Promise<AudioContext | null> {
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    const ctx = audioCtxRef.current ?? new Ctx()
-    audioCtxRef.current = ctx
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new Ctx()
+    }
+    const ctx = audioCtxRef.current
     if (ctx.state === 'suspended') {
       await ctx.resume()
     }
+    if (ctx.state !== 'running') {
+      console.warn('[sound] AudioContext not running:', ctx.state)
+      return null
+    }
     return ctx
-  } catch {
+  } catch (e) {
+    console.warn('[sound] ensureCtx failed:', e)
     return null
   }
 }
@@ -106,19 +115,18 @@ function playNote(
   osc.stop(startTime + duration + 0.05)
 }
 
-// Playful, cheerful melody for new orders (Mario-coin-like ascending chime)
+// Playful arcade-style chime for new orders
 async function playNewOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>) {
   const ctx = await ensureCtx(audioCtxRef)
   if (!ctx) return false
   const t = ctx.currentTime
-  // Triangle wave gives that arcade/playful feel
-  playNote(ctx, 783.99, t,        0.10, 0.22, 'triangle') // G5
-  playNote(ctx, 1046.5, t + 0.10, 0.10, 0.24, 'triangle') // C6
-  playNote(ctx, 1318.5, t + 0.20, 0.10, 0.26, 'triangle') // E6
-  playNote(ctx, 1567.98, t + 0.30, 0.18, 0.28, 'triangle') // G6
-  playNote(ctx, 2093.0, t + 0.45, 0.30, 0.22, 'triangle') // C7 (resolución alegre)
-  // Tiny sparkle on top
-  playNote(ctx, 2637.0, t + 0.55, 0.18, 0.12, 'sine') // E7
+  playNote(ctx, 783.99,  t,        0.10, 0.28, 'triangle')
+  playNote(ctx, 1046.5,  t + 0.10, 0.10, 0.30, 'triangle')
+  playNote(ctx, 1318.5,  t + 0.20, 0.10, 0.32, 'triangle')
+  playNote(ctx, 1567.98, t + 0.30, 0.18, 0.34, 'triangle')
+  playNote(ctx, 2093.0,  t + 0.45, 0.30, 0.28, 'triangle')
+  playNote(ctx, 2637.0,  t + 0.55, 0.18, 0.16, 'sine')
+  console.log('[sound] played new-order chime')
   return true
 }
 
@@ -127,10 +135,11 @@ async function playGenericSound(audioCtxRef: MutableRefObject<AudioContext | nul
   const ctx = await ensureCtx(audioCtxRef)
   if (!ctx) return false
   const t = ctx.currentTime
-  playNote(ctx, 523.25, t,        0.5,  0.18) // C5
-  playNote(ctx, 659.25, t + 0.40, 0.5,  0.18) // E5
-  playNote(ctx, 783.99, t + 0.80, 0.5,  0.18) // G5
-  playNote(ctx, 659.25, t + 1.25, 0.75, 0.15) // E5 (resolución)
+  playNote(ctx, 523.25, t,        0.5,  0.22)
+  playNote(ctx, 659.25, t + 0.40, 0.5,  0.22)
+  playNote(ctx, 783.99, t + 0.80, 0.5,  0.22)
+  playNote(ctx, 659.25, t + 1.25, 0.75, 0.18)
+  console.log('[sound] played generic notification chime')
   return true
 }
 
@@ -189,11 +198,14 @@ export function AdminNotificationBell() {
   const unlockSound = useCallback(async () => {
     try {
       const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      const ctx = audioCtxRef.current ?? new Ctx()
-      audioCtxRef.current = ctx
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new Ctx()
+      }
+      const ctx = audioCtxRef.current
       if (ctx.state === 'suspended') {
         await ctx.resume()
       }
+      // Silent pulse to guarantee the context is running after user gesture
       const o = ctx.createOscillator()
       const g = ctx.createGain()
       o.connect(g)
@@ -204,8 +216,9 @@ export function AdminNotificationBell() {
       o.stop(ctx.currentTime + 0.01)
       window.localStorage.setItem(SOUND_UNLOCK_KEY, '1')
       setSoundUnlocked(true)
-    } catch {
-      /* ignore */
+      console.log('[sound] AudioContext unlocked, state:', ctx.state)
+    } catch (e) {
+      console.warn('[sound] unlock failed:', e)
     }
   }, [])
 
@@ -308,14 +321,16 @@ export function AdminNotificationBell() {
         (i) => i.priority === 'alta' || i.type === 'stock_agotado' || i.type === 'nuevo_pedido'
       )
 
-      // Reproducir sonido para CUALQUIER notificación nueva (excepto en la primera carga,
-      // para evitar disparar audio al montar el componente con un backlog).
+      // Play sound for every new notification (skip on first load to avoid backlog noise)
       if (newAll.length > 0 && !isFirstLoad) {
         const hasNewOrder = newAll.some((i) => i.type === 'nuevo_pedido')
         const soundKind: SoundKind = hasNewOrder ? 'order' : 'generic'
 
+        console.log('[sound] attempting', { soundKind, sound_enabled: prefs.sound_enabled, ctxState: audioCtxRef.current?.state ?? 'none' })
+
         let soundPlayed = false
-        if (prefs.sound_enabled && soundUnlocked) {
+        if (prefs.sound_enabled) {
+          // soundUnlocked is a hint; ensureCtx handles the actual AudioContext state
           soundPlayed = await playNotificationSound(soundKind, audioCtxRef)
         }
         if (!soundPlayed && hasNewOrder) {
@@ -351,7 +366,7 @@ export function AdminNotificationBell() {
     } catch {
       /* ignore */
     }
-  }, [notifyBrowserNewOrder, open, prefs.sound_enabled, soundUnlocked])
+  }, [notifyBrowserNewOrder, open, prefs.sound_enabled])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
