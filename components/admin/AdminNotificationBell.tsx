@@ -77,23 +77,26 @@ async function playOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>
     if (ctx.state === 'suspended') {
       await ctx.resume()
     }
-    const play = (freq: number, start: number, duration: number, type: OscillatorType = 'sine') => {
+    const play = (freq: number, startTime: number, duration: number, volume = 0.25) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
       osc.connect(gain)
       gain.connect(ctx.destination)
-      osc.type = type
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
-      gain.gain.setValueAtTime(0, ctx.currentTime + start)
-      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + start + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration)
-      osc.start(ctx.currentTime + start)
-      osc.stop(ctx.currentTime + start + duration)
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0, startTime)
+      gain.gain.linearRampToValueAtTime(volume, startTime + 0.015)
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
+      osc.start(startTime)
+      osc.stop(startTime + duration + 0.05)
     }
-    play(523, 0, 0.12)
-    play(659, 0.13, 0.12)
-    play(784, 0.26, 0.18)
-    play(1047, 0.44, 0.25)
+    const t = ctx.currentTime
+    play(523.25, t, 0.5, 0.25)        // C5
+    play(659.25, t + 0.30, 0.5, 0.25) // E5
+    play(783.99, t + 0.60, 0.5, 0.25) // G5
+    play(1046.5, t + 0.90, 0.5, 0.28) // C6
+    play(1318.5, t + 1.20, 0.5, 0.22) // E6
+    play(1046.5, t + 1.55, 0.75, 0.18) // C6 (resolution)
     return true
   } catch {
     return false
@@ -156,9 +159,9 @@ export function AdminNotificationBell() {
       const g = ctx.createGain()
       o.connect(g)
       g.connect(ctx.destination)
-      g.gain.value = 0.00001
+      g.gain.setValueAtTime(0.00001, ctx.currentTime)
       o.frequency.value = 440
-      o.start()
+      o.start(ctx.currentTime)
       o.stop(ctx.currentTime + 0.01)
       window.localStorage.setItem(SOUND_UNLOCK_KEY, '1')
       setSoundUnlocked(true)

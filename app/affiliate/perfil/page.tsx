@@ -79,8 +79,8 @@ export default function AffiliatePerfilPage() {
 
   const [copied, setCopied] = useState(false)
 
-  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim() || '') ||
-    (typeof window !== 'undefined' ? window.location.origin : '')
+  const siteUrl = ((process.env.NEXT_PUBLIC_APP_URL ?? '').trim() || '') ||
+    (typeof window !== 'undefined' ? window.location.origin.trim() : '')
 
   useEffect(() => {
     fetch('/api/affiliate/profile')
@@ -109,7 +109,7 @@ export default function AffiliatePerfilPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const referralUrl = profileData?.referral_slug ? `${siteUrl}/r/${profileData.referral_slug}` : null
+  const referralUrl = profileData?.referral_slug?.trim() ? `${siteUrl}/r/${profileData.referral_slug.trim()}` : null
 
   const copyLink = () => {
     if (!referralUrl) return

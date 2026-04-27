@@ -64,7 +64,7 @@ export async function GET() {
   return NextResponse.json({
     data: {
       ...profile,
-      referral_slug: linkRes.data?.slug ?? null,
+      referral_slug: linkRes.data?.slug?.trim() ?? null,
       coupons,
     },
   })

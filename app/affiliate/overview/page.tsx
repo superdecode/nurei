@@ -94,7 +94,7 @@ export default function AffiliateOverviewPage() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
-  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nurei.mx').replace(/\/$/, '')
+  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://nurei.mx').trim().replace(/\/$/, '')
 
   useEffect(() => {
     fetch('/api/affiliate/stats')
@@ -110,7 +110,7 @@ export default function AffiliateOverviewPage() {
       .finally(() => setProfileLoading(false))
   }, [])
 
-  const referralUrl = profile?.referral_slug ? `${siteUrl}/r/${profile.referral_slug.trim()}` : null
+  const referralUrl = profile?.referral_slug?.trim() ? `${siteUrl}/r/${profile.referral_slug.trim()}` : null
 
   const copyLink = () => {
     if (!referralUrl) return

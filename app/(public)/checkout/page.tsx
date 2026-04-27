@@ -721,6 +721,7 @@ export default function CheckoutPage() {
       const paymentResponse = await fetch('/api/payments/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           orderId: nextOrderId,
           amount: total,

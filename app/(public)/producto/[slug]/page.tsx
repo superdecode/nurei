@@ -616,8 +616,8 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               {product.stock_status === 'out_of_stock'
                 ? 'Sin stock'
                 : product.stock_status === 'low_stock'
-                ? <span className="text-orange-500 font-bold">¡Últimas {product.stock_quantity} unidades!</span>
-                : `${product.stock_quantity} en stock`}
+                ? <span className="text-orange-500 font-bold">¡Últimas unidades!</span>
+                : 'Disponible'}
             </span>
           </div>
 
@@ -757,24 +757,11 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col">
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 leading-tight mb-3">{product.name}</h1>
 
-              {/* Marca + País de origen — after title */}
-              {(product.brand || product.origin_country || product.origin) && (
-                <div className="flex flex-wrap gap-3 mb-4">
-                  {product.brand && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Marca</span>
-                      <span className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">{product.brand}</span>
-                    </div>
-                  )}
-                  {(product.origin_country || product.origin) && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pais Origen</span>
-                      <span className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">
-                        {countryToFlag(product.origin_country ?? product.origin ?? '')}{' '}
-                        {product.origin_country ?? product.origin}
-                      </span>
-                    </div>
-                  )}
+              {/* Marca — after title */}
+              {product.brand && (
+                <div className="mb-4">
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Marca</span>
+                  <span className="ml-2 px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">{product.brand}</span>
                 </div>
               )}
 
@@ -837,9 +824,26 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 )}
               </div>
 
-              <p className="text-xs text-gray-500 mb-4">
-                Stock disponible: <span className="font-semibold text-primary-dark">{product.stock_quantity} unidades</span>
-              </p>
+              {/* Stock + Country badges in same row */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                {product.stock_status === 'out_of_stock' && (
+                  <span className="px-2 py-1 text-xs font-bold text-red-600 bg-red-50 rounded-full">Sin stock</span>
+                )}
+                {product.stock_status === 'low_stock' && (
+                  <span className="px-2 py-1 text-xs font-bold text-orange-600 bg-orange-50 rounded-full">¡Últimas {product.stock_quantity} unidades!</span>
+                )}
+                {product.stock_status !== 'out_of_stock' && product.stock_status !== 'low_stock' && (
+                  <span className="text-xs text-gray-500">
+                    Stock disponible: <span className="font-semibold text-primary-dark">{product.stock_quantity} unidades</span>
+                  </span>
+                )}
+                {(product.origin_country || product.origin) && (
+                  <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">
+                    {countryToFlag(product.origin_country ?? product.origin ?? '')}{' '}
+                    {product.origin_country ?? product.origin}
+                  </span>
+                )}
+              </div>
 
               {product.has_variants && variants.length > 0 && (
                 <div className="mb-6 space-y-3">
