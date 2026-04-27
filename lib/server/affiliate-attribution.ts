@@ -21,6 +21,12 @@ export type AttributionExecResult = {
 
 export async function executeAffiliateAttribution(input: AttributionExecInput): Promise<AttributionExecResult> {
   const { orderId, couponCode, cookieHeader } = input
+  console.log('[attribution] start', {
+    orderId,
+    couponCode,
+    cookiePresent: Boolean(cookieHeader),
+    cookieLen: cookieHeader?.length ?? 0,
+  })
   if (!orderId) return { ok: false, attributed: false, error: 'orderId requerido', status: 400 }
 
   const supabase = createServiceClient()
@@ -33,6 +39,7 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
     .single()
 
   if (orderErr || !order) {
+    console.warn('[attribution] order not found or not paid', { orderId, orderErr: orderErr?.message })
     return { ok: false, attributed: false, error: 'Orden no válida o no pagada', status: 400 }
   }
 
@@ -94,6 +101,15 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
     cookieAffiliateId,
     couponCommissionPct,
     cookieCommissionPct,
+  })
+
+  console.log('[attribution] resolved', {
+    referralLinkId,
+    cookieAffiliateId,
+    couponAffiliateId,
+    chosen: attribution?.type ?? 'none',
+    affiliateId: attribution?.affiliateId,
+    pct: attribution?.commissionPct,
   })
 
   if (!attribution) {

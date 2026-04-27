@@ -69,7 +69,9 @@ function getIcon(type: NotificationType, priority: NotificationPriority) {
   return <Bell className="h-[18px] w-[18px] text-primary-cyan" />
 }
 
-async function playOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>) {
+type SoundKind = 'order' | 'generic'
+
+async function ensureCtx(audioCtxRef: MutableRefObject<AudioContext | null>): Promise<AudioContext | null> {
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     const ctx = audioCtxRef.current ?? new Ctx()
@@ -77,30 +79,67 @@ async function playOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>
     if (ctx.state === 'suspended') {
       await ctx.resume()
     }
-    const play = (freq: number, startTime: number, duration: number, volume = 0.25) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.type = 'sine'
-      osc.frequency.value = freq
-      gain.gain.setValueAtTime(0, startTime)
-      gain.gain.linearRampToValueAtTime(volume, startTime + 0.015)
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
-      osc.start(startTime)
-      osc.stop(startTime + duration + 0.05)
-    }
-    const t = ctx.currentTime
-    play(523.25, t, 0.5, 0.25)        // C5
-    play(659.25, t + 0.30, 0.5, 0.25) // E5
-    play(783.99, t + 0.60, 0.5, 0.25) // G5
-    play(1046.5, t + 0.90, 0.5, 0.28) // C6
-    play(1318.5, t + 1.20, 0.5, 0.22) // E6
-    play(1046.5, t + 1.55, 0.75, 0.18) // C6 (resolution)
-    return true
+    return ctx
   } catch {
-    return false
+    return null
   }
+}
+
+function playNote(
+  ctx: AudioContext,
+  freq: number,
+  startTime: number,
+  duration: number,
+  volume = 0.22,
+  type: OscillatorType = 'sine'
+) {
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.type = type
+  osc.frequency.value = freq
+  gain.gain.setValueAtTime(0, startTime)
+  gain.gain.linearRampToValueAtTime(volume, startTime + 0.015)
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
+  osc.start(startTime)
+  osc.stop(startTime + duration + 0.05)
+}
+
+// Playful, cheerful melody for new orders (Mario-coin-like ascending chime)
+async function playNewOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>) {
+  const ctx = await ensureCtx(audioCtxRef)
+  if (!ctx) return false
+  const t = ctx.currentTime
+  // Triangle wave gives that arcade/playful feel
+  playNote(ctx, 783.99, t,        0.10, 0.22, 'triangle') // G5
+  playNote(ctx, 1046.5, t + 0.10, 0.10, 0.24, 'triangle') // C6
+  playNote(ctx, 1318.5, t + 0.20, 0.10, 0.26, 'triangle') // E6
+  playNote(ctx, 1567.98, t + 0.30, 0.18, 0.28, 'triangle') // G6
+  playNote(ctx, 2093.0, t + 0.45, 0.30, 0.22, 'triangle') // C7 (resolución alegre)
+  // Tiny sparkle on top
+  playNote(ctx, 2637.0, t + 0.55, 0.18, 0.12, 'sine') // E7
+  return true
+}
+
+// Generic notification sound (Muqui-style C major arpeggio)
+async function playGenericSound(audioCtxRef: MutableRefObject<AudioContext | null>) {
+  const ctx = await ensureCtx(audioCtxRef)
+  if (!ctx) return false
+  const t = ctx.currentTime
+  playNote(ctx, 523.25, t,        0.5,  0.18) // C5
+  playNote(ctx, 659.25, t + 0.40, 0.5,  0.18) // E5
+  playNote(ctx, 783.99, t + 0.80, 0.5,  0.18) // G5
+  playNote(ctx, 659.25, t + 1.25, 0.75, 0.15) // E5 (resolución)
+  return true
+}
+
+async function playNotificationSound(
+  kind: SoundKind,
+  audioCtxRef: MutableRefObject<AudioContext | null>
+) {
+  if (kind === 'order') return playNewOrderSound(audioCtxRef)
+  return playGenericSound(audioCtxRef)
 }
 
 function getInitialSoundUnlocked() {
@@ -256,35 +295,46 @@ export function AdminNotificationBell() {
       const next: NotificationItem[] = json.data?.items ?? []
       setItems(next)
 
+      const isFirstLoad = prevItemIdsRef.current.size === 0
       const currentRead = getReadIds()
-      const newCritical = next.filter(
-        (i) =>
-          (i.priority === 'alta' || i.type === 'stock_agotado' || i.type === 'nuevo_pedido') &&
-          !currentRead.has(i.id) &&
-          !prevItemIdsRef.current.has(i.id)
+
+      // Toda notificación nueva (no vista antes en esta sesión y no leída)
+      const newAll = next.filter(
+        (i) => !currentRead.has(i.id) && !prevItemIdsRef.current.has(i.id)
       )
+
+      // Subset crítico para popups (mantenemos comportamiento de popups solo críticos)
+      const newCritical = newAll.filter(
+        (i) => i.priority === 'alta' || i.type === 'stock_agotado' || i.type === 'nuevo_pedido'
+      )
+
+      // Reproducir sonido para CUALQUIER notificación nueva (excepto en la primera carga,
+      // para evitar disparar audio al montar el componente con un backlog).
+      if (newAll.length > 0 && !isFirstLoad) {
+        const hasNewOrder = newAll.some((i) => i.type === 'nuevo_pedido')
+        const soundKind: SoundKind = hasNewOrder ? 'order' : 'generic'
+
+        let soundPlayed = false
+        if (prefs.sound_enabled && soundUnlocked) {
+          soundPlayed = await playNotificationSound(soundKind, audioCtxRef)
+        }
+        if (!soundPlayed && hasNewOrder) {
+          setTitleAttention(true)
+        }
+        if (hasNewOrder) {
+          const firstOrder = newAll.find((i) => i.type === 'nuevo_pedido')
+          if (firstOrder) notifyBrowserNewOrder(firstOrder)
+        }
+      }
 
       if (newCritical.length > 0 && !open) {
         if (popupTimerRef.current) clearTimeout(popupTimerRef.current)
         setPopupsClosing(false)
 
-        const hasNewOrder = newCritical.some(i => i.type === 'nuevo_pedido')
-        if (hasNewOrder && prevItemIdsRef.current.size > 0) {
-          let soundPlayed = false
-          if (prefs.sound_enabled && soundUnlocked) {
-            soundPlayed = await playOrderSound(audioCtxRef)
-          }
-          if (!soundPlayed) {
-            setTitleAttention(true)
-          }
-          const firstOrder = newCritical.find((i) => i.type === 'nuevo_pedido')
-          if (firstOrder) notifyBrowserNewOrder(firstOrder)
-        }
-
         if (newCritical.length <= MAX_INDIVIDUAL_POPUPS) {
           setPopups(newCritical.map((n) => ({ ...n, popupType: 'individual' as const })))
         } else {
-          const orderCount = newCritical.filter(i => i.type === 'nuevo_pedido').length
+          const orderCount = newCritical.filter((i) => i.type === 'nuevo_pedido').length
           setPopups([{ popupType: 'consolidated', count: newCritical.length, id: 'consolidated', hasOrders: orderCount > 0, orderCount }])
         }
 

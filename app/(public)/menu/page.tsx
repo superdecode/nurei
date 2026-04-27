@@ -11,7 +11,6 @@ import type { FilterState } from '@/components/productos/FilterSheet'
 import { CartBottomBar } from '@/components/carrito/CartBottomBar'
 import { PageTransition } from '@/components/motion'
 import { formatPrice } from '@/lib/utils/format'
-import { useCartStore } from '@/lib/stores/cart'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import type { Product } from '@/types'
 
@@ -132,8 +131,6 @@ function ActiveFilterChips({
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function MenuPage() {
-  const cartItemCount = useCartStore((s) => s.getItemCount())
-  const cartSubtotal = useCartStore((s) => s.getSubtotal())
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -465,17 +462,6 @@ export default function MenuPage() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {cartItemCount > 0 && !loading && (
-          <div className="sticky top-0 z-20 -mx-0 mb-2 border-b border-gray-100 bg-white/95 px-4 py-2 backdrop-blur-sm">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">
-                {cartItemCount} {cartItemCount === 1 ? 'ítem' : 'ítems'}
-              </span>
-              <span className="font-bold text-primary-dark tabular-nums">{formatPrice(cartSubtotal)}</span>
-            </div>
-          </div>
-        )}
 
         {loading ? (
           <div className="flex justify-center py-16">

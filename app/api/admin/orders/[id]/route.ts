@@ -71,6 +71,15 @@ export async function PATCH(
 
     await updateOrderStatus(supabase, id, newStatus, body.note, 'admin')
 
+    // When admin confirms an order (any payment method), mark the linked attribution
+    // as approved so it counts as valid commission for the affiliate.
+    if (newStatus === 'confirmed' || newStatus === 'paid') {
+      void supabase.rpc('approve_attribution_for_order', { p_order_id: id })
+        .then(({ error }) => {
+          if (error) console.error('[attribution] approve failed', id, error.message)
+        })
+    }
+
     if (newStatus === 'preparing' || newStatus === 'ready_to_ship' || newStatus === 'shipped') {
       void sendOrderStatusEmail(id, 'preparing')
     } else if (newStatus === 'delivered') {

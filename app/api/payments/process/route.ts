@@ -157,11 +157,15 @@ export async function POST(request: NextRequest) {
       }
 
       const couponCode = await markOrderAsPaid(method)
-      void executeAffiliateAttribution({
+      const attribResult = await executeAffiliateAttribution({
         orderId,
         couponCode,
         cookieHeader: request.headers.get('cookie'),
-      }).catch((err) => console.error('[attribution]', err))
+      }).catch((err) => {
+        console.error('[attribution] failed', err)
+        return { ok: false, attributed: false, error: String(err) } as const
+      })
+      console.log('[attribution] result', { orderId, ...attribResult })
 
       notifyOrderEmails(orderId, method)
 
@@ -208,11 +212,15 @@ export async function POST(request: NextRequest) {
 
     // Efectivo / otros métodos configurados en tienda (sin pasarela simulada de tarjeta)
     const couponCode = await markOrderAsPaid(method)
-    void executeAffiliateAttribution({
+    const attribResult2 = await executeAffiliateAttribution({
       orderId,
       couponCode,
       cookieHeader: request.headers.get('cookie'),
-    }).catch((err) => console.error('[attribution]', err))
+    }).catch((err) => {
+      console.error('[attribution] failed', err)
+      return { ok: false, attributed: false, error: String(err) } as const
+    })
+    console.log('[attribution] result', { orderId, ...attribResult2 })
 
     notifyOrderEmails(orderId, method)
 

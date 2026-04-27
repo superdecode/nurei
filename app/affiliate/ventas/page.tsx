@@ -5,6 +5,8 @@ import { Clock, X } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 
+type PayoutStatus = 'pending' | 'approved' | 'paid'
+
 interface AttributionRow {
   id: string
   order_id: string
@@ -13,10 +15,16 @@ interface AttributionRow {
   coupon_code: string | null
   commission_pct: number
   commission_amount_cents: number
-  payout_status: 'pending' | 'paid'
+  payout_status: PayoutStatus
   paid_at: string | null
   created_at: string
-  orders: { short_id: string; total: number; created_at: string } | null
+  orders: { short_id: string; total: number; created_at: string; status: string; payment_method: string | null } | null
+}
+
+const PAYOUT_STATUS_CONFIG: Record<PayoutStatus, { label: string; className: string }> = {
+  pending:  { label: 'Pendiente de pago',      className: 'bg-gray-100 text-gray-600' },
+  approved: { label: 'Para pago al afiliado',  className: 'bg-blue-100 text-blue-700' },
+  paid:     { label: 'Pagado',                 className: 'bg-emerald-100 text-emerald-700' },
 }
 
 const PAGE_SIZE = 20
@@ -161,7 +169,8 @@ export default function AffiliateVentasPage() {
           className="h-8 px-3 bg-white border border-gray-200 rounded-full text-xs font-semibold text-gray-600"
         >
           <option value="">Todos los estados</option>
-          <option value="pending">Pendiente</option>
+          <option value="pending">Pendiente de pago</option>
+          <option value="approved">Para pago al afiliado</option>
           <option value="paid">Pagado</option>
         </select>
       </div>
@@ -228,12 +237,14 @@ export default function AffiliateVentasPage() {
                     <span className="text-gray-400 text-[10px] ml-1">({row.commission_pct}%)</span>
                   </td>
                   <td className="py-3.5 px-4">
-                    <span className={cn(
-                      'px-2 py-0.5 rounded-full text-[10px] font-bold',
-                      row.payout_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                    )}>
-                      {row.payout_status === 'paid' ? 'Pagado' : 'Pendiente'}
-                    </span>
+                    {(() => {
+                      const cfg = PAYOUT_STATUS_CONFIG[row.payout_status] ?? PAYOUT_STATUS_CONFIG.pending
+                      return (
+                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold', cfg.className)}>
+                          {cfg.label}
+                        </span>
+                      )
+                    })()}
                   </td>
                 </tr>
               ))}

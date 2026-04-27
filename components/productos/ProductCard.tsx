@@ -193,23 +193,23 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
             <Heart className="w-4 h-4" fill={fav ? 'currentColor' : 'none'} />
           </motion.button>
 
-          {/* Low stock warning */}
-          {isLowStock && (
-            <div className="absolute bottom-10 left-3">
-              <div className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-center shadow-sm">
-                <span className="text-[10px] font-bold text-nurei-promo animate-pulse">
-                  ¡Últimas unidades!
+          {/* Bottom row: low stock + country chips coexist on the same line */}
+          {(isLowStock || product.origin_country || product.origin) && (
+            <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 pointer-events-none">
+              {isLowStock ? (
+                <div className="pointer-events-auto px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-full shadow-sm">
+                  <span className="text-[10px] font-bold text-nurei-promo animate-pulse whitespace-nowrap">
+                    ¡Últimas unidades!
+                  </span>
+                </div>
+              ) : (
+                <span />
+              )}
+              {(product.origin_country || product.origin) && (
+                <span className="hidden sm:inline-flex pointer-events-auto px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/40 border border-white/40 text-gray-800 backdrop-blur-sm whitespace-nowrap">
+                  {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
                 </span>
-              </div>
-            </div>
-          )}
-
-          {/* Desktop meta chips over image */}
-          {(product.origin_country || product.origin) && (
-            <div className="hidden sm:flex absolute right-3 bottom-3 z-10 flex-col items-end gap-1.5">
-              <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/40 border border-white/40 text-gray-800 backdrop-blur-sm">
-                {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
-              </span>
+              )}
             </div>
           )}
         </div>

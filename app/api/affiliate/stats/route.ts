@@ -25,10 +25,13 @@ export async function GET(request: NextRequest) {
       .eq('affiliate_id', affiliateId)
       .maybeSingle(),
     (() => {
+      // Only fetch attributions whose orders have been confirmed by admin
+      // (payout_status 'approved' or 'paid' — 'pending' means order not yet confirmed)
       let q = supabase
         .from('affiliate_attributions')
         .select('id, commission_amount_cents, created_at, order_id, attribution_type, payout_status')
         .eq('affiliate_id', affiliateId)
+        .in('payout_status', ['approved', 'paid'])
         .order('created_at', { ascending: false })
       if (from) q = q.gte('created_at', `${from}T00:00:00.000Z`)
       if (to) q = q.lte('created_at', `${to}T23:59:59.999Z`)
@@ -56,8 +59,9 @@ export async function GET(request: NextRequest) {
   const totalOrders = attributions.length
   const conversionRate = uniqueClicks > 0 ? Math.round((totalOrders / uniqueClicks) * 100 * 10) / 10 : 0
   const totalCommission = attributions.reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
+  // Only 'approved' attributions are ready for payout (order confirmed by admin)
   const pendingCommission = attributions
-    .filter((a) => a.payout_status === 'pending')
+    .filter((a) => a.payout_status === 'approved')
     .reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
 
   // Chart: 8 weekly buckets aligned to the requested period (falls back to last 8 weeks)

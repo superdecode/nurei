@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAffiliate } from '@/lib/server/require-affiliate'
 
+const VALID_PAYOUT_STATUSES = ['pending', 'approved', 'paid'] as const
+
 export async function GET(request: NextRequest) {
   const guard = await requireAffiliate()
   if (guard.error) return guard.error
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
     .select(`
       id, order_id, attribution_type, coupon_id, coupon_code,
       commission_pct, commission_amount_cents, payout_status, paid_at, created_at,
-      orders ( short_id, total, created_at ),
+      orders ( short_id, total, created_at, status, payment_method ),
       coupons ( code )
     `)
     .eq('affiliate_id', affiliateId)
@@ -29,7 +31,9 @@ export async function GET(request: NextRequest) {
   if (from) query = query.gte('created_at', from)
   if (to) query = query.lte('created_at', to)
   if (type && (type === 'coupon' || type === 'cookie')) query = query.eq('attribution_type', type)
-  if (status && (status === 'pending' || status === 'paid')) query = query.eq('payout_status', status)
+  if (status && (VALID_PAYOUT_STATUSES as readonly string[]).includes(status)) {
+    query = query.eq('payout_status', status)
+  }
 
   const { data, error } = await query
 
