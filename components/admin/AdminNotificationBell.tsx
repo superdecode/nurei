@@ -31,7 +31,6 @@ type NotificationItem = {
 const POPUP_DURATION = 5000
 const MAX_INDIVIDUAL_POPUPS = 3
 const LS_KEY = 'nurei-admin-notif-read'
-const SOUND_UNLOCK_KEY = 'nurei-admin-sound-unlocked'
 
 type NotificationPrefs = {
   sound_enabled: boolean
@@ -151,11 +150,6 @@ async function playNotificationSound(
   return playGenericSound(audioCtxRef)
 }
 
-function getInitialSoundUnlocked() {
-  if (typeof window === 'undefined') return false
-  return window.localStorage.getItem(SOUND_UNLOCK_KEY) === '1'
-}
-
 const PRIORITY_LABELS: Record<NotificationPriority, string> = {
   alta: 'ALTA',
   media: 'MEDIA',
@@ -192,52 +186,36 @@ export function AdminNotificationBell() {
   const prevItemIdsRef = useRef<Set<string>>(new Set())
   const audioCtxRef = useRef<AudioContext | null>(null)
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
-  const [soundUnlocked, setSoundUnlocked] = useState<boolean>(getInitialSoundUnlocked())
   const [titleAttention, setTitleAttention] = useState(false)
 
-  const unlockSound = useCallback(async () => {
-    try {
-      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new Ctx()
+  // Keep AudioContext alive: resume on every user gesture so it never stays suspended.
+  // AudioContext goes back to 'suspended' when the tab loses focus; without this the
+  // first resume (which needs a gesture) would block notification sounds indefinitely.
+  useEffect(() => {
+    const keepAlive = () => {
+      try {
+        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new Ctx()
+        }
+        if (audioCtxRef.current.state === 'suspended') {
+          void audioCtxRef.current.resume().then(() => {
+            console.log('[sound] AudioContext resumed, state:', audioCtxRef.current?.state)
+          })
+        }
+      } catch (e) {
+        console.warn('[sound] keepAlive failed:', e)
       }
-      const ctx = audioCtxRef.current
-      if (ctx.state === 'suspended') {
-        await ctx.resume()
-      }
-      // Silent pulse to guarantee the context is running after user gesture
-      const o = ctx.createOscillator()
-      const g = ctx.createGain()
-      o.connect(g)
-      g.connect(ctx.destination)
-      g.gain.setValueAtTime(0.00001, ctx.currentTime)
-      o.frequency.value = 440
-      o.start(ctx.currentTime)
-      o.stop(ctx.currentTime + 0.01)
-      window.localStorage.setItem(SOUND_UNLOCK_KEY, '1')
-      setSoundUnlocked(true)
-      console.log('[sound] AudioContext unlocked, state:', ctx.state)
-    } catch (e) {
-      console.warn('[sound] unlock failed:', e)
+    }
+    window.addEventListener('pointerdown', keepAlive, { passive: true })
+    window.addEventListener('keydown', keepAlive, { passive: true })
+    window.addEventListener('touchstart', keepAlive, { passive: true })
+    return () => {
+      window.removeEventListener('pointerdown', keepAlive)
+      window.removeEventListener('keydown', keepAlive)
+      window.removeEventListener('touchstart', keepAlive)
     }
   }, [])
-
-  useEffect(() => {
-    const onUserInteract = () => {
-      void unlockSound()
-      window.removeEventListener('pointerdown', onUserInteract)
-      window.removeEventListener('keydown', onUserInteract)
-      window.removeEventListener('touchstart', onUserInteract)
-    }
-    window.addEventListener('pointerdown', onUserInteract, { passive: true })
-    window.addEventListener('keydown', onUserInteract, { passive: true })
-    window.addEventListener('touchstart', onUserInteract, { passive: true })
-    return () => {
-      window.removeEventListener('pointerdown', onUserInteract)
-      window.removeEventListener('keydown', onUserInteract)
-      window.removeEventListener('touchstart', onUserInteract)
-    }
-  }, [unlockSound])
 
   useEffect(() => {
     ;(async () => {
@@ -330,7 +308,6 @@ export function AdminNotificationBell() {
 
         let soundPlayed = false
         if (prefs.sound_enabled) {
-          // soundUnlocked is a hint; ensureCtx handles the actual AudioContext state
           soundPlayed = await playNotificationSound(soundKind, audioCtxRef)
         }
         if (!soundPlayed && hasNewOrder) {
