@@ -31,9 +31,18 @@ const PENDING_MIGRATIONS = [
   '011_set_updated_at_function.sql',
   '012_affiliate_role.sql',
   '013_affiliate_tables.sql',
+  '014_coupons_robust_rules.sql',
   '015_affiliate_rls.sql',
+  '017_affiliate_enhancements.sql',
   '017_affiliate_payment_notif.sql',
   '018_affiliate_phone_name.sql',
+  '019_orders_payment_column.sql',
+  '020_orders_coupon_snapshot_guard.sql',
+  '021_orders_checkout_columns_guard.sql',
+  '022_user_notification_prefs.sql',
+  '023_user_notification_prefs_guard.sql',
+  '024_affiliate_security_fixes.sql', // defines record_attribution_atomic RPC
+  '025_orders_shipping_method.sql',
 ]
 
 async function runSql(query: string, label: string): Promise<void> {
