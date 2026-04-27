@@ -193,8 +193,28 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (key in body) update[key] = body[key]
   }
 
-  const { error } = await supabase.from('affiliate_profiles').update(update).eq('id', id)
-  if (error) return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
+  if (Object.keys(update).length > 0) {
+    const { error } = await supabase.from('affiliate_profiles').update(update).eq('id', id)
+    if (error) return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
+  }
+
+  if ('referral_slug' in body) {
+    const slug = typeof body.referral_slug === 'string' ? body.referral_slug.toLowerCase().trim() : null
+    if (slug) {
+      const { data: conflict } = await supabase
+        .from('referral_links')
+        .select('affiliate_id')
+        .eq('slug', slug)
+        .neq('affiliate_id', id)
+        .maybeSingle()
+      if (conflict) return NextResponse.json({ error: `El slug "${slug}" ya está en uso` }, { status: 409 })
+
+      const { error: upsertErr } = await supabase
+        .from('referral_links')
+        .upsert({ affiliate_id: id, slug }, { onConflict: 'affiliate_id' })
+      if (upsertErr) return NextResponse.json({ error: 'Error al guardar el link de referido' }, { status: 500 })
+    }
+  }
 
   if (body?.is_active === false) {
     await supabase.from('coupons').update({ is_paused: true }).eq('affiliate_id', id)

@@ -192,6 +192,11 @@ export default function AdminAffiliateDetailPage() {
   // Copy link state
   const [copied, setCopied] = useState(false)
 
+  // Slug editing
+  const [slugInput, setSlugInput] = useState('')
+  const [slugEditing, setSlugEditing] = useState(false)
+  const [savingSlug, setSavingSlug] = useState(false)
+
   // Store domain
   const [storeDomain, setStoreDomain] = useState('')
 
@@ -290,6 +295,27 @@ export default function AdminAffiliateDetailPage() {
     void navigator.clipboard.writeText(`${base}/r/${slug}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSaveSlug = async () => {
+    const slug = slugInput.trim().toLowerCase()
+    if (!slug) return
+    setSavingSlug(true)
+    const res = await fetch(`/api/admin/affiliates/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referral_slug: slug }),
+    })
+    const json = await res.json() as { error?: string }
+    if (res.ok) {
+      toast.success('Link de referido guardado')
+      setSlugEditing(false)
+      setSlugInput('')
+      void fetchData()
+    } else {
+      toast.error(json.error ?? 'Error al guardar el slug')
+    }
+    setSavingSlug(false)
   }
 
   if (loading) return <DetailSkeleton />
@@ -509,7 +535,7 @@ export default function AdminAffiliateDetailPage() {
           {/* Referral link */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Link de referido</h3>
-            {referralUrl ? (
+            {referralUrl && !slugEditing ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
                   <Link2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
@@ -528,11 +554,44 @@ export default function AdminAffiliateDetailPage() {
                       <ExternalLink className="w-3.5 h-3.5" />
                     </Button>
                   </a>
+                  <Button
+                    variant="outline" size="sm" className="h-8 rounded-xl text-xs px-2.5"
+                    onClick={() => { setSlugInput(referral_link?.slug ?? ''); setSlugEditing(true) }}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
                 <p className="text-[10px] text-gray-400">{referral_link?.clicks_count ?? 0} clics registrados</p>
               </div>
             ) : (
-              <p className="text-xs text-gray-400">Sin link de referido configurado</p>
+              <div className="space-y-2">
+                {!referralUrl && !slugEditing && (
+                  <p className="text-xs text-gray-400 mb-2">Sin link de referido configurado</p>
+                )}
+                {slugEditing ? (
+                  <div className="space-y-2">
+                    <Input
+                      value={slugInput}
+                      onChange={(e) => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      placeholder="ej: braulio"
+                      className="h-8 text-xs font-mono"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" className="flex-1 h-8 rounded-xl text-xs bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover" onClick={handleSaveSlug} disabled={savingSlug || !slugInput.trim()}>
+                        {savingSlug ? 'Guardando…' : 'Guardar'}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 rounded-xl text-xs" onClick={() => { setSlugEditing(false); setSlugInput('') }}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" className="w-full h-8 rounded-xl text-xs" onClick={() => setSlugEditing(true)}>
+                    <Link2 className="w-3.5 h-3.5 mr-1.5" />
+                    Crear link de referido
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
