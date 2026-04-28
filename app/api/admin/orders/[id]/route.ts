@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getOrderDetail, getAdjacentOrderIds, updateOrderStatus } from '@/lib/supabase/queries/adminOrders'
 import { VALID_STATUS_TRANSITIONS } from '@/lib/utils/constants'
 import { sendOrderStatusEmail } from '@/lib/email/send-order-emails'
+import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
 import type { OrderStatus } from '@/types'
 
 export async function GET(
@@ -71,13 +72,40 @@ export async function PATCH(
 
     await updateOrderStatus(supabase, id, newStatus, body.note, 'admin')
 
-    // When admin confirms an order (any payment method), mark the linked attribution
-    // as approved so it counts as valid commission for the affiliate.
+    // When admin confirms an order, assign affiliate commission.
+    // 1. Mark payment as received (cash collected, OXXO confirmed, etc.)
+    // 2. Create attribution using the referral link stored at order creation time.
+    // 3. Approve it so it counts toward the affiliate's payout.
     if (newStatus === 'confirmed' || newStatus === 'paid') {
-      void supabase.rpc('approve_attribution_for_order', { p_order_id: id })
-        .then(({ error }) => {
+      void (async () => {
+        try {
+          // Read stored referral link and coupon from the order.
+          const { data: orderSnap } = await supabase
+            .from('orders')
+            .select('referral_link_id, coupon_code, payment_status')
+            .eq('id', id)
+            .single()
+
+          // Mark payment as received so the attribution RPC check passes.
+          if (orderSnap?.payment_status !== 'paid') {
+            await supabase.from('orders').update({ payment_status: 'paid' }).eq('id', id)
+          }
+
+          // Create the attribution record (no-op if already exists — ON CONFLICT DO NOTHING).
+          const result = await executeAffiliateAttribution({
+            orderId: id,
+            couponCode: orderSnap?.coupon_code ?? null,
+            referralLinkId: orderSnap?.referral_link_id ?? null,
+          })
+          console.log('[attribution] admin confirm', id, result)
+
+          // Approve so commission is ready for payout.
+          const { error } = await supabase.rpc('approve_attribution_for_order', { p_order_id: id })
           if (error) console.error('[attribution] approve failed', id, error.message)
-        })
+        } catch (e) {
+          console.error('[attribution] admin confirm error', id, e)
+        }
+      })()
     }
 
     if (newStatus === 'preparing' || newStatus === 'ready_to_ship' || newStatus === 'shipped') {

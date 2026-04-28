@@ -8,6 +8,7 @@ import {
   formatCreateOrderPayloadErrors,
 } from '@/lib/validations/order-create-payload'
 import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
+import { getReferralLinkIdFromHeader } from '@/lib/affiliate/cookie'
 
 /** Human-readable unique order number; avoids collisions vs. weak random 4-digit IDs. */
 function generateShortOrderId(): string {
@@ -163,6 +164,10 @@ export async function POST(request: NextRequest) {
 
     const total = Math.max(0, subtotal + payload.shipping.fee - couponDiscount)
 
+    // Capture referral link from the customer's cookie NOW — it won't be available later
+    // (e.g. when admin confirms a cash order days later).
+    const referralLinkId = getReferralLinkIdFromHeader(request.headers.get('cookie'))
+
     const supabaseSession = await createServerSupabaseClient()
     const {
       data: { user },
@@ -197,6 +202,7 @@ export async function POST(request: NextRequest) {
       payment_status: 'pending',
       source: 'web-checkout',
       payment_method: payload.payment_method,
+      referral_link_id: referralLinkId ?? null,
     }
 
     for (let attempt = 0; attempt < 10; attempt++) {

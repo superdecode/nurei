@@ -7,6 +7,7 @@ export type AttributionExecInput = {
   orderId: string
   couponCode?: string | null
   cookieHeader?: string | null
+  referralLinkId?: string | null  // bypasses cookie — use when cookie is no longer available (e.g. admin confirmation)
 }
 
 export type AttributionExecResult = {
@@ -20,8 +21,8 @@ export type AttributionExecResult = {
 }
 
 export async function executeAffiliateAttribution(input: AttributionExecInput): Promise<AttributionExecResult> {
-  const { orderId, couponCode, cookieHeader } = input
-  const referralLinkId = getReferralLinkIdFromHeader(cookieHeader ?? null)
+  const { orderId, couponCode, cookieHeader, referralLinkId: referralLinkIdOverride } = input
+  const referralLinkId = referralLinkIdOverride ?? getReferralLinkIdFromHeader(cookieHeader ?? null)
 
   console.log('[attribution] === START ===', {
     orderId,
