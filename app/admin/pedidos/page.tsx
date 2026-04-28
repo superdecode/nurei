@@ -334,7 +334,7 @@ export default function PedidosAdminPage() {
   const handleBulkPrint = () => {
     if (selectedIds.size === 0) return
     const ids = Array.from(selectedIds).join(',')
-    window.location.href = `/admin/pedidos/print?ids=${ids}`
+    window.location.href = `/admin/pedidos/print?ids=${ids}&type=surtido&autoprint=1`
   }
 
   // ── Date quick chips ──────────────────────────────────────────────
@@ -784,7 +784,7 @@ export default function PedidosAdminPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => window.open(`/admin/pedidos/print?ids=${drawerOrder.id}&type=surtido`, '_blank')}
+                        onClick={() => { window.location.href = `/admin/pedidos/print?ids=${drawerOrder.id}&type=surtido&autoprint=1` }}
                         className="flex items-center gap-1 h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition shadow-sm"
                         title="Hoja de surtido"
                       >

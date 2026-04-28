@@ -241,6 +241,7 @@ function PrintContent() {
   const searchParams = useSearchParams()
   const ids = searchParams.get('ids')?.split(',').filter(Boolean) ?? []
   const type = (searchParams.get('type') ?? 'surtido') as 'surtido' | 'ticket'
+  const autoPrint = searchParams.get('autoprint') === '1'
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [brandColor, setBrandColor] = useState('#111827')
@@ -268,6 +269,13 @@ function PrintContent() {
       setLoading(false)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!loading && orders.length > 0 && autoPrint) {
+      const t = setTimeout(() => window.print(), 300)
+      return () => clearTimeout(t)
+    }
+  }, [loading, orders.length, autoPrint])
 
   const title = type === 'ticket'
     ? `Ticket — ${ids.length} pedido${ids.length !== 1 ? 's' : ''}`
