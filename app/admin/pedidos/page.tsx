@@ -43,6 +43,13 @@ const STATUS_PRIMARY_ACTION: Partial<Record<OrderStatus, string>> = {
   shipped: 'Marcar entregado',
 }
 
+function playSuccessAudio(): void {
+  const el = document.getElementById('nurei-success-sound') as HTMLAudioElement | null
+  if (!el) return
+  el.currentTime = 0
+  el.play().catch(() => {/* blocked by browser policy */})
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function statusMeta(status: OrderStatus): StatusMeta {
@@ -256,6 +263,7 @@ export default function PedidosAdminPage() {
       const json = await res.json() as { error?: string; data?: { order: Order } }
       if (!res.ok) { toast.error(json.error ?? 'Error'); return }
       toast.success(`Estatus cambiado a ${statusMeta(confirmNewStatus as OrderStatus).label}`)
+      playSuccessAudio()
       setConfirmOpen(false)
       if (drawerOrder?.id === confirmOrder.id && json.data?.order) setDrawerOrder(json.data.order)
       fetchOrders()
@@ -800,23 +808,37 @@ export default function PedidosAdminPage() {
                   <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
                 ) : (
                   <>
-                    {/* Primary action button — status-aware */}
-                    {(() => {
-                      const nextCandidates = (VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded')
-                      if (nextCandidates.length === 0) return null
-                      const nextStatus = nextCandidates[0] as OrderStatus
-                      const actionLabel = STATUS_PRIMARY_ACTION[drawerOrder.status] ?? `Cambiar a ${statusMeta(nextStatus).label}`
-                      return (
+                    {/* Action buttons — stacked on mobile, side-by-side on desktop */}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {/* Primary action button — status-aware */}
+                      {(() => {
+                        const nextCandidates = (VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded')
+                        if (nextCandidates.length === 0) return null
+                        const nextStatus = nextCandidates[0] as OrderStatus
+                        const actionLabel = STATUS_PRIMARY_ACTION[drawerOrder.status] ?? `Cambiar a ${statusMeta(nextStatus).label}`
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => openStatusConfirm(drawerOrder, nextStatus)}
+                            className="flex-1 flex items-center justify-center gap-2 h-9 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white hover:bg-primary-dark/90 transition"
+                          >
+                            {statusIcon(nextStatus)}
+                            {actionLabel}
+                          </button>
+                        )
+                      })()}
+                      {/* Cancel button — only when cancellation is allowed */}
+                      {CANCELLABLE_STATUSES.includes(drawerOrder.status as OrderStatus) && (
                         <button
                           type="button"
-                          onClick={() => openStatusConfirm(drawerOrder, nextStatus)}
-                          className="w-full flex items-center justify-center gap-2 h-9 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white hover:bg-primary-dark/90 transition"
+                          onClick={() => openStatusConfirm(drawerOrder, 'cancelled')}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 h-9 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-600 hover:bg-red-100 transition"
                         >
-                          {statusIcon(nextStatus)}
-                          {actionLabel}
+                          <XCircle className="h-4 w-4" />
+                          Cancelar
                         </button>
-                      )
-                    })()}
+                      )}
+                    </div>
                     {/* Customer */}
                     <div className="rounded-xl border border-gray-100 p-4 space-y-2">
                       <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Cliente</p>
