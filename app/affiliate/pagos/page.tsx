@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Download, Receipt, X, FileText, CalendarDays, CreditCard, Tag } from 'lucide-react'
+import { Download, Receipt, X, FileText, CalendarDays, Tag } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import type { CommissionPayment } from '@/types'
@@ -247,7 +248,13 @@ export default function AffiliatePagosPage() {
                         <span className="text-xs font-semibold text-gray-700">{formatPrice(o.total)}</span>
                       </div>
                     ))}
-      </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-center">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Copy, ExternalLink, Bell, CreditCard, Phone, Save, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -154,7 +154,8 @@ export default function AffiliateProfileTab() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+52 55 1234 5678"
-              className="h-10 text-sm inputMode="tel"
+              className="h-10 text-sm"
+              inputMode="tel"
             />
           </div>
 
@@ -243,7 +244,8 @@ export default function AffiliateProfileTab() {
                   value={paymentForm.bank_clabe}
                   onChange={(e) => setPaymentForm({ ...paymentForm, bank_clabe: e.target.value.replace(/\D/g, '').slice(0, 18) })}
                   placeholder="000000000000000000"
-                  className="h-10 text-sm font-mono inputMode="numeric"
+                  className="h-10 text-sm font-mono"
+                  inputMode="numeric"
                 />
                 {paymentForm.bank_clabe && paymentForm.bank_clabe.length !== 18 && paymentForm.bank_clabe.length > 0 && (
                   <p className="text-[11px] text-red-500 mt-0.5">{paymentForm.bank_clabe.length}/18 dígitos</p>

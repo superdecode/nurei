@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ShoppingCart, CreditCard, FileText, Calendar, Tag } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/format'
 import type { CommissionPayment } from '@/types'
@@ -177,7 +177,8 @@ export default function AffiliateStats() {
                 </tbody>
               </table>
             </div>
-          )}
+          )
+        )}
 
         {activeSubTab === 'days' && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">

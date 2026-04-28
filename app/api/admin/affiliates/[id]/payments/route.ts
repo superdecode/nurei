@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: Params) {
               .in('id', p.attribution_ids)
             if (attrs) {
               orders = attrs.map((a) => {
-                const orderData = a.orders as Record<string, unknown> | null
+                const orderData = a.orders as unknown as Record<string, unknown> | null
                 if (!orderData) return { short_id: '', total: 0, customer_name: null }
                 const shortId = orderData.short_id as string | undefined
                 const total = orderData.total as number | undefined

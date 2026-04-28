@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ShoppingBag, ExternalLink, Copy, Check, ArrowRight, DollarSign, Wallet, BarChart2 } from 'lucide-react'
+import { ShoppingBag, ExternalLink, Copy, Check, ArrowRight, DollarSign, Wallet, BarChart2, MousePointer2, TrendingUp } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/format'
 import Link from 'next/link'
 import { toast } from 'sonner'
