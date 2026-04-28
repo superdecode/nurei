@@ -273,20 +273,13 @@ export function AdminNotificationBell() {
     const hasUnreadOrder = items.some(
       (item) => item.type === 'nuevo_pedido' && !readIds.has(item.id) && !deletedIds.has(item.id)
     )
-    // Clear title attention when all new-order notifications are read or deleted
-    if (!hasUnreadOrder) {
+    // Stop blinking if panel is open (user is attending) or all orders are read
+    if (!hasUnreadOrder || open) {
       setTitleAttention(false)
     } else {
       setTitleAttention(true)
     }
   }, [deletedIds, items, open, readIds])
-
-  // Clear title attention when panel is opened (user is attending notifications)
-  useEffect(() => {
-    if (open) {
-      setTitleAttention(false)
-    }
-  }, [open])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
