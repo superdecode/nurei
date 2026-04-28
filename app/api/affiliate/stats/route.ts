@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  const [profileRes, linkRes, attributionsRes] = await Promise.all([
+  const [profileRes, linkRes, attributionsRes, totalOrdersRes] = await Promise.all([
     supabase
       .from('affiliate_profiles')
       .select('total_earned_cents, pending_payout_cents')
@@ -37,6 +37,16 @@ export async function GET(request: NextRequest) {
       if (to) q = q.lte('created_at', `${to}T23:59:59.999Z`)
       return q
     })(),
+    // Count ALL attributions regardless of payout_status for the order counter
+    (() => {
+      let q = supabase
+        .from('affiliate_attributions')
+        .select('id', { count: 'exact', head: true })
+        .eq('affiliate_id', affiliateId)
+      if (from) q = q.gte('created_at', `${from}T00:00:00.000Z`)
+      if (to) q = q.lte('created_at', `${to}T23:59:59.999Z`)
+      return q
+    })(),
   ])
 
   const profile = profileRes.data
@@ -56,7 +66,7 @@ export async function GET(request: NextRequest) {
     uniqueClicks = count ?? 0
   }
 
-  const totalOrders = attributions.length
+  const totalOrders = totalOrdersRes.count ?? attributions.length
   const conversionRate = uniqueClicks > 0 ? Math.round((totalOrders / uniqueClicks) * 100 * 10) / 10 : 0
   const totalCommission = attributions.reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
   // Only 'approved' attributions are ready for payout (order confirmed by admin)
