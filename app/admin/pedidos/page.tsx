@@ -808,8 +808,8 @@ export default function PedidosAdminPage() {
                   <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
                 ) : (
                   <>
-                    {/* Action buttons — stacked on mobile, side-by-side on desktop */}
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    {/* Action buttons — always side-by-side */}
+                    <div className="flex flex-row gap-2">
                       {/* Primary action button — status-aware */}
                       {(() => {
                         const nextCandidates = (VALID_STATUS_TRANSITIONS[drawerOrder.status] ?? []).filter(s => s !== 'cancelled' && s !== 'refunded')
@@ -832,7 +832,7 @@ export default function PedidosAdminPage() {
                         <button
                           type="button"
                           onClick={() => openStatusConfirm(drawerOrder, 'cancelled')}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 h-9 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-600 hover:bg-red-100 transition"
+                          className="flex items-center justify-center gap-2 h-9 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-600 hover:bg-red-100 transition shrink-0"
                         >
                           <XCircle className="h-4 w-4" />
                           Cancelar

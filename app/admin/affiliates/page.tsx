@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, Users2, Trash2, ToggleLeft, ToggleRight,
-  X, Filter, ChevronDown, Tag, TrendingUp, CreditCard, Eye,
+  X, Filter, ChevronDown, Tag, TrendingUp, Eye,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -65,6 +65,8 @@ type Candidate = {
   id: string
   email: string
   full_name: string
+  first_name: string
+  last_name: string
   source: 'user' | 'customer'
   customer_id: string | null
 }
@@ -134,7 +136,7 @@ export default function AdminAffiliatesPage() {
       .finally(() => setLoading(false))
   }, [search, statusFilter, couponsFilter])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { queueMicrotask(() => { void load() }) }, [load])
 
   useEffect(() => {
     if (!showCandidateSearch) return
@@ -196,11 +198,13 @@ export default function AdminAffiliatesPage() {
       .replace(/\p{M}/gu, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '')
-      .slice(0, 24) || `afiliado${Math.random().toString(36).slice(-5)}`
+      .slice(0, 24) || `afiliado${candidate.id.replace(/[^a-z0-9]/gi, '').slice(0, 5).toLowerCase()}`
     setForm((prev) => ({
       ...prev,
       existing_user_id: candidate.id,
       email: candidate.email,
+      first_name: candidate.first_name || prev.first_name,
+      last_name: candidate.last_name || prev.last_name,
       handle: prev.handle || handleSeed,
       referral_slug: prev.referral_slug || handleSeed,
     }))
@@ -605,7 +609,9 @@ export default function AdminAffiliatesPage() {
                   onChange={(e) => setForm({ ...form, first_name: e.target.value })}
                   placeholder="María"
                   className="h-10"
+                  disabled={Boolean(selectedCandidate?.customer_id)}
                 />
+                {selectedCandidate?.customer_id && <p className="text-[11px] text-gray-400 mt-1">Se usa el nombre del cliente vinculado.</p>}
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Apellido</label>
@@ -614,7 +620,9 @@ export default function AdminAffiliatesPage() {
                   onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                   placeholder="García"
                   className="h-10"
+                  disabled={Boolean(selectedCandidate?.customer_id)}
                 />
+                {selectedCandidate?.customer_id && <p className="text-[11px] text-gray-400 mt-1">Se usa el apellido del cliente vinculado.</p>}
               </div>
             </div>
 

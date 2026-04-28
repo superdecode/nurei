@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
         id: user.id,
         email: user.email ?? '',
         full_name: metaName || dbName,
+        first_name: (metaName || dbName).split(/\s+/).filter(Boolean)[0] ?? '',
+        last_name: (metaName || dbName).split(/\s+/).filter(Boolean).slice(1).join(' '),
         source: 'user' as const,
         customer_id: null as string | null,
       }
@@ -56,6 +58,8 @@ export async function GET(request: NextRequest) {
         id: customer.user_id ?? customer.id,
         email: customer.email ?? '',
         full_name: composed,
+        first_name: fn,
+        last_name: ln,
         source: 'customer' as const,
         customer_id: customer.id,
       }

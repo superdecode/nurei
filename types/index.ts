@@ -103,7 +103,7 @@ export interface CommissionPayment {
   reference_number: string | null
   paid_by: string | null
   paid_at: string
-  orders?: Array<{ short_id: string; total: number; customer_name: string | null }>
+  orders?: Array<{ short_id: string; total: number; customer_name: string | null; order_date?: string | null }>
 }
 
 export interface AffiliateWithStats extends AffiliateProfile {

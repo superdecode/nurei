@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'node:crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/server/require-admin'
 import { resolveAffiliateFirstLast } from '@/lib/server/affiliate-display-name'
@@ -179,6 +180,14 @@ export async function POST(request: NextRequest) {
   const existingUser = existingUserById ?? (existingUserFromEmail
     ? await supabase.auth.admin.getUserById(existingUserFromEmail.id).then(r => r.data?.user ?? null)
     : null)
+  const linkedCustomer = existingUser
+    ? await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', existingUser.id)
+        .maybeSingle()
+        .then((r) => r.data ?? null)
+    : null
 
   let userId: string
   let isNewUser = false
@@ -222,7 +231,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Debes seleccionar un usuario existente o proporcionar email' }, { status: 400 })
     }
     // Generate a random throwaway password — an invite email is sent immediately after
-    const randomPassword = require('crypto').randomBytes(24).toString('hex')
+    const randomPassword = randomBytes(24).toString('hex')
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: normalizedEmail,
       email_confirm: false,
@@ -271,8 +280,8 @@ export async function POST(request: NextRequest) {
     id: userId,
     handle: handle.trim(),
     bio: bio?.trim() ?? null,
-    first_name: first_name?.trim() ?? null,
-    last_name: last_name?.trim() ?? null,
+    first_name: linkedCustomer ? null : first_name?.trim() ?? null,
+    last_name: linkedCustomer ? null : last_name?.trim() ?? null,
     commission_coupon_pct: commission_coupon_pct ?? 10,
     commission_cookie_pct: commission_cookie_pct ?? 5,
   })

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 
-async function getAppearance(): Promise<{ logo_url?: string; store_name?: string }> {
+async function getAppearance(): Promise<{ logo_url?: string; favicon_url?: string; store_name?: string }> {
   try {
     const supabase = createServiceClient()
     const { data } = await supabase
@@ -13,6 +13,7 @@ async function getAppearance(): Promise<{ logo_url?: string; store_name?: string
     const storeInfo = rows.find((r) => r.key === 'store_info')?.value as Record<string, string> | undefined
     return {
       logo_url: appearance?.logo_url || undefined,
+      favicon_url: appearance?.favicon_url || undefined,
       store_name: storeInfo?.name || undefined,
     }
   } catch {
@@ -21,9 +22,9 @@ async function getAppearance(): Promise<{ logo_url?: string; store_name?: string
 }
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const { logo_url, store_name } = await getAppearance()
+  const { logo_url, favicon_url, store_name } = await getAppearance()
   const name = store_name ?? 'nurei'
-  const iconUrl = logo_url ?? '/logo.png'
+  const iconUrl = favicon_url ?? logo_url ?? '/favicon.ico'
 
   return {
     name,

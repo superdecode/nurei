@@ -1,14 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Save, ArrowLeft, Copy, Check, ExternalLink, TrendingUp, ShoppingBag,
-  DollarSign, Wallet, MousePointer2, BarChart2, CreditCard, Edit3,
+  DollarSign, Wallet, MousePointer2, BarChart2, Edit3, Search,
   ChevronLeft, ChevronRight, X, Clock, RefreshCcw, Tag, Link2, Users,
   AlertCircle, Percent, Mail, Phone, Banknote, CheckSquare, Square,
-  FileText, CalendarDays, Receipt,
+  Receipt, Eye,
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -53,6 +53,7 @@ interface DetailData {
     id: string; handle: string; bio: string | null; email: string
     first_name?: string | null
     last_name?: string | null
+    customer_linked?: boolean
     phone?: string | null
     commission_coupon_pct: number; commission_cookie_pct: number
     total_earned_cents: number; pending_payout_cents: number; is_active: boolean
@@ -88,7 +89,7 @@ interface PaymentRecord {
   attribution_ids: string[]
   period_from: string
   period_to: string
-  orders: Array<{ short_id: string; total: number; customer_name: string | null }>
+  orders: Array<{ short_id: string; total: number; customer_name: string | null; order_date?: string | null }>
 }
 
 // ── Skeleton ─────────────────────────────────────────────────────────────
@@ -194,17 +195,17 @@ export default function AdminAffiliateDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeMainTab, setActiveMainTab] = useState<'perfil' | 'estadisticas'>('perfil')
 
+  const [generalForm, setGeneralForm] = useState({ first_name: '', last_name: '', phone: '' })
+
   // Commission rates
   const [couponPct, setCouponPct] = useState('')
   const [cookiePct, setCookiePct] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
 
   // Payment info
-  const [paymentEdit, setPaymentEdit] = useState(false)
   const [payForm, setPayForm] = useState({
     payment_method: '', bank_name: '', bank_clabe: '', bank_account: '', bank_holder: '', payment_notes: '',
   })
-  const [savingPayment, setSavingPayment] = useState(false)
 
   // Chart date filter
   const [chartRange, setChartRange] = useState<'7d' | '30d' | '90d' | 'custom'>('30d')
@@ -242,6 +243,17 @@ export default function AdminAffiliateDetailPage() {
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(false)
   const [payDetailModal, setPayDetailModal] = useState<PaymentRecord | null>(null)
+  const [detailOrderSearch, setDetailOrderSearch] = useState('')
+  const [detailDateFrom, setDetailDateFrom] = useState('')
+  const [detailDateTo, setDetailDateTo] = useState('')
+  const [detailMinAmount, setDetailMinAmount] = useState('')
+  const [detailMaxAmount, setDetailMaxAmount] = useState('')
+
+  // Payments list filters
+  const [payListSearch, setPayListSearch] = useState('')
+  const [payListTypeFilter, setPayListTypeFilter] = useState('')
+  const [payListDateFrom, setPayListDateFrom] = useState('')
+  const [payListDateTo, setPayListDateTo] = useState('')
 
   const fetchData = useCallback(async (from?: string, to?: string) => {
     setLoading(true)
@@ -254,6 +266,11 @@ export default function AdminAffiliateDetailPage() {
       setData(json.data)
       setCouponPct(String(json.data.profile.commission_coupon_pct))
       setCookiePct(String(json.data.profile.commission_cookie_pct))
+      setGeneralForm({
+        first_name: json.data.profile.first_name ?? '',
+        last_name: json.data.profile.last_name ?? '',
+        phone: json.data.profile.phone ?? '',
+      })
       setPayForm({
         payment_method: json.data.profile.payment_method ?? '',
         bank_name: json.data.profile.bank_name ?? '',
@@ -292,43 +309,39 @@ export default function AdminAffiliateDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartRange])
 
-  const handleSaveRates = async () => {
-    if (!data) return
+  const handleSaveProfile = async () => {
     const cp = parseInt(couponPct, 10)
     const ck = parseInt(cookiePct, 10)
-    if (Number.isNaN(cp) || Number.isNaN(ck)) return
-    if (cp === data.profile.commission_coupon_pct && ck === data.profile.commission_cookie_pct) return
-    setSaving(true)
-    const res = await fetch(`/api/admin/affiliates/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        commission_coupon_pct: cp,
-        commission_cookie_pct: ck,
-      }),
-    })
-    if (res.ok) {
-      toast.success('Tasas guardadas')
-      void fetchData()
-    } else toast.error('Error al actualizar')
-    setSaving(false)
-  }
+    if (Number.isNaN(cp) || Number.isNaN(ck)) {
+      toast.error('Las tasas de comisión deben ser numéricas')
+      return
+    }
 
-  const handleSavePayment = async () => {
-    setSavingPayment(true)
+    setSavingProfile(true)
+    const payload: Record<string, unknown> = {
+      phone: generalForm.phone.trim() || null,
+      commission_coupon_pct: cp,
+      commission_cookie_pct: ck,
+      ...payForm,
+    }
+
+    if (!data?.profile.customer_linked) {
+      payload.first_name = generalForm.first_name.trim() || null
+      payload.last_name = generalForm.last_name.trim() || null
+    }
+
     const res = await fetch(`/api/admin/affiliates/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payForm),
+      body: JSON.stringify(payload),
     })
     if (res.ok) {
-      toast.success('Datos de pago guardados')
-      setPaymentEdit(false)
+      toast.success('Cambios guardados')
       void fetchData()
     } else {
       toast.error('Error al guardar')
     }
-    setSavingPayment(false)
+    setSavingProfile(false)
   }
 
   const handleCopyLink = () => {
@@ -423,6 +436,23 @@ export default function AdminAffiliateDetailPage() {
     .filter((o) => selectedAttrIds.has(o.attribution_id))
     .reduce((s, o) => s + o.commission_amount_cents, 0)
 
+  const filteredPaymentDetailOrders = useMemo(() => {
+    if (!payDetailModal) return []
+    const q = detailOrderSearch.trim().toLowerCase()
+    const min = detailMinAmount ? Number(detailMinAmount) : null
+    const max = detailMaxAmount ? Number(detailMaxAmount) : null
+
+    return payDetailModal.orders.filter((order) => {
+      const orderDate = order.order_date?.slice(0, 10) ?? ''
+      if (detailDateFrom && orderDate && orderDate < detailDateFrom) return false
+      if (detailDateTo && orderDate && orderDate > detailDateTo) return false
+      if (min !== null && order.total < min) return false
+      if (max !== null && order.total > max) return false
+      if (q && !order.short_id.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [detailDateFrom, detailDateTo, detailMaxAmount, detailMinAmount, detailOrderSearch, payDetailModal])
+
   if (loading) return <DetailSkeleton />
   if (!data) return (
     <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -492,11 +522,6 @@ export default function AdminAffiliateDetailPage() {
         >
           <span className="leading-none">{profile.is_active ? 'Desactivar' : 'Activar'}</span>
         </button>
-        <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
-          <Button size="sm" className="h-8 rounded-full text-xs font-semibold hidden sm:flex">
-            + Crear cupón
-          </Button>
-        </Link>
         {kpis.pendingCommission > 0 && (
           <Button
             size="sm"
@@ -533,49 +558,91 @@ export default function AdminAffiliateDetailPage() {
       ══════════════════════════════════════════ */}
       {activeMainTab === 'perfil' && (
         <div className="space-y-5">
+          <div className="flex justify-end">
+            <Button onClick={handleSaveProfile} disabled={savingProfile} className="rounded-xl">
+              <Save className="mr-2 h-4 w-4" />
+              {savingProfile ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          </div>
 
           {/* Contact info */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-50">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
               <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Información básica</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-              <div className="p-4 sm:p-5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Nombre</p>
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-full bg-primary-cyan/10 flex items-center justify-center text-xs font-black text-primary-cyan shrink-0 uppercase">
-                    {profile.first_name || profile.last_name
-                      ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
-                      : profile.handle.slice(0, 2).toUpperCase()}
+            <div className="p-5 space-y-3 max-w-lg">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Nombre</label>
+                    <Input
+                      value={generalForm.first_name}
+                      onChange={(e) => setGeneralForm((f) => ({ ...f, first_name: e.target.value }))}
+                      placeholder="María"
+                      className="h-9 text-sm"
+                      disabled={Boolean(profile.customer_linked)}
+                    />
+                    {profile.customer_linked && <p className="mt-1 text-[11px] text-gray-400">Se refleja desde el cliente vinculado.</p>}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-gray-400 mb-1">Nombre y apellido</p>
-                    <p className="text-sm font-bold text-primary-dark leading-snug">
-                      {profile.first_name || profile.last_name
-                        ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-                        : '—'}
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-1">@{profile.handle}</p>
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Apellido</label>
+                    <Input
+                      value={generalForm.last_name}
+                      onChange={(e) => setGeneralForm((f) => ({ ...f, last_name: e.target.value }))}
+                      placeholder="García"
+                      className="h-9 text-sm"
+                      disabled={Boolean(profile.customer_linked)}
+                    />
+                    {profile.customer_linked && <p className="mt-1 text-[11px] text-gray-400">Se refleja desde el cliente vinculado.</p>}
                   </div>
                 </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Teléfono</label>
+                  <Input
+                    value={generalForm.phone}
+                    onChange={(e) => setGeneralForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="+52 55 1234 5678"
+                    className="h-9 text-sm"
+                    inputMode="tel"
+                  />
+                </div>
               </div>
-              <div className="p-4 sm:p-5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
-                  <Mail className="w-3 h-3 shrink-0" /> Correo
-                </p>
-                <p className="text-sm font-semibold text-primary-dark break-all">{profile.email || '—'}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                <div className="p-4 sm:p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Nombre</p>
+                  <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 rounded-full bg-primary-cyan/10 flex items-center justify-center text-xs font-black text-primary-cyan shrink-0 uppercase">
+                      {profile.first_name || profile.last_name
+                        ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
+                        : profile.handle.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-gray-400 mb-1">Nombre y apellido</p>
+                      <p className="text-sm font-bold text-primary-dark leading-snug">
+                        {profile.first_name || profile.last_name
+                          ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+                          : '—'}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-1">@{profile.handle}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 sm:p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
+                    <Mail className="w-3 h-3 shrink-0" /> Correo
+                  </p>
+                  <p className="text-sm font-semibold text-primary-dark break-all">{profile.email || '—'}</p>
+                </div>
+                <div className="p-4 sm:p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
+                    <Phone className="w-3 h-3 shrink-0" /> Teléfono
+                  </p>
+                  {profile.phone ? (
+                    <p className="text-sm font-semibold text-primary-dark">{profile.phone}</p>
+                  ) : (
+                    <p className="text-sm text-amber-600">Sin teléfono registrado</p>
+                  )}
+                </div>
               </div>
-              <div className="p-4 sm:p-5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
-                  <Phone className="w-3 h-3 shrink-0" /> Teléfono
-                </p>
-                {profile.phone ? (
-                  <p className="text-sm font-semibold text-primary-dark">{profile.phone}</p>
-                ) : (
-                  <p className="text-sm text-amber-600">Sin teléfono registrado</p>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Commission rates + referral link side by side */}
@@ -590,7 +657,6 @@ export default function AdminAffiliateDetailPage() {
                     type="number"
                     value={couponPct}
                     onChange={(e) => setCouponPct(e.target.value)}
-                    onBlur={() => void handleSaveRates()}
                     className="h-9 text-sm"
                     min={0}
                     max={100}
@@ -602,14 +668,13 @@ export default function AdminAffiliateDetailPage() {
                     type="number"
                     value={cookiePct}
                     onChange={(e) => setCookiePct(e.target.value)}
-                    onBlur={() => void handleSaveRates()}
                     className="h-9 text-sm"
                     min={0}
                     max={100}
                   />
                 </div>
               </div>
-              <p className="text-[10px] text-gray-400 mt-2">Los cambios se guardan al salir del campo</p>
+              <p className="text-[10px] text-gray-400 mt-2">Los cambios se guardan con el botón global.</p>
             </div>
 
             {/* Referral link */}
@@ -687,17 +752,9 @@ export default function AdminAffiliateDetailPage() {
                   <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">Sin configurar</span>
                 )}
               </div>
-              <Button
-                variant="outline" size="sm" className="h-7 rounded-full text-xs"
-                onClick={() => setPaymentEdit((v) => !v)}
-              >
-                <Edit3 className="w-3 h-3 mr-1" />
-                {paymentEdit ? 'Cancelar' : 'Editar'}
-              </Button>
             </div>
             <div className="p-5">
-              {paymentEdit ? (
-                <div className="space-y-3 max-w-lg">
+              <div className="max-w-lg space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] font-semibold text-gray-400 block mb-1">Método de pago</label>
@@ -757,43 +814,8 @@ export default function AdminAffiliateDetailPage() {
                       placeholder="Referencias, instrucciones especiales..."
                     />
                   </div>
-                  <Button onClick={handleSavePayment} disabled={savingPayment} className="h-9 rounded-xl text-sm font-semibold">
-                    <Save className="w-3.5 h-3.5 mr-2" />
-                    {savingPayment ? 'Guardando...' : 'Guardar datos de pago'}
-                  </Button>
                 </div>
-              ) : !hasPaymentInfo ? (
-                <div className="flex flex-col items-center justify-center py-8 gap-3">
-                  <CreditCard className="w-8 h-8 text-gray-200" />
-                  <p className="text-sm text-gray-400">No se han configurado datos de pago para este afiliado</p>
-                  <Button variant="outline" size="sm" className="h-7 rounded-full text-xs" onClick={() => setPaymentEdit(true)}>
-                    Agregar datos de pago
-                  </Button>
-                </div>
-              ) : (
-                <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 max-w-lg">
-                  {[
-                    ['Método', profile.payment_method],
-                    ['Banco', profile.bank_name],
-                    ['CLABE', profile.bank_clabe],
-                    ['Cuenta', profile.bank_account],
-                    ['Titular', profile.bank_holder],
-                  ].map(([label, value]) =>
-                    value ? (
-                      <div key={label}>
-                        <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</dt>
-                        <dd className={cn('text-sm text-gray-700 mt-0.5', ['CLABE', 'Cuenta'].includes(label as string) && 'font-mono')}>{value}</dd>
-                      </div>
-                    ) : null
-                  )}
-                  {profile.payment_notes && (
-                    <div className="col-span-2 sm:col-span-3">
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Notas</dt>
-                      <dd className="text-sm text-gray-700 mt-0.5">{profile.payment_notes}</dd>
-                    </div>
-                  )}
-                </dl>
-              )}
+              <p className="mt-3 text-[10px] text-gray-400">Estos datos se guardan con el botón global.</p>
             </div>
           </div>
         </div>
@@ -877,9 +899,6 @@ export default function AdminAffiliateDetailPage() {
                   </span>
                 )}
               </h3>
-              <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
-                <Button size="sm" variant="outline" className="h-7 rounded-full text-xs">+ Crear cupón</Button>
-              </Link>
             </div>
             {coupons.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -1074,6 +1093,53 @@ export default function AdminAffiliateDetailPage() {
             {/* Pagos sub-tab */}
             {activeTab === 'pagos' && (
               <>
+                {/* Filters bar */}
+                {!paymentsLoading && payments.length > 0 && (
+                  <div className="px-5 pt-3 pb-2 border-b border-gray-50 flex flex-wrap gap-2 items-center">
+                    <div className="relative flex-1 min-w-[160px]">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                      <input
+                        type="text"
+                        value={payListSearch}
+                        onChange={(e) => setPayListSearch(e.target.value)}
+                        placeholder="Buscar orden o referencia..."
+                        className="w-full h-7 pl-7 pr-3 text-[11px] border border-gray-200 rounded-full outline-none focus:ring-1 focus:ring-primary-cyan/40"
+                      />
+                    </div>
+                    <select
+                      value={payListTypeFilter}
+                      onChange={(e) => setPayListTypeFilter(e.target.value)}
+                      className="h-7 px-2 text-[11px] border border-gray-200 rounded-full outline-none focus:ring-1 focus:ring-primary-cyan/40 bg-white"
+                    >
+                      <option value="">Todos los tipos</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="efectivo">Efectivo</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                    <input
+                      type="date"
+                      value={payListDateFrom}
+                      onChange={(e) => setPayListDateFrom(e.target.value)}
+                      className="h-7 px-2 text-[11px] border border-gray-200 rounded-full outline-none focus:ring-1 focus:ring-primary-cyan/40"
+                    />
+                    <span className="text-gray-300 text-xs">–</span>
+                    <input
+                      type="date"
+                      value={payListDateTo}
+                      onChange={(e) => setPayListDateTo(e.target.value)}
+                      className="h-7 px-2 text-[11px] border border-gray-200 rounded-full outline-none focus:ring-1 focus:ring-primary-cyan/40"
+                    />
+                    {(payListSearch || payListTypeFilter || payListDateFrom || payListDateTo) && (
+                      <button
+                        type="button"
+                        onClick={() => { setPayListSearch(''); setPayListTypeFilter(''); setPayListDateFrom(''); setPayListDateTo('') }}
+                        className="text-[10px] text-gray-400 hover:text-red-500 font-semibold"
+                      >
+                        Limpiar
+                      </button>
+                    )}
+                  </div>
+                )}
                 {paymentsLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="w-6 h-6 border-2 border-gray-200 border-t-primary-cyan rounded-full animate-spin" />
@@ -1083,58 +1149,84 @@ export default function AdminAffiliateDetailPage() {
                     <Receipt className="w-8 h-8 text-gray-200" />
                     <p className="text-sm text-gray-400 font-medium">Sin pagos registrados</p>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50/50">
-                          {['Fecha', 'Órdenes', 'Monto', 'Tipo', 'Referencia', 'Nota', ''].map((h) => (
-                            <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {payments.map((p) => (
-                          <TableRow key={p.id} className="hover:bg-gray-50/30">
-                            <TableCell className="text-xs text-gray-500 whitespace-nowrap">
-                              {new Date(p.paid_at).toLocaleDateString('es-MX')}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              <div className="flex flex-wrap gap-1">
-                                {p.orders.map((o, i) => (
-                                  <span key={i} className="font-mono text-[10px] font-bold text-primary-dark">
-                                    #{o.short_id}{i < p.orders.length - 1 ? ',' : ''}
-                                  </span>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs font-bold text-emerald-700 whitespace-nowrap">
-                              {formatPrice(p.amount_cents)}
-                            </TableCell>
-                            <TableCell className="text-xs text-gray-600 capitalize">
-                              {p.payment_type}
-                            </TableCell>
-                            <TableCell className="text-xs font-mono text-gray-600 max-w-[120px] truncate">
-                              {p.reference_number ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-xs text-gray-400 max-w-[140px] truncate">
-                              {p.notes ?? '—'}
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost" size="sm"
-                                className="h-6 px-2 text-[10px] rounded-full"
-                                onClick={() => setPayDetailModal(p)}
-                              >
-                                Ver más
-                              </Button>
-                            </TableCell>
+                ) : (() => {
+                  const filtered = payments.filter((p) => {
+                    if (payListTypeFilter && p.payment_type !== payListTypeFilter) return false
+                    if (payListDateFrom && p.paid_at.slice(0, 10) < payListDateFrom) return false
+                    if (payListDateTo && p.paid_at.slice(0, 10) > payListDateTo) return false
+                    if (payListSearch) {
+                      const q = payListSearch.toLowerCase()
+                      const matchesOrder = p.orders.some((o) => o.short_id.toLowerCase().includes(q))
+                      const matchesRef = (p.reference_number ?? '').toLowerCase().includes(q)
+                      if (!matchesOrder && !matchesRef) return false
+                    }
+                    return true
+                  })
+                  return (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50/50">
+                            {['Fecha pago', 'Órdenes', 'Monto', 'Tipo', 'Referencia', 'Nota', ''].map((h) => (
+                              <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
+                            ))}
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                        </TableHeader>
+                        <TableBody>
+                          {filtered.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="py-8 text-center text-xs text-gray-400">Sin resultados para los filtros aplicados</TableCell>
+                            </TableRow>
+                          ) : filtered.map((p) => (
+                            <TableRow key={p.id} className="hover:bg-gray-50/30">
+                              <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                                {new Date(p.paid_at).toLocaleDateString('es-MX')}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                <div className="flex flex-wrap gap-1">
+                                  {p.orders.map((o, i) => (
+                                    <span key={i} className="font-mono text-[10px] font-bold text-primary-dark">
+                                      #{o.short_id}{i < p.orders.length - 1 ? ',' : ''}
+                                    </span>
+                                  ))}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs font-bold text-emerald-700 whitespace-nowrap">
+                                {formatPrice(p.amount_cents)}
+                              </TableCell>
+                              <TableCell className="text-xs text-gray-600 capitalize">
+                                {p.payment_type}
+                              </TableCell>
+                              <TableCell className="text-xs font-mono text-gray-600 max-w-[120px] truncate">
+                                {p.reference_number ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-xs text-gray-400 max-w-[140px] truncate">
+                                {p.notes ?? '—'}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost" size="sm"
+                                  className="h-8 w-8 rounded-full border border-gray-200 p-0 text-gray-500 hover:border-primary-cyan hover:text-primary-cyan"
+                                  onClick={() => {
+                                    setPayDetailModal(p)
+                                    setDetailOrderSearch('')
+                                    setDetailDateFrom('')
+                                    setDetailDateTo('')
+                                    setDetailMinAmount('')
+                                    setDetailMaxAmount('')
+                                  }}
+                                  aria-label={`Ver detalle del pago ${p.id}`}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )
+                })()}
               </>
             )}
           </div>
@@ -1326,7 +1418,7 @@ export default function AdminAffiliateDetailPage() {
       {payDetailModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setPayDetailModal(null)}>
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -1335,28 +1427,30 @@ export default function AdminAffiliateDetailPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</span>
-                <span className="text-lg font-black text-emerald-700">{formatPrice(payDetailModal.amount_cents)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tipo</span>
-                <span className="text-xs font-semibold capitalize text-gray-700">{payDetailModal.payment_type}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Referencia</span>
-                <span className="text-xs font-mono text-gray-700">{payDetailModal.reference_number ?? '—'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</span>
-                <span className="text-xs text-gray-700">{new Date(payDetailModal.paid_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Período</span>
-                <span className="text-xs text-gray-700">
-                  {new Date(payDetailModal.period_from).toLocaleDateString('es-MX')} — {new Date(payDetailModal.period_to).toLocaleDateString('es-MX')}
-                </span>
+            <div className="p-5 space-y-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="rounded-xl bg-gray-50 px-4 py-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</span>
+                  <span className="mt-2 block text-lg font-black text-emerald-700">{formatPrice(payDetailModal.amount_cents)}</span>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-4 py-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tipo</span>
+                  <span className="mt-2 block text-xs font-semibold capitalize text-gray-700">{payDetailModal.payment_type}</span>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-4 py-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Referencia</span>
+                  <span className="mt-2 block text-xs font-mono text-gray-700">{payDetailModal.reference_number ?? '—'}</span>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-4 py-3 xl:col-span-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</span>
+                  <span className="mt-2 block text-xs text-gray-700">{new Date(payDetailModal.paid_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-4 py-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Período</span>
+                  <span className="mt-2 block text-xs text-gray-700">
+                    {new Date(payDetailModal.period_from).toLocaleDateString('es-MX')} — {new Date(payDetailModal.period_to).toLocaleDateString('es-MX')}
+                  </span>
+                </div>
               </div>
               {payDetailModal.notes && (
                 <div>
@@ -1366,14 +1460,27 @@ export default function AdminAffiliateDetailPage() {
               )}
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-2">Órdenes incluidas</span>
-                <div className="space-y-1">
-                  {payDetailModal.orders.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5">
-                      <span className="font-mono text-xs font-bold text-primary-dark">#{o.short_id}</span>
-                      <span className="text-xs text-gray-600">{o.customer_name ?? '—'}</span>
-                      <span className="text-xs font-semibold text-gray-700">{formatPrice(o.total)}</span>
-                    </div>
-                  ))}
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_140px_140px_140px_140px]">
+                    <Input value={detailOrderSearch} onChange={(e) => setDetailOrderSearch(e.target.value)} placeholder="Buscar número de orden" className="h-9 text-xs" />
+                    <input type="date" value={detailDateFrom} onChange={(e) => setDetailDateFrom(e.target.value)} className="h-9 rounded-xl border border-gray-200 px-3 text-xs outline-none focus:ring-2 focus:ring-primary-cyan/20" />
+                    <input type="date" value={detailDateTo} onChange={(e) => setDetailDateTo(e.target.value)} className="h-9 rounded-xl border border-gray-200 px-3 text-xs outline-none focus:ring-2 focus:ring-primary-cyan/20" />
+                    <Input value={detailMinAmount} onChange={(e) => setDetailMinAmount(e.target.value)} placeholder="Monto mín." inputMode="decimal" className="h-9 text-xs" />
+                    <Input value={detailMaxAmount} onChange={(e) => setDetailMaxAmount(e.target.value)} placeholder="Monto máx." inputMode="decimal" className="h-9 text-xs" />
+                  </div>
+                  <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                    {filteredPaymentDetailOrders.map((o, i) => (
+                      <div key={i} className="grid gap-2 rounded-lg bg-gray-50 px-3 py-2 sm:grid-cols-[120px_minmax(0,1fr)_120px_120px] sm:items-center">
+                        <span className="font-mono text-xs font-bold text-primary-dark">#{o.short_id}</span>
+                        <span className="text-xs text-gray-600">{o.customer_name ?? '—'}</span>
+                        <span className="text-xs text-gray-500">{o.order_date ? new Date(o.order_date).toLocaleDateString('es-MX') : '—'}</span>
+                        <span className="text-xs font-semibold text-gray-700">{formatPrice(o.total)}</span>
+                      </div>
+                    ))}
+                    {filteredPaymentDetailOrders.length === 0 && (
+                      <p className="py-6 text-center text-xs text-gray-400">Sin órdenes para los filtros aplicados.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

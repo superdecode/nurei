@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const { data: paymentsData, error } = await supabase
       .from('commission_payments')
-      .select('id, amount_cents, period_from, period_to, attribution_ids, notes, paid_at', { count: 'exact' })
+      .select('id, amount_cents, period_from, period_to, attribution_ids, notes, paid_at, payment_type, reference_number', { count: 'exact' })
       .eq('affiliate_id', affiliateId)
       .order('paid_at', { ascending: false })
 
@@ -25,21 +25,22 @@ export async function GET() {
 
     const enriched = await Promise.all(
       payments.map(async (p) => {
-        let orders: Array<{ short_id: string; total: number; customer_name: string | null }> = []
+        let orders: Array<{ short_id: string; total: number; customer_name: string | null; order_date: string | null }> = []
         if (p.attribution_ids && p.attribution_ids.length > 0) {
           try {
             const { data: attrs } = await supabase
               .from('affiliate_attributions')
-              .select('order_id, orders(short_id, total, customer_name)')
+              .select('order_id, orders(short_id, total, customer_name, created_at)')
               .in('id', p.attribution_ids)
             if (attrs) {
               orders = attrs.map((a) => {
                 const orderData = a.orders as unknown as Record<string, unknown> | null
-                if (!orderData) return { short_id: '', total: 0, customer_name: null }
+                if (!orderData) return { short_id: '', total: 0, customer_name: null, order_date: null }
                 const shortId = orderData.short_id as string | undefined
                 const total = orderData.total as number | undefined
                 const customerName = orderData.customer_name as string | null | undefined
-                return { short_id: shortId ?? '', total: total ?? 0, customer_name: customerName ?? null }
+                const orderDate = orderData.created_at as string | null | undefined
+                return { short_id: shortId ?? '', total: total ?? 0, customer_name: customerName ?? null, order_date: orderDate ?? null }
               })
             }
           } catch (err) {

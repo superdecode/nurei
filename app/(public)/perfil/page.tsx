@@ -886,7 +886,7 @@ function TabCupones() {
 
 // ─── Tab: Cuenta ──────────────────────────────────────────────────────────────
 
-function TabCuenta() {
+function TabCuenta({ couponActiveCount }: { couponActiveCount: number }) {
   const { user, email, updateProfile, logout } = useAuthStore()
   const router = useRouter()
   const [name, setName] = useState(user?.full_name || '')
@@ -1022,6 +1022,19 @@ function TabCuenta() {
 
   return (
     <div className="space-y-5">
+      <div className="rounded-2xl border border-yellow-200 bg-gradient-to-br from-yellow-50 via-white to-amber-50 p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Resumen de cupones</p>
+            <p className="mt-2 text-3xl font-black text-gray-900">{couponActiveCount}</p>
+            <p className="text-sm text-gray-500">Cupones disponibles en tu cuenta</p>
+          </div>
+          <Link href="/perfil?tab=cupones" className="inline-flex h-10 items-center rounded-xl border border-amber-200 bg-white px-4 text-sm font-semibold text-amber-700 transition hover:bg-amber-50">
+            Ver cupones
+          </Link>
+        </div>
+      </div>
+
       <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-4">
         <div>
           <label className="block text-xs font-bold text-gray-500 mb-1.5">Nombre</label>
@@ -1189,15 +1202,17 @@ function PerfilPageContent() {
   const [couponActiveCount, setCouponActiveCount] = useState(0)
   const [showAccountSummary, setShowAccountSummary] = useState(true)
 
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { queueMicrotask(() => setMounted(true)) }, [])
 
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab === 'pedidos' || tab === 'cupones' || tab === 'direcciones' || tab === 'cuenta') {
-      setActiveTab(tab)
-    } else {
-      setActiveTab('pedidos')
-    }
+    queueMicrotask(() => {
+      const tab = searchParams.get('tab')
+      if (tab === 'pedidos' || tab === 'cupones' || tab === 'direcciones' || tab === 'cuenta') {
+        setActiveTab(tab)
+      } else {
+        setActiveTab('pedidos')
+      }
+    })
   }, [searchParams])
 
   const loadOrders = useCallback(() => {
@@ -1229,16 +1244,18 @@ function PerfilPageContent() {
       router.push('/login')
       return
     }
-    refreshUser()
-    loadAddresses()
-    loadOrders()
-    fetchWithCredentials('/api/profile/coupons')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        const arr = (json?.data ?? []) as UserCoupon[]
-        setCouponActiveCount(arr.filter((uc) => !uc.used_at).length)
-      })
-      .catch(() => setCouponActiveCount(0))
+    queueMicrotask(() => {
+      refreshUser()
+      loadAddresses()
+      loadOrders()
+      fetchWithCredentials('/api/profile/coupons')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((json) => {
+          const arr = (json?.data ?? []) as UserCoupon[]
+          setCouponActiveCount(arr.filter((uc) => !uc.used_at).length)
+        })
+        .catch(() => setCouponActiveCount(0))
+    })
   }, [mounted, isAuthenticated, isLoading, router, refreshUser, loadAddresses, loadOrders])
 
   if (!mounted || isLoading || !isAuthenticated || !user) return null
@@ -1278,7 +1295,7 @@ function PerfilPageContent() {
 
           {/* Quick stats */}
           {showAccountSummary && (
-          <div className="grid grid-cols-3 gap-3 mt-5">
+          <div className="grid grid-cols-2 gap-3 mt-5">
             <div className="bg-gray-50 rounded-2xl p-3 text-center">
               <p className="text-xl font-black text-gray-900">{orders.length}</p>
               <p className="text-[11px] text-gray-400 font-bold mt-0.5">Pedidos</p>
@@ -1288,12 +1305,6 @@ function PerfilPageContent() {
                 <p className="text-xl font-black text-gray-900">{favCount}</p>
                 <p className="text-[11px] text-gray-400 font-bold mt-0.5">Favoritos</p>
               </Link>
-            </div>
-            <div className="bg-gray-50 rounded-2xl p-3 text-center">
-              <p className="text-xl font-black text-nurei-cta">
-                {couponActiveCount}
-              </p>
-              <p className="text-[11px] text-gray-400 font-bold mt-0.5">Cupones</p>
             </div>
           </div>
           )}
@@ -1344,7 +1355,7 @@ function PerfilPageContent() {
             )}
             {activeTab === 'cupones' && <TabCupones />}
             {activeTab === 'direcciones' && <TabDirecciones />}
-            {activeTab === 'cuenta' && <TabCuenta />}
+            {activeTab === 'cuenta' && <TabCuenta couponActiveCount={couponActiveCount} />}
           </motion.div>
         </AnimatePresence>
       </div>

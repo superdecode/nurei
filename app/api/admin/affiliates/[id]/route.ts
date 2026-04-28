@@ -52,6 +52,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     first_name: resolved.first_name || null,
     last_name: resolved.last_name || null,
     phone: phoneOut || null,
+    customer_linked: Boolean(cust),
   }
 
   const [linkRes, couponsRes, attrsBase, attrsCount] = await Promise.all([
@@ -200,6 +201,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const update: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) update[key] = body[key]
+  }
+
+  const { data: linkedCustomer } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', id)
+    .maybeSingle()
+
+  if (linkedCustomer) {
+    delete update.first_name
+    delete update.last_name
   }
 
   if (Object.keys(update).length > 0) {
