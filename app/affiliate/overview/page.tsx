@@ -14,7 +14,7 @@ import {
 import { motion } from 'framer-motion'
 import { formatPrice } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
-import PaymentInfoRequest from '@/affiliate/components/PaymentInfoRequest'
+import PaymentInfoRequest from '@/app/affiliate/components/PaymentInfoRequest'
 
 interface WeeklySale { week: string; amount_cents: number; orders: number }
 interface TopProduct { product_name: string; units: number }
