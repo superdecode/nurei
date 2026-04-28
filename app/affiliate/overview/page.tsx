@@ -14,6 +14,7 @@ import {
 import { motion } from 'framer-motion'
 import { formatPrice } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
+import PaymentInfoRequest from '@/affiliate/components/PaymentInfoRequest'
 
 interface WeeklySale { week: string; amount_cents: number; orders: number }
 interface TopProduct { product_name: string; units: number }
@@ -179,6 +180,9 @@ export default function AffiliateOverviewPage() {
           </Link>
         </div>
       </div>
+
+      {/* ── Payment info request ── */}
+      <PaymentInfoRequest />
 
       {/* ── Chart ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">

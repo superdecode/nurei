@@ -96,5 +96,17 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from('affiliate_profiles').update(update).eq('id', affiliateId)
   if (error) return NextResponse.json({ error: 'Error al actualizar perfil' }, { status: 500 })
 
+  // Check if payment info is now complete and notify admins
+  if (update.bank_holder && update.bank_clabe && update.bank_name) {
+    try {
+      await fetch('/api/affiliate/notify-payment-completion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    } catch (err) {
+      console.error('Failed to notify admins:', err)
+    }
+  }
+
   return NextResponse.json({ ok: true })
 }
