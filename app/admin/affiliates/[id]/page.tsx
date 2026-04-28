@@ -192,6 +192,7 @@ export default function AdminAffiliateDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeMainTab, setActiveMainTab] = useState<'perfil' | 'estadisticas'>('perfil')
 
   // Commission rates
   const [couponPct, setCouponPct] = useState('')
@@ -508,603 +509,637 @@ export default function AdminAffiliateDetailPage() {
         )}
       </div>
 
-      {/* ── Información de contacto (una tarjeta, tres secciones) ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-          <div className="p-4 sm:p-5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Nombre</p>
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-full bg-primary-cyan/10 flex items-center justify-center text-xs font-black text-primary-cyan shrink-0 uppercase">
-                {profile.first_name || profile.last_name
-                  ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
-                  : profile.handle.slice(0, 2).toUpperCase()}
+      {/* ── Main tab switcher ── */}
+      <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
+        {(['perfil', 'estadisticas'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveMainTab(tab)}
+            className={cn(
+              'px-5 py-2 rounded-lg text-sm font-semibold transition-all',
+              activeMainTab === tab
+                ? 'bg-white text-primary-dark shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            )}
+          >
+            {tab === 'perfil' ? 'Perfil' : 'Estadísticas y pagos'}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════════════════════════════════
+          PERFIL TAB
+      ══════════════════════════════════════════ */}
+      {activeMainTab === 'perfil' && (
+        <div className="space-y-5">
+
+          {/* Contact info */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-50">
+              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Información básica</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+              <div className="p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Nombre</p>
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 rounded-full bg-primary-cyan/10 flex items-center justify-center text-xs font-black text-primary-cyan shrink-0 uppercase">
+                    {profile.first_name || profile.last_name
+                      ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
+                      : profile.handle.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-gray-400 mb-1">Nombre y apellido</p>
+                    <p className="text-sm font-bold text-primary-dark leading-snug">
+                      {profile.first_name || profile.last_name
+                        ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+                        : '—'}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1">@{profile.handle}</p>
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-gray-400 mb-1">Nombre y apellido</p>
-                <p className="text-sm font-bold text-primary-dark leading-snug">
-                  {profile.first_name || profile.last_name
-                    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-                    : '—'}
+              <div className="p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
+                  <Mail className="w-3 h-3 shrink-0" /> Correo
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1">@{profile.handle}</p>
+                <p className="text-sm font-semibold text-primary-dark break-all">{profile.email || '—'}</p>
+              </div>
+              <div className="p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
+                  <Phone className="w-3 h-3 shrink-0" /> Teléfono
+                </p>
+                {profile.phone ? (
+                  <p className="text-sm font-semibold text-primary-dark">{profile.phone}</p>
+                ) : (
+                  <p className="text-sm text-amber-600">Sin teléfono registrado</p>
+                )}
               </div>
             </div>
           </div>
-          <div className="p-4 sm:p-5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
-              <Mail className="w-3 h-3 shrink-0" /> Correo
-            </p>
-            <p className="text-sm font-semibold text-primary-dark break-all">{profile.email || '—'}</p>
-          </div>
-          <div className="p-4 sm:p-5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
-              <Phone className="w-3 h-3 shrink-0" /> Teléfono
-            </p>
-            {profile.phone ? (
-              <p className="text-sm font-semibold text-primary-dark">{profile.phone}</p>
-            ) : (
-              <p className="text-sm text-amber-600">Sin teléfono registrado</p>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KpiCard icon={DollarSign} label="Comisión total" value={formatPrice(kpis.totalCommission)} color="text-emerald-600" />
-        <KpiCard icon={Wallet} label="Pendiente pago" value={formatPrice(kpis.pendingCommission)} sub="Por liquidar" color="text-amber-500" />
-        <KpiCard icon={ShoppingBag} label="Pedidos ref." value={String(kpis.totalOrders)} color="text-blue-500" />
-        <KpiCard icon={MousePointer2} label="Clics totales" value={String(kpis.totalClicks)} color="text-purple-500" />
-        <KpiCard icon={Users} label="Clics únicos" value={String(kpis.uniqueClicks)} color="text-indigo-500" />
-        <KpiCard icon={TrendingUp} label="Conversión" value={`${kpis.conversionRate}%`} sub="Clics → pedido" color="text-primary-cyan" />
-      </div>
+          {/* Commission rates + referral link side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Commission rates */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Tasas de comisión</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Por cupón (%)</label>
+                  <Input
+                    type="number"
+                    value={couponPct}
+                    onChange={(e) => setCouponPct(e.target.value)}
+                    onBlur={() => void handleSaveRates()}
+                    className="h-9 text-sm"
+                    min={0}
+                    max={100}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Por link (%)</label>
+                  <Input
+                    type="number"
+                    value={cookiePct}
+                    onChange={(e) => setCookiePct(e.target.value)}
+                    onBlur={() => void handleSaveRates()}
+                    className="h-9 text-sm"
+                    min={0}
+                    max={100}
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2">Los cambios se guardan al salir del campo</p>
+            </div>
 
-      {/* ── Chart + Rates ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Chart */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Comisiones por período</h2>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {(['7d', '30d', '90d', 'custom'] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setChartRange(r)}
-                  className={cn(
-                    'h-6 px-2.5 rounded-full text-[10px] font-semibold transition-colors',
-                    chartRange === r
-                      ? 'bg-primary-dark text-white'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            {/* Referral link */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Link de referido</h3>
+              {referralUrl && !slugEditing ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                    <Link2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span className="font-mono text-[11px] text-gray-700 flex-1 truncate">{referralUrl}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline" size="sm" className="flex-1 h-8 rounded-xl text-xs"
+                      onClick={handleCopyLink}
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
+                      {copied ? '¡Copiado!' : 'Copiar'}
+                    </Button>
+                    <a href={referralUrl} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" size="sm" className="h-8 rounded-xl text-xs px-2.5">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                    </a>
+                    <Button
+                      variant="outline" size="sm" className="h-8 rounded-xl text-xs px-2.5"
+                      onClick={() => { setSlugInput(referral_link?.slug ?? ''); setSlugEditing(true) }}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-gray-400">{referral_link?.clicks_count ?? 0} clics registrados</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {!referralUrl && !slugEditing && (
+                    <p className="text-xs text-gray-400 mb-2">Sin link de referido configurado</p>
                   )}
-                >
-                  {r === '7d' ? '7 días' : r === '30d' ? '30 días' : r === '90d' ? '3 meses' : 'Personalizado'}
-                </button>
-              ))}
-              {chartRange === 'custom' && (
-                <DateRangePill
-                  from={dateFrom} to={dateTo}
-                  onFrom={(v) => { setDateFrom(v); if (dateTo) void fetchData(v, dateTo) }}
-                  onTo={(v) => { setDateTo(v); if (dateFrom) void fetchData(dateFrom, v) }}
-                  onClear={() => { setDateFrom(''); setDateTo(''); void fetchData() }}
-                />
+                  {slugEditing ? (
+                    <div className="space-y-2">
+                      <Input
+                        value={slugInput}
+                        onChange={(e) => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                        placeholder="ej: braulio"
+                        className="h-8 text-xs font-mono"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" className="flex-1 h-8 rounded-xl text-xs bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover" onClick={handleSaveSlug} disabled={savingSlug || !slugInput.trim()}>
+                          {savingSlug ? 'Guardando…' : 'Guardar'}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 rounded-xl text-xs" onClick={() => { setSlugEditing(false); setSlugInput('') }}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" className="w-full h-8 rounded-xl text-xs" onClick={() => setSlugEditing(true)}>
+                      <Link2 className="w-3.5 h-3.5 mr-1.5" />
+                      Crear link de referido
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>
-          {chartData.every((p) => p.sales === 0) ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-2">
-              <BarChart2 className="w-8 h-8 text-gray-200" />
-              <p className="text-xs text-gray-400">Sin comisiones en este período</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={chartData} barSize={20}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip
-                  formatter={(v) => [formatPrice(Number(v ?? 0)), 'Comisión']}
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6', fontSize: 11 }}
-                />
-                <Bar dataKey="sales" fill="#00C4CC" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
 
-        {/* Rates + referral link */}
-        <div className="space-y-4">
-          {/* Commission rates */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Tasas de comisión</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-semibold text-gray-400 block mb-1">Por cupón (%)</label>
-                <Input
-                  type="number"
-                  value={couponPct}
-                  onChange={(e) => setCouponPct(e.target.value)}
-                  onBlur={() => void handleSaveRates()}
-                  className="h-9 text-sm"
-                  min={0}
-                  max={100}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-gray-400 block mb-1">Por link (%)</label>
-                <Input
-                  type="number"
-                  value={cookiePct}
-                  onChange={(e) => setCookiePct(e.target.value)}
-                  onBlur={() => void handleSaveRates()}
-                  className="h-9 text-sm"
-                  min={0}
-                  max={100}
-                />
-              </div>
-            </div>
-            <p className="text-[10px] text-gray-400 mt-2">Los cambios se guardan al salir del campo</p>
-          </div>
-
-          {/* Referral link */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Link de referido</h3>
-            {referralUrl && !slugEditing ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
-                  <Link2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                  <span className="font-mono text-[11px] text-gray-700 flex-1 truncate">{referralUrl}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline" size="sm" className="flex-1 h-8 rounded-xl text-xs"
-                    onClick={handleCopyLink}
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 mr-1.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
-                    {copied ? '¡Copiado!' : 'Copiar'}
-                  </Button>
-                  <a href={referralUrl} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="h-8 rounded-xl text-xs px-2.5">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  </a>
-                  <Button
-                    variant="outline" size="sm" className="h-8 rounded-xl text-xs px-2.5"
-                    onClick={() => { setSlugInput(referral_link?.slug ?? ''); setSlugEditing(true) }}
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-                <p className="text-[10px] text-gray-400">{referral_link?.clicks_count ?? 0} clics registrados</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {!referralUrl && !slugEditing && (
-                  <p className="text-xs text-gray-400 mb-2">Sin link de referido configurado</p>
+          {/* Payment info */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Datos de pago</h3>
+                {hasPaymentInfo ? (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">Configurado</span>
+                ) : (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">Sin configurar</span>
                 )}
-                {slugEditing ? (
-                  <div className="space-y-2">
-                    <Input
-                      value={slugInput}
-                      onChange={(e) => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                      placeholder="ej: braulio"
-                      className="h-8 text-xs font-mono"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" className="flex-1 h-8 rounded-xl text-xs bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover" onClick={handleSaveSlug} disabled={savingSlug || !slugInput.trim()}>
-                        {savingSlug ? 'Guardando…' : 'Guardar'}
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-8 rounded-xl text-xs" onClick={() => { setSlugEditing(false); setSlugInput('') }}>
-                        Cancelar
-                      </Button>
+              </div>
+              <Button
+                variant="outline" size="sm" className="h-7 rounded-full text-xs"
+                onClick={() => setPaymentEdit((v) => !v)}
+              >
+                <Edit3 className="w-3 h-3 mr-1" />
+                {paymentEdit ? 'Cancelar' : 'Editar'}
+              </Button>
+            </div>
+            <div className="p-5">
+              {paymentEdit ? (
+                <div className="space-y-3 max-w-lg">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Método de pago</label>
+                      <Input
+                        value={payForm.payment_method}
+                        onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value }))}
+                        placeholder="ej. SPEI, PayPal"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Banco</label>
+                      <Input
+                        value={payForm.bank_name}
+                        onChange={(e) => setPayForm((f) => ({ ...f, bank_name: e.target.value }))}
+                        placeholder="ej. BBVA, Banorte"
+                        className="h-9 text-sm"
+                      />
                     </div>
                   </div>
-                ) : (
-                  <Button size="sm" variant="outline" className="w-full h-8 rounded-xl text-xs" onClick={() => setSlugEditing(true)}>
-                    <Link2 className="w-3.5 h-3.5 mr-1.5" />
-                    Crear link de referido
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">CLABE interbancaria</label>
+                    <Input
+                      value={payForm.bank_clabe}
+                      onChange={(e) => setPayForm((f) => ({ ...f, bank_clabe: e.target.value }))}
+                      placeholder="18 dígitos"
+                      className="h-9 text-sm font-mono"
+                      maxLength={18}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Número de cuenta</label>
+                      <Input
+                        value={payForm.bank_account}
+                        onChange={(e) => setPayForm((f) => ({ ...f, bank_account: e.target.value }))}
+                        className="h-9 text-sm font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Titular</label>
+                      <Input
+                        value={payForm.bank_holder}
+                        onChange={(e) => setPayForm((f) => ({ ...f, bank_holder: e.target.value }))}
+                        placeholder="Nombre completo"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Notas adicionales</label>
+                    <textarea
+                      value={payForm.payment_notes}
+                      onChange={(e) => setPayForm((f) => ({ ...f, payment_notes: e.target.value }))}
+                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary-cyan/30 resize-none"
+                      rows={2}
+                      placeholder="Referencias, instrucciones especiales..."
+                    />
+                  </div>
+                  <Button onClick={handleSavePayment} disabled={savingPayment} className="h-9 rounded-xl text-sm font-semibold">
+                    <Save className="w-3.5 h-3.5 mr-2" />
+                    {savingPayment ? 'Guardando...' : 'Guardar datos de pago'}
                   </Button>
+                </div>
+              ) : !hasPaymentInfo ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <CreditCard className="w-8 h-8 text-gray-200" />
+                  <p className="text-sm text-gray-400">No se han configurado datos de pago para este afiliado</p>
+                  <Button variant="outline" size="sm" className="h-7 rounded-full text-xs" onClick={() => setPaymentEdit(true)}>
+                    Agregar datos de pago
+                  </Button>
+                </div>
+              ) : (
+                <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 max-w-lg">
+                  {[
+                    ['Método', profile.payment_method],
+                    ['Banco', profile.bank_name],
+                    ['CLABE', profile.bank_clabe],
+                    ['Cuenta', profile.bank_account],
+                    ['Titular', profile.bank_holder],
+                  ].map(([label, value]) =>
+                    value ? (
+                      <div key={label}>
+                        <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</dt>
+                        <dd className={cn('text-sm text-gray-700 mt-0.5', ['CLABE', 'Cuenta'].includes(label as string) && 'font-mono')}>{value}</dd>
+                      </div>
+                    ) : null
+                  )}
+                  {profile.payment_notes && (
+                    <div className="col-span-2 sm:col-span-3">
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Notas</dt>
+                      <dd className="text-sm text-gray-700 mt-0.5">{profile.payment_notes}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════
+          ESTADÍSTICAS Y PAGOS TAB
+      ══════════════════════════════════════════ */}
+      {activeMainTab === 'estadisticas' && (
+        <div className="space-y-5">
+
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <KpiCard icon={DollarSign} label="Comisión total" value={formatPrice(kpis.totalCommission)} color="text-emerald-600" />
+            <KpiCard icon={Wallet} label="Pendiente pago" value={formatPrice(kpis.pendingCommission)} sub="Por liquidar" color="text-amber-500" />
+            <KpiCard icon={ShoppingBag} label="Pedidos ref." value={String(kpis.totalOrders)} color="text-blue-500" />
+            <KpiCard icon={MousePointer2} label="Clics totales" value={String(kpis.totalClicks)} color="text-purple-500" />
+            <KpiCard icon={Users} label="Clics únicos" value={String(kpis.uniqueClicks)} color="text-indigo-500" />
+            <KpiCard icon={TrendingUp} label="Conversión" value={`${kpis.conversionRate}%`} sub="Clics → pedido" color="text-primary-cyan" />
+          </div>
+
+          {/* Chart */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Comisiones por período</h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {(['7d', '30d', '90d', 'custom'] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setChartRange(r)}
+                    className={cn(
+                      'h-6 px-2.5 rounded-full text-[10px] font-semibold transition-colors',
+                      chartRange === r
+                        ? 'bg-primary-dark text-white'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    )}
+                  >
+                    {r === '7d' ? '7 días' : r === '30d' ? '30 días' : r === '90d' ? '3 meses' : 'Personalizado'}
+                  </button>
+                ))}
+                {chartRange === 'custom' && (
+                  <DateRangePill
+                    from={dateFrom} to={dateTo}
+                    onFrom={(v) => { setDateFrom(v); if (dateTo) void fetchData(v, dateTo) }}
+                    onTo={(v) => { setDateTo(v); if (dateFrom) void fetchData(dateFrom, v) }}
+                    onClear={() => { setDateFrom(''); setDateTo(''); void fetchData() }}
+                  />
                 )}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Coupons ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Cupones vinculados
-            {coupons.length > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
-                {coupons.length}
-              </span>
-            )}
-          </h3>
-          <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
-            <Button size="sm" variant="outline" className="h-7 rounded-full text-xs">+ Crear cupón</Button>
-          </Link>
-        </div>
-        {coupons.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Tag className="w-8 h-8 text-gray-200" />
-            <p className="text-sm text-gray-400 font-medium">Sin cupones vinculados</p>
-            <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
-              <Button variant="outline" size="sm" className="h-7 rounded-full text-xs">Crear el primer cupón</Button>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-            {coupons.map((coupon) => (
-              <motion.div
-                key={coupon.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border border-gray-100 p-4 shadow-md hover:border-gray-200 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-mono font-bold text-primary-dark text-sm tracking-wide">{coupon.code}</span>
-                  <CouponStatusBadge status={coupon.computed_status} />
-                </div>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Percent className="w-3 h-3 text-gray-400" />
-                  <span className="text-xs text-gray-600">
-                    {coupon.type === 'percentage'
-                      ? `${coupon.value}% descuento`
-                      : coupon.type === 'fixed'
-                        ? `${formatPrice(coupon.value)} descuento`
-                        : `Condicional · ${coupon.value}%`}
-                  </span>
-                </div>
-                <p className="text-[10px] text-gray-400">
-                  {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString('es-MX') : 'Inmediato'} —{' '}
-                  {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString('es-MX') : 'Sin venc.'}
-                </p>
-                <p className="text-[10px] text-gray-400 mt-0.5">
-                  Usos: {coupon.used_count} / {coupon.max_uses ?? '∞'}
-                </p>
-                <Link href={`/admin/cupones?couponId=${coupon.id}`} className="mt-2.5 inline-block">
-                  <Button variant="outline" size="sm" className="h-6 rounded-full text-[10px] px-2.5">Ver cupón</Button>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Tabs: Ventas / Pagos ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
-          <div className="flex items-center gap-1">
-            {(['ventas', 'pagos'] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'h-8 px-4 rounded-full text-xs font-bold transition-colors',
-                  activeTab === tab
-                    ? 'bg-primary-dark text-white'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                )}
-              >
-                {tab === 'ventas' ? 'Ventas' : 'Pagos'}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            {kpis.pendingCommission > 0 && (
-              <Button
-                size="sm"
-                className="h-7 rounded-full text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white sm:flex"
-                onClick={openPayModal}
-              >
-                <Banknote className="w-3 h-3 mr-1" />
-                Registrar pago
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={() => void fetchData()} className="h-7 w-7 rounded-full p-0">
-              <RefreshCcw className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* ── Ventas tab ── */}
-        {activeTab === 'ventas' && (
-          <>
-            <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                Ventas y comisiones
-                {attrTotal > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
-                    {attrTotal}
-                  </span>
-                )}
-              </p>
             </div>
-            {attrTotal === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <ShoppingBag className="w-8 h-8 text-gray-200" />
-                <p className="text-sm text-gray-400 font-medium">Sin ventas atribuidas aún</p>
+            {chartData.every((p) => p.sales === 0) ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-2">
+                <BarChart2 className="w-8 h-8 text-gray-200" />
+                <p className="text-xs text-gray-400">Sin comisiones en este período</p>
               </div>
             ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50/50">
-                        {['Fecha', 'Pedido', 'Cliente', 'Subtotal', 'Atribución', 'Comisión %', 'Comisión $', 'Estado'].map((h) => (
-                          <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {attrSlice.map((a) => (
-                        <TableRow key={a.id} className="hover:bg-gray-50/30">
-                          <TableCell className="text-xs text-gray-500 whitespace-nowrap">
-                            {new Date(a.created_at).toLocaleDateString('es-MX')}
-                          </TableCell>
-                          <TableCell>
-                            {a.orders?.short_id ? (
-                              <Link href={`/admin/pedidos?id=${a.order_id}`} className="font-mono text-xs font-bold text-primary-dark hover:underline">
-                                #{a.orders.short_id}
-                              </Link>
-                            ) : (
-                              <span className="font-mono text-xs text-gray-400">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-xs text-gray-600 max-w-[140px] truncate">
-                            {a.orders?.customer_name ?? a.orders?.customer_email ?? '—'}
-                          </TableCell>
-                          <TableCell className="text-xs font-medium text-gray-700 whitespace-nowrap">
-                            {a.orders?.total ? formatPrice(a.orders.total) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            {a.attribution_type === 'coupon' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
-                                <Tag className="w-2.5 h-2.5" />
-                                Cupón
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
-                                <Link2 className="w-2.5 h-2.5" />
-                                Referido
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-xs text-gray-600">{a.commission_pct}%</TableCell>
-                          <TableCell className="text-xs font-bold text-primary-dark whitespace-nowrap">
-                            {formatPrice(a.commission_amount_cents)}
-                          </TableCell>
-                          <TableCell>
-                            <span className={cn(
-                              'px-2 py-0.5 text-[10px] font-bold rounded-full',
-                              a.payout_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                            )}>
-                              {a.payout_status === 'paid' ? 'Pagado' : 'Pendiente'}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {attrPages > 1 && (
-                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50">
-                    <p className="text-xs text-gray-400">
-                      {attrStart + 1}–{Math.min(attrStart + ATTRS_PAGE_SIZE, attrTotal)} de {attrTotal}
-                    </p>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
-                        disabled={attrPage === 1} onClick={() => setAttrPage((p) => p - 1)}
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
-                        disabled={attrPage >= attrPages} onClick={() => setAttrPage((p) => p + 1)}
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </Button>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartData} barSize={20}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <Tooltip
+                    formatter={(v) => [formatPrice(Number(v ?? 0)), 'Comisión']}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6', fontSize: 11 }}
+                  />
+                  <Bar dataKey="sales" fill="#00C4CC" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Coupons */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Cupones vinculados
+                {coupons.length > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
+                    {coupons.length}
+                  </span>
+                )}
+              </h3>
+              <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
+                <Button size="sm" variant="outline" className="h-7 rounded-full text-xs">+ Crear cupón</Button>
+              </Link>
+            </div>
+            {coupons.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Tag className="w-8 h-8 text-gray-200" />
+                <p className="text-sm text-gray-400 font-medium">Sin cupones vinculados</p>
+                <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
+                  <Button variant="outline" size="sm" className="h-7 rounded-full text-xs">Crear el primer cupón</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+                {coupons.map((coupon) => (
+                  <motion.div
+                    key={coupon.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border border-gray-100 p-4 shadow-md hover:border-gray-200 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-mono font-bold text-primary-dark text-sm tracking-wide">{coupon.code}</span>
+                      <CouponStatusBadge status={coupon.computed_status} />
                     </div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Percent className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-600">
+                        {coupon.type === 'percentage'
+                          ? `${coupon.value}% descuento`
+                          : coupon.type === 'fixed'
+                            ? `${formatPrice(coupon.value)} descuento`
+                            : `Condicional · ${coupon.value}%`}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString('es-MX') : 'Inmediato'} —{' '}
+                      {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString('es-MX') : 'Sin venc.'}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      Usos: {coupon.used_count} / {coupon.max_uses ?? '∞'}
+                    </p>
+                    <Link href={`/admin/cupones?couponId=${coupon.id}`} className="mt-2.5 inline-block">
+                      <Button variant="outline" size="sm" className="h-6 rounded-full text-[10px] px-2.5">Ver cupón</Button>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Ventas / Pagos tabs */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
+              <div className="flex items-center gap-1">
+                {(['ventas', 'pagos'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      'h-8 px-4 rounded-full text-xs font-bold transition-colors',
+                      activeTab === tab
+                        ? 'bg-primary-dark text-white'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    )}
+                  >
+                    {tab === 'ventas' ? 'Ventas' : 'Pagos'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                {kpis.pendingCommission > 0 && (
+                  <Button
+                    size="sm"
+                    className="h-7 rounded-full text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white sm:flex"
+                    onClick={openPayModal}
+                  >
+                    <Banknote className="w-3 h-3 mr-1" />
+                    Registrar pago
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => void fetchData()} className="h-7 w-7 rounded-full p-0">
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Ventas sub-tab */}
+            {activeTab === 'ventas' && (
+              <>
+                <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Ventas y comisiones
+                    {attrTotal > 0 && (
+                      <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
+                        {attrTotal}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                {attrTotal === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <ShoppingBag className="w-8 h-8 text-gray-200" />
+                    <p className="text-sm text-gray-400 font-medium">Sin ventas atribuidas aún</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50/50">
+                            {['Fecha', 'Pedido', 'Cliente', 'Subtotal', 'Atribución', 'Comisión %', 'Comisión $', 'Estado'].map((h) => (
+                              <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {attrSlice.map((a) => (
+                            <TableRow key={a.id} className="hover:bg-gray-50/30">
+                              <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                                {new Date(a.created_at).toLocaleDateString('es-MX')}
+                              </TableCell>
+                              <TableCell>
+                                {a.orders?.short_id ? (
+                                  <Link href={`/admin/pedidos?id=${a.order_id}`} className="font-mono text-xs font-bold text-primary-dark hover:underline">
+                                    #{a.orders.short_id}
+                                  </Link>
+                                ) : (
+                                  <span className="font-mono text-xs text-gray-400">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-gray-600 max-w-[140px] truncate">
+                                {a.orders?.customer_name ?? a.orders?.customer_email ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                                {a.orders?.total ? formatPrice(a.orders.total) : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {a.attribution_type === 'coupon' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
+                                    <Tag className="w-2.5 h-2.5" />
+                                    Cupón
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
+                                    <Link2 className="w-2.5 h-2.5" />
+                                    Referido
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-gray-600">{a.commission_pct}%</TableCell>
+                              <TableCell className="text-xs font-bold text-primary-dark whitespace-nowrap">
+                                {formatPrice(a.commission_amount_cents)}
+                              </TableCell>
+                              <TableCell>
+                                <span className={cn(
+                                  'px-2 py-0.5 text-[10px] font-bold rounded-full',
+                                  a.payout_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                )}>
+                                  {a.payout_status === 'paid' ? 'Pagado' : 'Pendiente'}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {attrPages > 1 && (
+                      <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50">
+                        <p className="text-xs text-gray-400">
+                          {attrStart + 1}–{Math.min(attrStart + ATTRS_PAGE_SIZE, attrTotal)} de {attrTotal}
+                        </p>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
+                            disabled={attrPage === 1} onClick={() => setAttrPage((p) => p - 1)}
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
+                            disabled={attrPage >= attrPages} onClick={() => setAttrPage((p) => p + 1)}
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Pagos sub-tab */}
+            {activeTab === 'pagos' && (
+              <>
+                {paymentsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-6 h-6 border-2 border-gray-200 border-t-primary-cyan rounded-full animate-spin" />
+                  </div>
+                ) : payments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Receipt className="w-8 h-8 text-gray-200" />
+                    <p className="text-sm text-gray-400 font-medium">Sin pagos registrados</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/50">
+                          {['Fecha', 'Órdenes', 'Monto', 'Tipo', 'Referencia', 'Nota', ''].map((h) => (
+                            <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.map((p) => (
+                          <TableRow key={p.id} className="hover:bg-gray-50/30">
+                            <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                              {new Date(p.paid_at).toLocaleDateString('es-MX')}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              <div className="flex flex-wrap gap-1">
+                                {p.orders.map((o, i) => (
+                                  <span key={i} className="font-mono text-[10px] font-bold text-primary-dark">
+                                    #{o.short_id}{i < p.orders.length - 1 ? ',' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs font-bold text-emerald-700 whitespace-nowrap">
+                              {formatPrice(p.amount_cents)}
+                            </TableCell>
+                            <TableCell className="text-xs text-gray-600 capitalize">
+                              {p.payment_type}
+                            </TableCell>
+                            <TableCell className="text-xs font-mono text-gray-600 max-w-[120px] truncate">
+                              {p.reference_number ?? '—'}
+                            </TableCell>
+                            <TableCell className="text-xs text-gray-400 max-w-[140px] truncate">
+                              {p.notes ?? '—'}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-6 px-2 text-[10px] rounded-full"
+                                onClick={() => setPayDetailModal(p)}
+                              >
+                                Ver más
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </>
             )}
-          </>
-        )}
-
-        {/* ── Pagos tab ── */}
-        {activeTab === 'pagos' && (
-          <>
-            {paymentsLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="w-6 h-6 border-2 border-gray-200 border-t-primary-cyan rounded-full animate-spin" />
-              </div>
-            ) : payments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <Receipt className="w-8 h-8 text-gray-200" />
-                <p className="text-sm text-gray-400 font-medium">Sin pagos registrados</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50/50">
-                      {['Fecha', 'Órdenes', 'Monto', 'Tipo', 'Referencia', 'Nota', ''].map((h) => (
-                        <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((p) => (
-                      <TableRow key={p.id} className="hover:bg-gray-50/30">
-                        <TableCell className="text-xs text-gray-500 whitespace-nowrap">
-                          {new Date(p.paid_at).toLocaleDateString('es-MX')}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          <div className="flex flex-wrap gap-1">
-                            {p.orders.map((o, i) => (
-                              <span key={i} className="font-mono text-[10px] font-bold text-primary-dark">
-                                #{o.short_id}{i < p.orders.length - 1 ? ',' : ''}
-                              </span>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs font-bold text-emerald-700 whitespace-nowrap">
-                          {formatPrice(p.amount_cents)}
-                        </TableCell>
-                        <TableCell className="text-xs text-gray-600 capitalize">
-                          {p.payment_type}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono text-gray-600 max-w-[120px] truncate">
-                          {p.reference_number ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-xs text-gray-400 max-w-[140px] truncate">
-                          {p.notes ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost" size="sm"
-                            className="h-6 px-2 text-[10px] rounded-full"
-                            onClick={() => setPayDetailModal(p)}
-                          >
-                            Ver más
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* ── Payment info ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Datos de pago</h3>
-            {hasPaymentInfo ? (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">Configurado</span>
-            ) : (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">Sin configurar</span>
-            )}
           </div>
-          <Button
-            variant="outline" size="sm" className="h-7 rounded-full text-xs"
-            onClick={() => setPaymentEdit((v) => !v)}
-          >
-            <Edit3 className="w-3 h-3 mr-1" />
-            {paymentEdit ? 'Cancelar' : 'Editar'}
-          </Button>
         </div>
-
-        <div className="p-5">
-          {paymentEdit ? (
-            <div className="space-y-3 max-w-lg">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Método de pago</label>
-                  <Input
-                    value={payForm.payment_method}
-                    onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value }))}
-                    placeholder="ej. SPEI, PayPal"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Banco</label>
-                  <Input
-                    value={payForm.bank_name}
-                    onChange={(e) => setPayForm((f) => ({ ...f, bank_name: e.target.value }))}
-                    placeholder="ej. BBVA, Banorte"
-                    className="h-9 text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-gray-400 block mb-1">CLABE interbancaria</label>
-                <Input
-                  value={payForm.bank_clabe}
-                  onChange={(e) => setPayForm((f) => ({ ...f, bank_clabe: e.target.value }))}
-                  placeholder="18 dígitos"
-                  className="h-9 text-sm font-mono"
-                  maxLength={18}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Número de cuenta</label>
-                  <Input
-                    value={payForm.bank_account}
-                    onChange={(e) => setPayForm((f) => ({ ...f, bank_account: e.target.value }))}
-                    className="h-9 text-sm font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Titular</label>
-                  <Input
-                    value={payForm.bank_holder}
-                    onChange={(e) => setPayForm((f) => ({ ...f, bank_holder: e.target.value }))}
-                    placeholder="Nombre completo"
-                    className="h-9 text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-gray-400 block mb-1">Notas adicionales</label>
-                <textarea
-                  value={payForm.payment_notes}
-                  onChange={(e) => setPayForm((f) => ({ ...f, payment_notes: e.target.value }))}
-                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary-cyan/30 resize-none"
-                  rows={2}
-                  placeholder="Referencias, instrucciones especiales..."
-                />
-              </div>
-              <Button onClick={handleSavePayment} disabled={savingPayment} className="h-9 rounded-xl text-sm font-semibold">
-                <Save className="w-3.5 h-3.5 mr-2" />
-                {savingPayment ? 'Guardando...' : 'Guardar datos de pago'}
-              </Button>
-            </div>
-          ) : !hasPaymentInfo ? (
-            <div className="flex flex-col items-center justify-center py-8 gap-3">
-              <CreditCard className="w-8 h-8 text-gray-200" />
-              <p className="text-sm text-gray-400">No se han configurado datos de pago para este afiliado</p>
-              <Button variant="outline" size="sm" className="h-7 rounded-full text-xs" onClick={() => setPaymentEdit(true)}>
-                Agregar datos de pago
-              </Button>
-            </div>
-          ) : (
-            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 max-w-lg">
-              {[
-                ['Método', profile.payment_method],
-                ['Banco', profile.bank_name],
-                ['CLABE', profile.bank_clabe],
-                ['Cuenta', profile.bank_account],
-                ['Titular', profile.bank_holder],
-              ].map(([label, value]) =>
-                value ? (
-                  <div key={label}>
-                    <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</dt>
-                    <dd className={cn('text-sm text-gray-700 mt-0.5', ['CLABE', 'Cuenta'].includes(label as string) && 'font-mono')}>{value}</dd>
-                  </div>
-                ) : null
-              )}
-              {profile.payment_notes && (
-                <div className="col-span-2 sm:col-span-3">
-                  <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Notas</dt>
-                  <dd className="text-sm text-gray-700 mt-0.5">{profile.payment_notes}</dd>
-                </div>
-              )}
-            </dl>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* ── Register payment modal ── */}
       {payModalOpen && (
