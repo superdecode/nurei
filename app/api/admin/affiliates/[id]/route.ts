@@ -54,7 +54,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     phone: phoneOut || null,
   }
 
-  const [linkRes, couponsRes, attrsBase] = await Promise.all([
+  const [linkRes, couponsRes, attrsBase, attrsCount] = await Promise.all([
     supabase
       .from('referral_links')
       .select('id, slug, clicks_count')
@@ -66,7 +66,6 @@ export async function GET(req: NextRequest, { params }: Params) {
       .eq('affiliate_id', id)
       .order('created_at', { ascending: false }),
     (() => {
-      // Note: coupon_code column added in migration 017 — select without it for safety
       let q = supabase
         .from('affiliate_attributions')
         .select(`
@@ -77,6 +76,15 @@ export async function GET(req: NextRequest, { params }: Params) {
         .eq('affiliate_id', id)
         .order('created_at', { ascending: false })
         .limit(200)
+      if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00.000Z`)
+      if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59.999Z`)
+      return q
+    })(),
+    (() => {
+      let q = supabase
+        .from('affiliate_attributions')
+        .select('commission_amount_cents, payout_status', { count: 'exact', head: false })
+        .eq('affiliate_id', id)
       if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00.000Z`)
       if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59.999Z`)
       return q
@@ -117,6 +125,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   })
 
   const attributions = attrsBase.data ?? []
+  const allAttrs = attrsCount.data ?? []
 
   // Unique clicks count from referral_clicks table
   const linkId = linkRes.data?.id
@@ -129,10 +138,10 @@ export async function GET(req: NextRequest, { params }: Params) {
     uniqueClicks = count ?? 0
   }
 
-  // KPI computations
-  const totalOrders = attributions.length
-  const totalCommission = attributions.reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
-  const pendingCommission = attributions
+  // KPI computations — use unlimited attrsCount for accurate totals
+  const totalOrders = allAttrs.length
+  const totalCommission = allAttrs.reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
+  const pendingCommission = allAttrs
     .filter((a) => a.payout_status === 'pending')
     .reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
   const totalClicks = linkRes.data?.clicks_count ?? 0

@@ -25,6 +25,10 @@ function aggregateItems(orders: Order[]): PickItem[] {
       const entry = map.get(key)!
       entry.totalQty += item.quantity
       entry.orders.push({ short_id: o.short_id, qty: item.quantity })
+      // Preserve SKU if it was missing initially but found in another order
+      if (!entry.sku && item.sku) {
+        entry.sku = item.sku
+      }
     }
   }
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'es'))
@@ -32,7 +36,7 @@ function aggregateItems(orders: Order[]): PickItem[] {
 
 // ── Hoja de surtido (picking) ─────────────────────────────────────────────
 
-function SurtidoView({ orders }: { orders: Order[] }) {
+function SurtidoView({ orders, brandColor }: { orders: Order[]; brandColor: string }) {
   const pickItems = aggregateItems(orders)
   const totalUnits = pickItems.reduce((s, p) => s + p.totalQty, 0)
   const printDate = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -40,10 +44,10 @@ function SurtidoView({ orders }: { orders: Order[] }) {
   return (
     <div className="max-w-[680px] mx-auto px-6 py-6">
       {/* Header */}
-      <div className="flex items-end justify-between mb-5 pb-4 border-b-2 border-gray-900">
+      <div className="flex items-end justify-between mb-5 pb-4 border-b-2" style={{ borderColor: brandColor }}>
         <div>
-          <h1 className="text-2xl font-black tracking-tight leading-none">
-            nu<span style={{ color: '#00E5CC' }}>rei</span>
+          <h1 className="text-2xl font-black tracking-tight leading-none" style={{ color: brandColor }}>
+            nurei
           </h1>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 mt-1">
             Hoja de surtido
@@ -63,7 +67,7 @@ function SurtidoView({ orders }: { orders: Order[] }) {
       {/* Picking table */}
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b-2 border-gray-900">
+          <tr className="border-b-2" style={{ borderColor: brandColor }}>
             <th className="py-2 pr-3 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 w-8">✓</th>
             <th className="py-2 pr-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500">Producto</th>
             <th className="py-2 pr-3 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 w-24">SKU</th>
@@ -84,9 +88,9 @@ function SurtidoView({ orders }: { orders: Order[] }) {
                   </p>
                 )}
               </td>
-              <td className="py-3 pr-3 font-mono text-[11px] text-gray-500">{item.sku || '—'}</td>
+              <td className="py-3 pr-3 font-mono text-[11px] text-gray-700">{item.sku || '—'}</td>
               <td className="py-3 text-center">
-                <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gray-900 text-white text-base font-black">
+                <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white text-base font-black" style={{ backgroundColor: brandColor }}>
                   {item.totalQty}
                 </span>
               </td>
@@ -94,10 +98,10 @@ function SurtidoView({ orders }: { orders: Order[] }) {
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-gray-900">
+          <tr className="border-t-2" style={{ borderColor: brandColor }}>
             <td colSpan={3} className="py-2.5 text-xs font-bold text-gray-700 text-right pr-3">TOTAL UNIDADES</td>
             <td className="py-2.5 text-center">
-              <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gray-900 text-white text-base font-black">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white text-base font-black" style={{ backgroundColor: brandColor }}>
                 {totalUnits}
               </span>
             </td>
@@ -124,7 +128,7 @@ function SurtidoView({ orders }: { orders: Order[] }) {
 
 // ── Ticket de venta ───────────────────────────────────────────────────────
 
-function TicketView({ orders }: { orders: Order[] }) {
+function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: string }) {
   return (
     <div className="max-w-[680px] mx-auto px-6 py-6 space-y-8">
       {orders.map((order) => {
@@ -132,18 +136,18 @@ function TicketView({ orders }: { orders: Order[] }) {
         return (
           <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
             {/* Ticket header */}
-            <div className="bg-amber-400 text-amber-950 px-5 py-4">
+            <div className="px-5 py-4 text-white" style={{ backgroundColor: brandColor }}>
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-2xl font-black tracking-tight leading-none">
-                    nu<span style={{ color: '#78350f' }}>rei</span>
+                  <h1 className="text-2xl font-black tracking-tight leading-none text-white">
+                    nurei
                   </h1>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-amber-900/60 mt-0.5">Comprobante de venta</p>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-white/60 mt-0.5">Comprobante de venta</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-black font-mono text-amber-900">{order.short_id}</p>
-                  <p className="text-[11px] text-amber-800/80 mt-0.5">{formatDate(order.created_at)}</p>
-                  <p className="text-[10px] text-amber-800/70 mt-0.5 uppercase tracking-wider">
+                  <p className="text-lg font-black font-mono text-white">{order.short_id}</p>
+                  <p className="text-[11px] text-white/80 mt-0.5">{formatDate(order.created_at)}</p>
+                  <p className="text-[10px] text-white/70 mt-0.5 uppercase tracking-wider">
                     {ORDER_STATUS_MAP[order.status as OrderStatus]?.label ?? order.status}
                   </p>
                 </div>
@@ -239,6 +243,17 @@ function PrintContent() {
   const type = (searchParams.get('type') ?? 'surtido') as 'surtido' | 'ticket'
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [brandColor, setBrandColor] = useState('#111827')
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.json())
+      .then(json => {
+        const color = json.data?.appearance?.primary_color as string | undefined
+        if (color) setBrandColor(color)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (ids.length === 0) { setLoading(false); return }
@@ -251,7 +266,6 @@ function PrintContent() {
     ).then((results) => {
       setOrders(results.filter(Boolean) as Order[])
       setLoading(false)
-      setTimeout(() => window.print(), 600)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -312,9 +326,9 @@ function PrintContent() {
         </div>
 
         {type === 'ticket' ? (
-          <TicketView orders={orders} />
+          <TicketView orders={orders} brandColor={brandColor} />
         ) : (
-          <SurtidoView orders={orders} />
+          <SurtidoView orders={orders} brandColor={brandColor} />
         )}
       </div>
     </>

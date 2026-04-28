@@ -213,26 +213,23 @@ export function AdminNotificationBell() {
         (i) => !currentRead.has(i.id) && !prevItemIdsRef.current.has(i.id)
       )
 
-      // Subset crítico para popups (mantenemos comportamiento de popups solo críticos)
+      // Solo pedidos nuevos generan popup; stock alerts solo badge
       const newCritical = newAll.filter(
-        (i) => i.priority === 'alta' || i.type === 'stock_agotado' || i.type === 'nuevo_pedido'
+        (i) => i.type === 'nuevo_pedido'
       )
 
-      // Play sound for every new notification (skip on first load to avoid backlog noise)
-      if (newAll.length > 0 && !isFirstLoad) {
-        const hasNewOrder = newAll.some((i) => i.type === 'nuevo_pedido')
-        console.log('[sound] new notifications', { count: newAll.length, hasNewOrder, sound_enabled: prefs.sound_enabled })
+      // Solo pedidos nuevos disparan sonido, titulo y browser notification
+      const newOrders = newAll.filter((i) => i.type === 'nuevo_pedido')
+      if (newOrders.length > 0 && !isFirstLoad) {
         let soundPlayed = false
         if (prefs.sound_enabled) {
           soundPlayed = playNotificationAudio()
         }
-        if (!soundPlayed && hasNewOrder) {
+        if (!soundPlayed) {
           setTitleAttention(true)
         }
-        if (hasNewOrder) {
-          const firstOrder = newAll.find((i) => i.type === 'nuevo_pedido')
-          if (firstOrder) notifyBrowserNewOrder(firstOrder)
-        }
+        const firstOrder = newOrders[0]
+        if (firstOrder) notifyBrowserNewOrder(firstOrder)
       }
 
       if (newCritical.length > 0 && !open) {
@@ -276,12 +273,20 @@ export function AdminNotificationBell() {
     const hasUnreadOrder = items.some(
       (item) => item.type === 'nuevo_pedido' && !readIds.has(item.id) && !deletedIds.has(item.id)
     )
-    if (!hasUnreadOrder || open) {
+    // Clear title attention when all new-order notifications are read or deleted
+    if (!hasUnreadOrder) {
       setTitleAttention(false)
     } else {
       setTitleAttention(true)
     }
   }, [deletedIds, items, open, readIds])
+
+  // Clear title attention when panel is opened (user is attending notifications)
+  useEffect(() => {
+    if (open) {
+      setTitleAttention(false)
+    }
+  }, [open])
 
   useEffect(() => {
     if (typeof document === 'undefined') return

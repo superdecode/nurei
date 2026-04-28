@@ -479,12 +479,7 @@ export default function AdminAffiliatesPage() {
                       )}>
                         {a.is_active ? 'Activo' : 'Inactivo'}
                       </span>
-                      {!a.has_payment_info && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-600">
-                          <CreditCard className="w-2.5 h-2.5 inline mr-0.5" />
-                          Sin pago
-                        </span>
-                      )}
+
                     </div>
                   </TableCell>
 

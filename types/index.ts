@@ -99,8 +99,11 @@ export interface CommissionPayment {
   period_to: string
   attribution_ids: string[]
   notes: string | null
+  payment_type: string | null
+  reference_number: string | null
   paid_by: string | null
   paid_at: string
+  orders?: Array<{ short_id: string; total: number; customer_name: string | null }>
 }
 
 export interface AffiliateWithStats extends AffiliateProfile {

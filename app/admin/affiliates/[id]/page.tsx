@@ -7,7 +7,8 @@ import {
   Save, ArrowLeft, Copy, Check, ExternalLink, TrendingUp, ShoppingBag,
   DollarSign, Wallet, MousePointer2, BarChart2, CreditCard, Edit3,
   ChevronLeft, ChevronRight, X, Clock, RefreshCcw, Tag, Link2, Users,
-  AlertCircle, Percent, Mail, Phone,
+  AlertCircle, Percent, Mail, Phone, Banknote, CheckSquare, Square,
+  FileText, CalendarDays, Receipt,
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -64,6 +65,30 @@ interface DetailData {
   attributions: Attribution[]
   kpis: AffiliateKpis
   chartData: ChartPoint[]
+}
+
+interface PendingOrder {
+  attribution_id: string
+  order_id: string
+  short_id: string
+  customer_name: string | null
+  order_total: number
+  order_date: string
+  commission_pct: number
+  commission_amount_cents: number
+}
+
+interface PaymentRecord {
+  id: string
+  amount_cents: number
+  payment_type: string
+  reference_number: string | null
+  notes: string | null
+  paid_at: string
+  attribution_ids: string[]
+  period_from: string
+  period_to: string
+  orders: Array<{ short_id: string; total: number; customer_name: string | null }>
 }
 
 // ── Skeleton ─────────────────────────────────────────────────────────────
@@ -200,6 +225,23 @@ export default function AdminAffiliateDetailPage() {
   // Store domain
   const [storeDomain, setStoreDomain] = useState('')
 
+  // Payment modal
+  const [payModalOpen, setPayModalOpen] = useState(false)
+  const [payStep, setPayStep] = useState<1 | 2>(1)
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([])
+  const [selectedAttrIds, setSelectedAttrIds] = useState<Set<string>>(new Set())
+  const [payType, setPayType] = useState<'efectivo' | 'transferencia' | 'otro'>('transferencia')
+  const [payRef, setPayRef] = useState('')
+  const [payNotes, setPayNotes] = useState('')
+  const [paySubmitting, setPaySubmitting] = useState(false)
+  const [paySearch, setPaySearch] = useState('')
+
+  // Payments tab
+  const [activeTab, setActiveTab] = useState<'ventas' | 'pagos'>('ventas')
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [paymentsLoading, setPaymentsLoading] = useState(false)
+  const [payDetailModal, setPayDetailModal] = useState<PaymentRecord | null>(null)
+
   const fetchData = useCallback(async (from?: string, to?: string) => {
     setLoading(true)
     const params = new URLSearchParams()
@@ -318,6 +360,68 @@ export default function AdminAffiliateDetailPage() {
     setSavingSlug(false)
   }
 
+  const openPayModal = async () => {
+    setPayModalOpen(true)
+    setPayStep(1)
+    setSelectedAttrIds(new Set())
+    setPayType('transferencia')
+    setPayRef('')
+    setPayNotes('')
+    setPaySearch('')
+    const res = await fetch(`/api/admin/affiliates/${id}/pending-orders`)
+    const json = await res.json() as { data?: PendingOrder[] }
+    if (json.data) setPendingOrders(json.data)
+    else setPendingOrders([])
+  }
+
+  const fetchPayments = useCallback(async () => {
+    setPaymentsLoading(true)
+    const res = await fetch(`/api/admin/affiliates/${id}/payments?limit=50`)
+    const json = await res.json() as { data?: PaymentRecord[] }
+    setPayments(json.data ?? [])
+    setPaymentsLoading(false)
+  }, [id])
+
+  useEffect(() => {
+    if (activeTab === 'pagos') void fetchPayments()
+  }, [activeTab, fetchPayments])
+
+  const handleRegisterPayment = async () => {
+    if (selectedAttrIds.size === 0) return
+    setPaySubmitting(true)
+    const res = await fetch(`/api/admin/affiliates/${id}/payments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attribution_ids: Array.from(selectedAttrIds),
+        payment_type: payType,
+        reference_number: payRef || undefined,
+        notes: payNotes || undefined,
+      }),
+    })
+    if (res.ok) {
+      toast.success('Pago registrado correctamente')
+      setPayModalOpen(false)
+      void fetchData()
+      if (activeTab === 'pagos') void fetchPayments()
+    } else {
+      const json = await res.json() as { error?: string }
+      toast.error(json.error ?? 'Error al registrar pago')
+    }
+    setPaySubmitting(false)
+  }
+
+  const filteredPending = paySearch
+    ? pendingOrders.filter((o) =>
+        o.short_id.toLowerCase().includes(paySearch.toLowerCase()) ||
+        (o.customer_name ?? '').toLowerCase().includes(paySearch.toLowerCase())
+      )
+    : pendingOrders
+
+  const selectedTotal = pendingOrders
+    .filter((o) => selectedAttrIds.has(o.attribution_id))
+    .reduce((s, o) => s + o.commission_amount_cents, 0)
+
   if (loading) return <DetailSkeleton />
   if (!data) return (
     <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -392,6 +496,16 @@ export default function AdminAffiliateDetailPage() {
             + Crear cupón
           </Button>
         </Link>
+        {kpis.pendingCommission > 0 && (
+          <Button
+            size="sm"
+            className="h-8 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hidden sm:flex"
+            onClick={openPayModal}
+          >
+            <Banknote className="w-3.5 h-3.5 mr-1.5" />
+            Registrar pago
+          </Button>
+        )}
       </div>
 
       {/* ── Información de contacto (una tarjeta, tres secciones) ── */}
@@ -659,110 +773,211 @@ export default function AdminAffiliateDetailPage() {
         )}
       </div>
 
-      {/* ── Attributions table ── */}
+      {/* ── Tabs: Ventas / Pagos ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Ventas y comisiones
-            {attrTotal > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
-                {attrTotal}
-              </span>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
+          <div className="flex items-center gap-1">
+            {(['ventas', 'pagos'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'h-8 px-4 rounded-full text-xs font-bold transition-colors',
+                  activeTab === tab
+                    ? 'bg-primary-dark text-white'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                )}
+              >
+                {tab === 'ventas' ? 'Ventas' : 'Pagos'}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {kpis.pendingCommission > 0 && (
+              <Button
+                size="sm"
+                className="h-7 rounded-full text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white sm:flex"
+                onClick={openPayModal}
+              >
+                <Banknote className="w-3 h-3 mr-1" />
+                Registrar pago
+              </Button>
             )}
-          </h3>
-          <Button variant="outline" size="sm" onClick={() => void fetchData()} className="h-7 w-7 rounded-full p-0">
-            <RefreshCcw className="w-3.5 h-3.5" />
-          </Button>
+            <Button variant="outline" size="sm" onClick={() => void fetchData()} className="h-7 w-7 rounded-full p-0">
+              <RefreshCcw className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </div>
 
-        {attrTotal === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <ShoppingBag className="w-8 h-8 text-gray-200" />
-            <p className="text-sm text-gray-400 font-medium">Sin ventas atribuidas aún</p>
-          </div>
-        ) : (
+        {/* ── Ventas tab ── */}
+        {activeTab === 'ventas' && (
           <>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/50">
-                    {['Fecha', 'Pedido', 'Cliente', 'Subtotal', 'Atribución', 'Comisión %', 'Comisión $', 'Estado'].map((h) => (
-                      <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attrSlice.map((a) => (
-                    <TableRow key={a.id} className="hover:bg-gray-50/30">
-                      <TableCell className="text-xs text-gray-500 whitespace-nowrap">
-                        {new Date(a.created_at).toLocaleDateString('es-MX')}
-                      </TableCell>
-                      <TableCell>
-                        {a.orders?.short_id ? (
-                          <Link href={`/admin/pedidos?id=${a.order_id}`} className="font-mono text-xs font-bold text-primary-dark hover:underline">
-                            #{a.orders.short_id}
-                          </Link>
-                        ) : (
-                          <span className="font-mono text-xs text-gray-400">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-gray-600 max-w-[140px] truncate">
-                        {a.orders?.customer_name ?? a.orders?.customer_email ?? '—'}
-                      </TableCell>
-                      <TableCell className="text-xs font-medium text-gray-700 whitespace-nowrap">
-                        {a.orders?.total ? formatPrice(a.orders.total) : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {a.attribution_type === 'coupon' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
-                            <Tag className="w-2.5 h-2.5" />
-                            Cupón
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
-                            <Link2 className="w-2.5 h-2.5" />
-                            Referido
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-gray-600">{a.commission_pct}%</TableCell>
-                      <TableCell className="text-xs font-bold text-primary-dark whitespace-nowrap">
-                        {formatPrice(a.commission_amount_cents)}
-                      </TableCell>
-                      <TableCell>
-                        <span className={cn(
-                          'px-2 py-0.5 text-[10px] font-bold rounded-full',
-                          a.payout_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                        )}>
-                          {a.payout_status === 'paid' ? 'Pagado' : 'Pendiente'}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Ventas y comisiones
+                {attrTotal > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
+                    {attrTotal}
+                  </span>
+                )}
+              </p>
             </div>
-
-            {/* Pagination */}
-            {attrPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50">
-                <p className="text-xs text-gray-400">
-                  {attrStart + 1}–{Math.min(attrStart + ATTRS_PAGE_SIZE, attrTotal)} de {attrTotal}
-                </p>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
-                    disabled={attrPage === 1} onClick={() => setAttrPage((p) => p - 1)}
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
-                    disabled={attrPage >= attrPages} onClick={() => setAttrPage((p) => p + 1)}
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Button>
+            {attrTotal === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <ShoppingBag className="w-8 h-8 text-gray-200" />
+                <p className="text-sm text-gray-400 font-medium">Sin ventas atribuidas aún</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50/50">
+                        {['Fecha', 'Pedido', 'Cliente', 'Subtotal', 'Atribución', 'Comisión %', 'Comisión $', 'Estado'].map((h) => (
+                          <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {attrSlice.map((a) => (
+                        <TableRow key={a.id} className="hover:bg-gray-50/30">
+                          <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                            {new Date(a.created_at).toLocaleDateString('es-MX')}
+                          </TableCell>
+                          <TableCell>
+                            {a.orders?.short_id ? (
+                              <Link href={`/admin/pedidos?id=${a.order_id}`} className="font-mono text-xs font-bold text-primary-dark hover:underline">
+                                #{a.orders.short_id}
+                              </Link>
+                            ) : (
+                              <span className="font-mono text-xs text-gray-400">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-gray-600 max-w-[140px] truncate">
+                            {a.orders?.customer_name ?? a.orders?.customer_email ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                            {a.orders?.total ? formatPrice(a.orders.total) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {a.attribution_type === 'coupon' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700">
+                                <Tag className="w-2.5 h-2.5" />
+                                Cupón
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">
+                                <Link2 className="w-2.5 h-2.5" />
+                                Referido
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-gray-600">{a.commission_pct}%</TableCell>
+                          <TableCell className="text-xs font-bold text-primary-dark whitespace-nowrap">
+                            {formatPrice(a.commission_amount_cents)}
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              'px-2 py-0.5 text-[10px] font-bold rounded-full',
+                              a.payout_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            )}>
+                              {a.payout_status === 'paid' ? 'Pagado' : 'Pendiente'}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
+                {attrPages > 1 && (
+                  <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50">
+                    <p className="text-xs text-gray-400">
+                      {attrStart + 1}–{Math.min(attrStart + ATTRS_PAGE_SIZE, attrTotal)} de {attrTotal}
+                    </p>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
+                        disabled={attrPage === 1} onClick={() => setAttrPage((p) => p - 1)}
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline" size="sm" className="h-7 w-7 p-0 rounded-full"
+                        disabled={attrPage >= attrPages} onClick={() => setAttrPage((p) => p + 1)}
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── Pagos tab ── */}
+        {activeTab === 'pagos' && (
+          <>
+            {paymentsLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-6 h-6 border-2 border-gray-200 border-t-primary-cyan rounded-full animate-spin" />
+              </div>
+            ) : payments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Receipt className="w-8 h-8 text-gray-200" />
+                <p className="text-sm text-gray-400 font-medium">Sin pagos registrados</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/50">
+                      {['Fecha', 'Órdenes', 'Monto', 'Tipo', 'Referencia', 'Nota', ''].map((h) => (
+                        <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((p) => (
+                      <TableRow key={p.id} className="hover:bg-gray-50/30">
+                        <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                          {new Date(p.paid_at).toLocaleDateString('es-MX')}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div className="flex flex-wrap gap-1">
+                            {p.orders.map((o, i) => (
+                              <span key={i} className="font-mono text-[10px] font-bold text-primary-dark">
+                                #{o.short_id}{i < p.orders.length - 1 ? ',' : ''}
+                              </span>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-bold text-emerald-700 whitespace-nowrap">
+                          {formatPrice(p.amount_cents)}
+                        </TableCell>
+                        <TableCell className="text-xs text-gray-600 capitalize">
+                          {p.payment_type}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-gray-600 max-w-[120px] truncate">
+                          {p.reference_number ?? '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-gray-400 max-w-[140px] truncate">
+                          {p.notes ?? '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-6 px-2 text-[10px] rounded-full"
+                            onClick={() => setPayDetailModal(p)}
+                          >
+                            Ver más
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </>
@@ -890,6 +1105,251 @@ export default function AdminAffiliateDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ── Register payment modal ── */}
+      {payModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setPayModalOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <Banknote className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Registrar pago de comisión</h3>
+                  <p className="text-[10px] text-gray-400">Paso {payStep} de 2</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setPayModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {payStep === 1 ? (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="px-5 pt-4 pb-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      Órdenes pendientes ({filteredPending.length})
+                    </p>
+                    {filteredPending.length > 0 && (
+                      <button
+                        type="button"
+                        className="text-[10px] font-semibold text-primary-cyan hover:underline"
+                        onClick={() => {
+                          if (selectedAttrIds.size === filteredPending.length) {
+                            setSelectedAttrIds(new Set())
+                          } else {
+                            setSelectedAttrIds(new Set(filteredPending.map((o) => o.attribution_id)))
+                          }
+                        }}
+                      >
+                        {selectedAttrIds.size === filteredPending.length ? 'Deseleccionar todas' : 'Seleccionar todas'}
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    value={paySearch}
+                    onChange={(e) => setPaySearch(e.target.value)}
+                    placeholder="Buscar orden o cliente..."
+                    className="h-8 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="flex-1 overflow-y-auto px-5 pb-2">
+                  {filteredPending.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2">
+                      <ShoppingBag className="w-6 h-6 text-gray-200" />
+                      <p className="text-xs text-gray-400">Sin órdenes pendientes de pago</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredPending.map((o) => {
+                        const checked = selectedAttrIds.has(o.attribution_id)
+                        return (
+                          <button
+                            key={o.attribution_id}
+                            type="button"
+                            className={cn(
+                              'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors',
+                              checked ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50 border border-transparent hover:bg-gray-100'
+                            )}
+                            onClick={() => {
+                              setSelectedAttrIds((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(o.attribution_id)) next.delete(o.attribution_id)
+                                else next.add(o.attribution_id)
+                                return next
+                              })
+                            }}
+                          >
+                            {checked
+                              ? <CheckSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                              : <Square className="w-4 h-4 text-gray-300 shrink-0" />
+                            }
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono text-xs font-bold text-primary-dark">#{o.short_id}</span>
+                                <span className="text-xs font-bold text-emerald-700">{formatPrice(o.commission_amount_cents)}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="text-[10px] text-gray-400 truncate">{o.customer_name ?? 'Sin nombre'}</span>
+                                <span className="text-[10px] text-gray-400">{o.commission_pct}%</span>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-500">
+                    Total seleccionado: <span className="text-emerald-700">{formatPrice(selectedTotal)}</span>
+                    <span className="text-gray-400 ml-1">({selectedAttrIds.size} órdenes)</span>
+                  </p>
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-full text-xs font-semibold"
+                    disabled={selectedAttrIds.size === 0}
+                    onClick={() => setPayStep(2)}
+                  >
+                    Continuar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-5 py-4 space-y-4">
+                <div className="bg-emerald-50 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-emerald-700">
+                    {selectedAttrIds.size} órdenes — Total: {formatPrice(selectedTotal)}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">Tipo de pago</label>
+                  <div className="flex gap-2">
+                    {(['transferencia', 'efectivo', 'otro'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={cn(
+                          'flex-1 h-9 rounded-xl text-xs font-semibold border transition-colors capitalize',
+                          payType === t
+                            ? 'border-primary-dark bg-primary-dark text-white'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                        )}
+                        onClick={() => setPayType(t)}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                    Número de referencia / comprobante
+                  </label>
+                  <Input
+                    value={payRef}
+                    onChange={(e) => setPayRef(e.target.value)}
+                    placeholder="ej. SPEI-123456789"
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">Nota opcional</label>
+                  <textarea
+                    value={payNotes}
+                    onChange={(e) => setPayNotes(e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary-cyan/30 resize-none"
+                    rows={2}
+                    placeholder="Información adicional..."
+                  />
+                </div>
+                <div className="flex justify-between pt-2">
+                  <Button variant="outline" size="sm" className="h-8 rounded-full text-xs" onClick={() => setPayStep(1)}>
+                    Atrás
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={paySubmitting}
+                    onClick={handleRegisterPayment}
+                  >
+                    {paySubmitting ? 'Registrando...' : 'Confirmar pago'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Payment detail modal ── */}
+      {payDetailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setPayDetailModal(null)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">Detalle del pago</h3>
+              <button type="button" onClick={() => setPayDetailModal(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Monto</span>
+                <span className="text-lg font-black text-emerald-700">{formatPrice(payDetailModal.amount_cents)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tipo</span>
+                <span className="text-xs font-semibold capitalize text-gray-700">{payDetailModal.payment_type}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Referencia</span>
+                <span className="text-xs font-mono text-gray-700">{payDetailModal.reference_number ?? '—'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Fecha</span>
+                <span className="text-xs text-gray-700">{new Date(payDetailModal.paid_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Período</span>
+                <span className="text-xs text-gray-700">
+                  {new Date(payDetailModal.period_from).toLocaleDateString('es-MX')} — {new Date(payDetailModal.period_to).toLocaleDateString('es-MX')}
+                </span>
+              </div>
+              {payDetailModal.notes && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">Nota</span>
+                  <p className="text-xs text-gray-700">{payDetailModal.notes}</p>
+                </div>
+              )}
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-2">Órdenes incluidas</span>
+                <div className="space-y-1">
+                  {payDetailModal.orders.map((o, i) => (
+                    <div key={i} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5">
+                      <span className="font-mono text-xs font-bold text-primary-dark">#{o.short_id}</span>
+                      <span className="text-xs text-gray-600">{o.customer_name ?? '—'}</span>
+                      <span className="text-xs font-semibold text-gray-700">{formatPrice(o.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-5">
+              <Button variant="outline" size="sm" className="w-full h-8 rounded-full text-xs" onClick={() => setPayDetailModal(null)}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

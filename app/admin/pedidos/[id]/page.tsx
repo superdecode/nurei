@@ -142,6 +142,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => { fetchOrder() }, [fetchOrder])
 
+  const playSuccessSound = () => {
+    const el = document.getElementById('nurei-success-sound') as HTMLAudioElement | null
+    if (!el) return
+    el.currentTime = 0
+    el.play().catch(() => {})
+  }
+
   const confirmOrder = async (nextStatus: OrderStatus) => {
     if (!order) return
     setConfirmLoading(true)
@@ -154,6 +161,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       const json = await res.json() as { error?: string; data?: { order: Order } }
       if (!res.ok) { toast.error(json.error ?? 'Error'); return }
       toast.success(`Pedido actualizado: ${sMeta(nextStatus).label}`)
+      playSuccessSound()
       if (json.data?.order) setOrder(json.data.order)
     } catch { toast.error('Error') }
     finally { setConfirmLoading(false) }
@@ -301,34 +309,55 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto sm:shrink-0">
-            <a href={`/admin/pedidos/print?ids=${order.id}`} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-              <Printer className="h-4 w-4" /> Imprimir
-            </a>
-
-            {nextStatus && (
-              <button
-                type="button"
-                onClick={() => { void confirmOrder(nextStatus) }}
-                disabled={confirmLoading}
-                className="inline-flex items-center gap-1.5 h-9 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white hover:bg-primary-dark/90 transition disabled:opacity-60"
-              >
-                {confirmLoading
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <>{sIcon(nextStatus)} Confirmar pedido</>
+            <button
+              type="button"
+              onClick={() => {
+                const iframe = document.createElement('iframe')
+                iframe.style.position = 'fixed'
+                iframe.style.right = '0'
+                iframe.style.bottom = '0'
+                iframe.style.width = '0'
+                iframe.style.height = '0'
+                iframe.style.border = 'none'
+                iframe.src = `/admin/pedidos/print?ids=${order.id}`
+                iframe.onload = () => {
+                  setTimeout(() => {
+                    try { iframe.contentWindow?.print() } catch {}
+                    setTimeout(() => iframe.remove(), 1000)
+                  }, 800)
                 }
-              </button>
-            )}
+                document.body.appendChild(iframe)
+              }}
+              className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            >
+              <Printer className="h-4 w-4" /> Imprimir
+            </button>
 
-            {canCancel && (
-              <button
-                type="button"
-                onClick={() => { setCancelReason(''); setCancelOpen(true) }}
-                className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition"
-              >
-                <Ban className="h-4 w-4" /> Cancelar
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {nextStatus && (
+                <button
+                  type="button"
+                  onClick={() => { void confirmOrder(nextStatus) }}
+                  disabled={confirmLoading}
+                  className="inline-flex items-center gap-1.5 h-9 rounded-xl bg-primary-dark px-4 text-sm font-semibold text-white hover:bg-primary-dark/90 transition disabled:opacity-60"
+                >
+                  {confirmLoading
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <>{sIcon(nextStatus)} Confirmar pedido</>
+                  }
+                </button>
+              )}
+
+              {canCancel && (
+                <button
+                  type="button"
+                  onClick={() => { setCancelReason(''); setCancelOpen(true) }}
+                  className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+                >
+                  <Ban className="h-4 w-4" /> Cancelar
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

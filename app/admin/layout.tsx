@@ -385,6 +385,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           The bell component calls unlockNotificationAudio() on first click, then play() on demand. */}
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio id="nurei-notification-sound" src="/sounds/notification.wav" preload="auto" />
+      <audio id="nurei-success-sound" src="/sounds/success.wav" preload="auto" />
 
       <main
         className="pt-14 min-h-screen transition-[margin] duration-300"

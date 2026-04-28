@@ -11,10 +11,30 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('commission_payments')
-    .select('id, affiliate_id, amount_cents, period_from, period_to, attribution_ids, notes, paid_at')
+    .select('id, affiliate_id, amount_cents, period_from, period_to, attribution_ids, notes, payment_type, reference_number, paid_at')
     .eq('affiliate_id', affiliateId)
     .order('paid_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: 'Error al obtener pagos' }, { status: 500 })
-  return NextResponse.json({ data: data ?? [] })
+
+  const enriched = await Promise.all(
+    (data ?? []).map(async (p) => {
+      let orders: Array<{ short_id: string; total: number; customer_name: string | null }> = []
+      if (p.attribution_ids && p.attribution_ids.length > 0) {
+        const { data: attrs } = await supabase
+          .from('affiliate_attributions')
+          .select('order_id, orders(short_id, total, customer_name)')
+          .in('id', p.attribution_ids)
+        if (attrs) {
+          orders = attrs.map((a) => {
+            const o = a.orders as Record<string, unknown> | null
+            return { short_id: o?.short_id ?? '', total: o?.total ?? 0, customer_name: o?.customer_name ?? null }
+          })
+        }
+      }
+      return { ...p, orders }
+    })
+  )
+
+  return NextResponse.json({ data: enriched })
 }
