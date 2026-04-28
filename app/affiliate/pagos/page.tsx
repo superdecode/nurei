@@ -13,15 +13,26 @@ function Skeleton({ className }: { className?: string }) {
 export default function AffiliatePagosPage() {
   const [payments, setPayments] = useState<CommissionPayment[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [detailPayment, setDetailPayment] = useState<CommissionPayment | null>(null)
   const [exporting, setExporting] = useState(false)
 
   const fetchPayments = useCallback(async () => {
     setLoading(true)
-    fetch('/api/affiliate/payouts')
-      .then((r) => r.json())
-      .then(({ data }) => setPayments(data ?? []))
-      .finally(() => setLoading(false))
+    setError(null)
+    try {
+      const res = await fetch('/api/affiliate/payouts')
+      const json = await res.json()
+      if (!res.ok) {
+        throw new Error(json.error || 'Error al cargar pagos')
+      }
+      setPayments(json.data ?? [])
+    } catch (err) {
+      console.error('[pagos page] Error loading payments:', err)
+      setError(err instanceof Error ? err.message : 'Error al cargar pagos')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { void fetchPayments() }, [fetchPayments])
@@ -236,20 +247,19 @@ export default function AffiliatePagosPage() {
                         <span className="text-xs font-semibold text-gray-700">{formatPrice(o.total)}</span>
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="px-5 pb-5">
-              <button
-                type="button"
-                onClick={() => setDetailPayment(null)}
-                className="w-full h-9 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-center">
+          <p className="text-sm text-red-700">{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setError(null); void fetchPayments(); }}
+            className="mt-3"
+          >
+            Reintentar
+          </Button>
         </div>
       )}
     </div>
