@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   // Get updated profile data
   const { data: profile, error: profileErr } = await supabase
     .from('affiliate_profiles')
-    .select('id, handle, user_id, email, created_at')
+    .select('id, handle, user_id, email, created_at, bank_holder, bank_clabe, bank_name')
     .eq('id', affiliateId)
     .single()
 

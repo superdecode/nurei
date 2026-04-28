@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 
   const rows = (attributions ?? []).map((a) => {
-    const order = a.orders as Record<string, unknown> | null
+    const order = a.orders as unknown as Record<string, unknown> | null
     return {
       attribution_id: a.id,
       order_id: a.order_id,
