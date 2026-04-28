@@ -184,6 +184,7 @@ export function AdminNotificationBell() {
   const titleBlinkRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const baseTitleRef = useRef<string | null>(null)
   const prevItemIdsRef = useRef<Set<string>>(new Set())
+  const initialLoadDoneRef = useRef(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
   const [titleAttention, setTitleAttention] = useState(false)
@@ -286,7 +287,10 @@ export function AdminNotificationBell() {
       const next: NotificationItem[] = json.data?.items ?? []
       setItems(next)
 
-      const isFirstLoad = prevItemIdsRef.current.size === 0
+      // isFirstLoad tracks whether the initial fetch has completed, not whether there are items.
+      // Using prevItemIdsRef.current.size === 0 was wrong: an empty inbox would keep isFirstLoad
+      // true forever, suppressing sound for every subsequent real notification.
+      const isFirstLoad = !initialLoadDoneRef.current
       const currentRead = getReadIds()
 
       // Toda notificación nueva (no vista antes en esta sesión y no leída)
@@ -340,6 +344,7 @@ export function AdminNotificationBell() {
       }
 
       prevItemIdsRef.current = new Set(next.map((n) => n.id))
+      initialLoadDoneRef.current = true
     } catch {
       /* ignore */
     }

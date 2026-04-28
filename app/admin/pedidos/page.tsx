@@ -84,7 +84,7 @@ const ALL_STATUSES: OrderStatus[] = [
 const STATUS_TABS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'all', label: 'Todos' },
   { key: 'pending_payment', label: 'Pendiente de pago' },
-  { key: 'paid', label: 'Pendiente de pago' },
+  { key: 'paid', label: 'Pendiente' },
   { key: 'preparing', label: 'Procesando' },
   { key: 'shipped', label: 'En camino' },
   { key: 'delivered', label: 'Entregado' },
