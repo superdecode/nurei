@@ -161,6 +161,17 @@ export async function POST(request: NextRequest) {
       }
 
       const couponCode = await markOrderAsPaid(method)
+
+      const rawCookie = request.headers.get('cookie') ?? ''
+      const hasReferralCookie = rawCookie.includes('_nurei_ref')
+      console.log('[payment] pre-attribution debug', {
+        orderId,
+        cookiePresent: Boolean(rawCookie),
+        cookieHasReferral: hasReferralCookie,
+        cookieLen: rawCookie.length,
+        cookiePreview: hasReferralCookie ? rawCookie.slice(rawCookie.indexOf('_nurei_ref'), rawCookie.indexOf('_nurei_ref') + 30) : null,
+      })
+
       const attribResult = await executeAffiliateAttribution({
         orderId,
         couponCode,

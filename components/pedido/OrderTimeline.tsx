@@ -145,7 +145,7 @@ export function OrderTimeline({ currentStatus, createdAt }: OrderTimelineProps) 
                   ? new Date(createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
                   : isCurrent
                     ? 'Ahora'
-                    : 'Pendiente'}
+                    : 'Pendiente de pago'}
               </motion.p>
             </motion.div>
           </div>

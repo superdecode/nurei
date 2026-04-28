@@ -266,7 +266,7 @@ export default function AdminDashboard() {
                   <span className="text-gray-400">{order.phone}</span>
                   <span className="flex-1" />
                   <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[order.status] || 'bg-gray-100')}>
-                    {order.status === 'pending' ? 'Pendiente' : order.status === 'confirmed' ? 'Confirmado' : 'En camino'}
+                    {order.status === 'pending' ? 'Pendiente de pago' : order.status === 'confirmed' ? 'Confirmado' : 'En camino'}
                   </span>
                   <span className="font-medium">${(order.total / 100).toLocaleString('es-MX')}</span>
                 </div>

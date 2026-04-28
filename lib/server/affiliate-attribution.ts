@@ -21,11 +21,18 @@ export type AttributionExecResult = {
 
 export async function executeAffiliateAttribution(input: AttributionExecInput): Promise<AttributionExecResult> {
   const { orderId, couponCode, cookieHeader } = input
-  console.log('[attribution] start', {
+  const referralLinkId = getReferralLinkIdFromHeader(cookieHeader ?? null)
+
+  console.log('[attribution] === START ===', {
     orderId,
     couponCode,
-    cookiePresent: Boolean(cookieHeader),
-    cookieLen: cookieHeader?.length ?? 0,
+    cookieHeader: cookieHeader ? `[${cookieHeader.length} chars]` : null,
+    referralLinkIdFromHeader: referralLinkId,
+    cookieRaw: cookieHeader
+      ? cookieHeader.includes('_nurei_ref')
+        ? cookieHeader.slice(cookieHeader.indexOf('_nurei_ref'), cookieHeader.indexOf('_nurei_ref') + 40)
+        : 'no _nurei_ref found'
+      : 'null/empty',
   })
   if (!orderId) return { ok: false, attributed: false, error: 'orderId requerido', status: 400 }
 
@@ -75,7 +82,6 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
 
   let cookieAffiliateId: string | null = null
   let cookieCommissionPct = 0
-  const referralLinkId = getReferralLinkIdFromHeader(cookieHeader ?? null)
 
   if (referralLinkId) {
     const { data: link } = await supabase
@@ -105,15 +111,6 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
     cookieCommissionPct,
   })
 
-  console.log('[attribution] resolved', {
-    referralLinkId,
-    cookieAffiliateId,
-    couponAffiliateId,
-    chosen: attribution?.type ?? 'none',
-    affiliateId: attribution?.affiliateId,
-    pct: attribution?.commissionPct,
-  })
-
   if (!attribution) {
     return { ok: true, attributed: false }
   }
@@ -121,6 +118,15 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
   const commissionAmountCents = calculateCommission({
     orderTotalCents,
     commissionPct: attribution.commissionPct,
+  })
+
+  console.log('[attribution] DB insert', {
+    orderId,
+    rpcFn: 'record_attribution_atomic',
+    affiliateId: attribution.affiliateId,
+    type: attribution.type,
+    commissionPct: attribution.commissionPct,
+    commissionAmountCents,
   })
 
   const { data: result, error: rpcErr } = await supabase.rpc('record_attribution_atomic', {
@@ -132,6 +138,8 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
     p_commission_pct: attribution.commissionPct,
     p_commission_cents: commissionAmountCents,
   })
+
+  console.log('[attribution] DB result', { orderId, result, rpcErr: rpcErr?.message })
 
   if (rpcErr) return { ok: false, attributed: false, error: 'Error al registrar atribución', status: 500 }
   if (result === 'order_invalid') return { ok: false, attributed: false, error: 'Orden no válida o no pagada', status: 400 }

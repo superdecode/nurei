@@ -446,7 +446,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       : order.payment_status === 'refunded' ? 'text-gray-600 bg-gray-50 border-gray-300'
                       : 'text-yellow-700 bg-yellow-50 border-yellow-300'
                   )}>
-                    {order.payment_status === 'paid' ? 'Pagado' : order.payment_status === 'refunded' ? 'Reembolsado' : 'Pendiente'}
+                    {order.payment_status === 'paid' ? 'Pagado' : order.payment_status === 'refunded' ? 'Reembolsado' : 'Pendiente de pago'}
                   </span>
                   {order.paid_at && <span className="text-[10px] text-gray-400">{formatDate(order.paid_at)}</span>}
                 </div>
