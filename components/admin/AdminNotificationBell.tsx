@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -68,86 +68,14 @@ function getIcon(type: NotificationType, priority: NotificationPriority) {
   return <Bell className="h-[18px] w-[18px] text-primary-cyan" />
 }
 
-type SoundKind = 'order' | 'generic'
-
-// Shared AudioContext — created once on first user interaction, reused thereafter.
-// Browser policy: AudioContext.resume() only works after a user gesture.
-async function ensureCtx(audioCtxRef: MutableRefObject<AudioContext | null>): Promise<AudioContext | null> {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new Ctx()
-    }
-    const ctx = audioCtxRef.current
-    if (ctx.state === 'suspended') {
-      await ctx.resume()
-    }
-    if (ctx.state !== 'running') {
-      console.warn('[sound] AudioContext not running:', ctx.state)
-      return null
-    }
-    return ctx
-  } catch (e) {
-    console.warn('[sound] ensureCtx failed:', e)
-    return null
-  }
-}
-
-function playNote(
-  ctx: AudioContext,
-  freq: number,
-  startTime: number,
-  duration: number,
-  volume = 0.22,
-  type: OscillatorType = 'sine'
-) {
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.connect(gain)
-  gain.connect(ctx.destination)
-  osc.type = type
-  osc.frequency.value = freq
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(volume, startTime + 0.015)
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
-  osc.start(startTime)
-  osc.stop(startTime + duration + 0.05)
-}
-
-// Playful arcade-style chime for new orders
-async function playNewOrderSound(audioCtxRef: MutableRefObject<AudioContext | null>) {
-  const ctx = await ensureCtx(audioCtxRef)
-  if (!ctx) return false
-  const t = ctx.currentTime
-  playNote(ctx, 783.99,  t,        0.10, 0.28, 'triangle')
-  playNote(ctx, 1046.5,  t + 0.10, 0.10, 0.30, 'triangle')
-  playNote(ctx, 1318.5,  t + 0.20, 0.10, 0.32, 'triangle')
-  playNote(ctx, 1567.98, t + 0.30, 0.18, 0.34, 'triangle')
-  playNote(ctx, 2093.0,  t + 0.45, 0.30, 0.28, 'triangle')
-  playNote(ctx, 2637.0,  t + 0.55, 0.18, 0.16, 'sine')
-  console.log('[sound] played new-order chime')
+// Play the pre-loaded <audio id="nurei-notification-sound"> element.
+// Returns true if playback started, false if blocked (not yet unlocked by user gesture).
+function playNotificationAudio(): boolean {
+  const el = document.getElementById('nurei-notification-sound') as HTMLAudioElement | null
+  if (!el) return false
+  el.currentTime = 0
+  el.play().catch((e) => console.warn('[sound] play blocked:', e))
   return true
-}
-
-// Generic notification sound (Muqui-style C major arpeggio)
-async function playGenericSound(audioCtxRef: MutableRefObject<AudioContext | null>) {
-  const ctx = await ensureCtx(audioCtxRef)
-  if (!ctx) return false
-  const t = ctx.currentTime
-  playNote(ctx, 523.25, t,        0.5,  0.22)
-  playNote(ctx, 659.25, t + 0.40, 0.5,  0.22)
-  playNote(ctx, 783.99, t + 0.80, 0.5,  0.22)
-  playNote(ctx, 659.25, t + 1.25, 0.75, 0.18)
-  console.log('[sound] played generic notification chime')
-  return true
-}
-
-async function playNotificationSound(
-  kind: SoundKind,
-  audioCtxRef: MutableRefObject<AudioContext | null>
-) {
-  if (kind === 'order') return playNewOrderSound(audioCtxRef)
-  return playGenericSound(audioCtxRef)
 }
 
 const PRIORITY_LABELS: Record<NotificationPriority, string> = {
@@ -185,41 +113,28 @@ export function AdminNotificationBell() {
   const baseTitleRef = useRef<string | null>(null)
   const prevItemIdsRef = useRef<Set<string>>(new Set())
   const initialLoadDoneRef = useRef(false)
-  const audioCtxRef = useRef<AudioContext | null>(null)
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
   const [titleAttention, setTitleAttention] = useState(false)
 
-  // Keep AudioContext alive: resume on every user gesture so it never stays suspended.
-  // AudioContext goes back to 'suspended' when the tab loses focus; without this the
-  // first resume (which needs a gesture) would block notification sounds indefinitely.
+  // Unlock the <audio> element on first user gesture so subsequent play() calls succeed.
+  // Browsers block audio.play() until the user has interacted with the page.
   useEffect(() => {
-    const keepAlive = () => {
-      try {
-        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-        if (!audioCtxRef.current) {
-          audioCtxRef.current = new Ctx()
-        }
-        if (audioCtxRef.current.state === 'suspended') {
-          void audioCtxRef.current.resume().then(() => {
-            console.log('[sound] AudioContext resumed, state:', audioCtxRef.current?.state)
-          })
-        }
-      } catch (e) {
-        console.warn('[sound] keepAlive failed:', e)
-      }
+    const unlock = () => {
+      const el = document.getElementById('nurei-notification-sound') as HTMLAudioElement | null
+      if (!el) return
+      el.play().then(() => { el.pause(); el.currentTime = 0 }).catch(() => {/* autoplay blocked, try again next gesture */})
     }
-    window.addEventListener('pointerdown', keepAlive, { passive: true })
-    window.addEventListener('keydown', keepAlive, { passive: true })
-    window.addEventListener('touchstart', keepAlive, { passive: true })
-    return () => {
-      window.removeEventListener('pointerdown', keepAlive)
-      window.removeEventListener('keydown', keepAlive)
-      window.removeEventListener('touchstart', keepAlive)
-    }
+    document.addEventListener('click', unlock, { once: true })
+    return () => document.removeEventListener('click', unlock)
   }, [])
 
   useEffect(() => {
-    ;(async () => {
+    // Request browser notification permission proactively so background notifications work.
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission()
+    }
+
+    void (async () => {
       try {
         const res = await fetch('/api/auth/me')
         const json = await res.json()
@@ -306,13 +221,10 @@ export function AdminNotificationBell() {
       // Play sound for every new notification (skip on first load to avoid backlog noise)
       if (newAll.length > 0 && !isFirstLoad) {
         const hasNewOrder = newAll.some((i) => i.type === 'nuevo_pedido')
-        const soundKind: SoundKind = hasNewOrder ? 'order' : 'generic'
-
-        console.log('[sound] attempting', { soundKind, sound_enabled: prefs.sound_enabled, ctxState: audioCtxRef.current?.state ?? 'none' })
-
+        console.log('[sound] new notifications', { count: newAll.length, hasNewOrder, sound_enabled: prefs.sound_enabled })
         let soundPlayed = false
         if (prefs.sound_enabled) {
-          soundPlayed = await playNotificationSound(soundKind, audioCtxRef)
+          soundPlayed = playNotificationAudio()
         }
         if (!soundPlayed && hasNewOrder) {
           setTitleAttention(true)

@@ -32,8 +32,8 @@ export const ORDER_STATUS_MAP: Record<OrderStatus, StatusMeta> = {
   cancelled:       { label: 'Cancelado',          color: 'text-red-700',    bgColor: 'bg-red-50',    borderColor: 'border-red-300', icon: '❌' },
   refunded:        { label: 'Reembolsado',        color: 'text-gray-600',   bgColor: 'bg-gray-50',   borderColor: 'border-gray-300', icon: '↩️' },
   // Legacy compat
-  pending:   { label: 'Pendiente',     color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '⏳' },
-  confirmed: { label: 'Pendiente',     color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '✅' },
+  pending:   { label: 'Pendiente de pago', color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-300', icon: '⏳' },
+  confirmed: { label: 'Pendiente',         color: 'text-blue-700',   bgColor: 'bg-blue-50',   borderColor: 'border-blue-300', icon: '✅' },
   failed:    { label: 'Fallido',      color: 'text-red-700',    bgColor: 'bg-red-50',    borderColor: 'border-red-300', icon: '⚠️' },
 }
 

@@ -381,6 +381,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <AdminTopBar />
 
       {/* Content — margin matches sidebar width, same top bar height */}
+      {/* Notification sound — preloaded here so the audio element exists before any user gesture.
+          The bell component calls unlockNotificationAudio() on first click, then play() on demand. */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <audio id="nurei-notification-sound" src="/sounds/notification.wav" preload="auto" />
+
       <main
         className="pt-14 min-h-screen transition-[margin] duration-300"
         style={{ marginLeft: `${sidebarWidth}px` }}

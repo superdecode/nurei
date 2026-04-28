@@ -18,12 +18,15 @@ export async function GET() {
     const items: AdminNotificationItem[] = []
 
     // ── New/recent orders (last 2 hours) — highest priority ──────────────────
+    // Catch both:
+    //   status='pending'   → OXXO / transfer / cash awaiting payment
+    //   status='confirmed' → card paid, awaiting admin processing
+    // Filtering by payment_status='pending' missed confirmed card orders entirely.
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-    // Solo pedidos con pago aún pendiente (nuevos en caja)
     const { data: recentOrders } = await supabase
       .from('orders')
       .select('id, short_id, status, total, customer_name, customer_email, created_at, payment_status')
-      .eq('payment_status', 'pending')
+      .in('status', ['pending', 'confirmed'])
       .gte('created_at', twoHoursAgo)
       .order('created_at', { ascending: false })
       .limit(15)

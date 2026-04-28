@@ -225,25 +225,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Efectivo / otros métodos configurados en tienda (sin pasarela simulada de tarjeta)
-    const couponCode = await markOrderAsPaid(method)
-    const attribResult2 = await executeAffiliateAttribution({
-      orderId,
-      couponCode,
-      cookieHeader: request.headers.get('cookie'),
-    }).catch((err) => {
-      console.error('[attribution] failed', err)
-      return { ok: false, attributed: false, error: String(err) } as const
-    })
-    console.log('[attribution] result', { orderId, ...attribResult2 })
-
+    // Efectivo / otros métodos en tienda: el pago se recibe en la entrega, NO al crear la orden.
+    // No llamar markOrderAsPaid — el admin confirma manualmente cuando cobra el efectivo.
+    // La atribución de afiliado se dispara cuando el admin confirma el pedido (vía admin orders API).
     notifyOrderEmails(orderId, method)
 
     return NextResponse.json({
       data: {
-        status: 'approved',
+        status: 'pending',
         method,
-        transactionId: `pay_${Date.now()}`,
       },
     })
   } catch {
