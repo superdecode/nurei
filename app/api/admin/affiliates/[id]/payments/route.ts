@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 
   // For each payment, fetch the associated order details
   const enriched = await Promise.all(
-    (payments ?? []).map(async (p) => {
+    (data ?? []).map(async (p) => {
       let orders: Array<{ short_id: string; total: number; customer_name: string | null }> = []
       if (p.attribution_ids && p.attribution_ids.length > 0) {
         const { data: attrs } = await supabase
@@ -40,8 +40,12 @@ export async function GET(req: NextRequest, { params }: Params) {
           .in('id', p.attribution_ids)
         if (attrs) {
           orders = attrs.map((a) => {
-            const o = a.orders as Record<string, unknown> | null
-            return { short_id: o?.short_id ?? '', total: o?.total ?? 0, customer_name: o?.customer_name ?? null }
+            const orderData = a.orders as Record<string, unknown> | null
+            if (!orderData) return { short_id: '', total: 0, customer_name: null }
+            const shortId = orderData.short_id as string | undefined
+            const total = orderData.total as number | undefined
+            const customerName = orderData.customer_name as string | null | undefined
+            return { short_id: shortId ?? '', total: total ?? 0, customer_name: customerName ?? null }
           })
         }
       }
