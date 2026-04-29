@@ -55,7 +55,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     customer_linked: Boolean(cust),
   }
 
-  const [linkRes, couponsRes, attrsBase, attrsCount] = await Promise.all([
+  const [linkRes, couponsRes, attrsBase, attrsKpi] = await Promise.all([
     supabase
       .from('referral_links')
       .select('id, slug, clicks_count')
@@ -81,15 +81,10 @@ export async function GET(req: NextRequest, { params }: Params) {
       if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59.999Z`)
       return q
     })(),
-    (() => {
-      let q = supabase
-        .from('affiliate_attributions')
-        .select('commission_amount_cents, payout_status', { count: 'exact', head: false })
-        .eq('affiliate_id', id)
-      if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00.000Z`)
-      if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59.999Z`)
-      return q
-    })(),
+    supabase
+      .from('affiliate_attributions')
+      .select('commission_amount_cents, payout_status')
+      .eq('affiliate_id', id),
   ])
 
   let couponRows = couponsRes.data ?? []
@@ -126,7 +121,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   })
 
   const attributions = attrsBase.data ?? []
-  const allAttrs = attrsCount.data ?? []
+  const allAttrs = attrsKpi.data ?? []
 
   // Unique clicks count from referral_clicks table
   const linkId = linkRes.data?.id

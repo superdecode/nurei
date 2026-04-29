@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
         supabase.from('coupons').select('affiliate_id, code, is_active').in('affiliate_id', affiliateIds),
         supabase
           .from('affiliate_attributions')
-          .select('affiliate_id, commission_amount_cents')
+          .select('affiliate_id, commission_amount_cents, payout_status')
           .in('affiliate_id', affiliateIds),
       ])
     : [
@@ -76,12 +76,13 @@ export async function GET(req: NextRequest) {
   }
 
   // total earned + orders per affiliate from attributions
-  const attrsMap = new Map<string, { earned: number; orders: number }>()
+  const attrsMap = new Map<string, { earned: number; orders: number; pending: number }>()
   for (const a of attrsRes.data ?? []) {
-    const cur = attrsMap.get(a.affiliate_id) ?? { earned: 0, orders: 0 }
+    const cur = attrsMap.get(a.affiliate_id) ?? { earned: 0, orders: 0, pending: 0 }
     attrsMap.set(a.affiliate_id, {
       earned: cur.earned + (a.commission_amount_cents ?? 0),
       orders: cur.orders + 1,
+      pending: cur.pending + (a.payout_status === 'pending' ? (a.commission_amount_cents ?? 0) : 0),
     })
   }
 
@@ -93,6 +94,8 @@ export async function GET(req: NextRequest) {
     )
     return {
       ...p,
+      total_earned_cents: attrsMap.get(p.id)?.earned ?? 0,
+      pending_payout_cents: attrsMap.get(p.id)?.pending ?? 0,
       first_name: resolved.first_name || null,
       last_name: resolved.last_name || null,
       email: emailMap.get(p.id) ?? '',

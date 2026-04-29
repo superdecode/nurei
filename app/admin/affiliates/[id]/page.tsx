@@ -1,14 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Save, ArrowLeft, Copy, Check, ExternalLink, TrendingUp, ShoppingBag,
   DollarSign, Wallet, MousePointer2, BarChart2, Edit3, Search,
   ChevronLeft, ChevronRight, X, Clock, RefreshCcw, Tag, Link2, Users,
   AlertCircle, Percent, Mail, Phone, Banknote, CheckSquare, Square,
-  Receipt, Eye,
+  Receipt, Eye, UserCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -191,6 +191,8 @@ function DateRangePill({
 // ── Main ──────────────────────────────────────────────────────────────────
 export default function AdminAffiliateDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
+  const autoPayOpened = useRef(false)
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeMainTab, setActiveMainTab] = useState<'perfil' | 'estadisticas'>('perfil')
@@ -284,6 +286,14 @@ export default function AdminAffiliateDetailPage() {
   }, [id])
 
   useEffect(() => { void fetchData() }, [fetchData])
+
+  useEffect(() => {
+    if (!loading && data && !autoPayOpened.current && searchParams?.get('pay') === '1') {
+      autoPayOpened.current = true
+      void openPayModal()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, data, searchParams])
 
   // Fetch store domain from settings
   useEffect(() => {
@@ -498,40 +508,51 @@ export default function AdminAffiliateDetailPage() {
           </div>
           <p className="text-xs text-gray-400 mt-0.5">{profile.email}</p>
         </div>
-        <button
-          type="button"
-          onClick={async () => {
-            const res = await fetch(`/api/admin/affiliates/${id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ is_active: !profile.is_active }),
-            })
-            if (res.ok) {
-              toast.success(profile.is_active ? 'Afiliado desactivado' : 'Afiliado activado')
-              void fetchData()
-            } else {
-              toast.error('No se pudo actualizar el estado')
-            }
-          }}
-          className={cn(
-            'hidden sm:inline-flex items-center justify-center h-8 min-w-[96px] px-3 rounded-full text-xs font-bold border transition-colors leading-none',
-            profile.is_active
-              ? 'border-red-200 text-red-600 hover:bg-red-50'
-              : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await fetch(`/api/admin/affiliates/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_active: !profile.is_active }),
+              })
+              if (res.ok) {
+                toast.success(profile.is_active ? 'Afiliado desactivado' : 'Afiliado activado')
+                void fetchData()
+              } else {
+                toast.error('No se pudo actualizar el estado')
+              }
+            }}
+            className={cn(
+              'hidden sm:inline-flex items-center justify-center h-8 min-w-[88px] px-3 rounded-full text-xs font-bold border transition-colors leading-none',
+              profile.is_active
+                ? 'border-red-200 text-red-600 hover:bg-red-50'
+                : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+            )}
+          >
+            <span className="leading-none">{profile.is_active ? 'Desactivar' : 'Activar'}</span>
+          </button>
+          {kpis.pendingCommission > 0 && (
+            <Button
+              size="sm"
+              className="h-8 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hidden sm:flex"
+              onClick={openPayModal}
+            >
+              <Banknote className="w-3.5 h-3.5 mr-1.5" />
+              Registrar pago
+            </Button>
           )}
-        >
-          <span className="leading-none">{profile.is_active ? 'Desactivar' : 'Activar'}</span>
-        </button>
-        {kpis.pendingCommission > 0 && (
           <Button
             size="sm"
-            className="h-8 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hidden sm:flex"
-            onClick={openPayModal}
+            onClick={handleSaveProfile}
+            disabled={savingProfile}
+            className="h-8 rounded-full text-xs font-semibold hidden sm:flex"
           >
-            <Banknote className="w-3.5 h-3.5 mr-1.5" />
-            Registrar pago
+            <Save className="w-3.5 h-3.5 mr-1.5" />
+            {savingProfile ? 'Guardando...' : 'Guardar'}
           </Button>
-        )}
+        </div>
       </div>
 
       {/* ── Main tab switcher ── */}
@@ -542,13 +563,15 @@ export default function AdminAffiliateDetailPage() {
             type="button"
             onClick={() => setActiveMainTab(tab)}
             className={cn(
-              'px-5 py-2 rounded-lg text-sm font-semibold transition-all',
+              'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
               activeMainTab === tab
                 ? 'bg-white text-primary-dark shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             )}
           >
-            {tab === 'perfil' ? 'Perfil' : 'Estadísticas y pagos'}
+            {tab === 'perfil'
+              ? <><UserCircle className="w-4 h-4" />Perfil</>
+              : <><BarChart2 className="w-4 h-4" />Estadísticas y pagos</>}
           </button>
         ))}
       </div>
@@ -558,91 +581,83 @@ export default function AdminAffiliateDetailPage() {
       ══════════════════════════════════════════ */}
       {activeMainTab === 'perfil' && (
         <div className="space-y-5">
-          <div className="flex justify-end">
-            <Button onClick={handleSaveProfile} disabled={savingProfile} className="rounded-xl">
-              <Save className="mr-2 h-4 w-4" />
-              {savingProfile ? 'Guardando...' : 'Guardar cambios'}
-            </Button>
-          </div>
-
           {/* Contact info */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Información básica</h2>
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+              <div className="w-10 h-10 rounded-full bg-primary-cyan/10 flex items-center justify-center text-sm font-black text-primary-cyan shrink-0 uppercase">
+                {profile.first_name || profile.last_name
+                  ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
+                  : profile.handle.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-primary-dark">
+                  {profile.first_name || profile.last_name
+                    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+                    : `@${profile.handle}`}
+                </p>
+                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                  <span className="text-[11px] text-gray-400 flex items-center gap-1"><Mail className="w-3 h-3" />{profile.email}</span>
+                  {profile.phone && <span className="text-[11px] text-gray-400 flex items-center gap-1"><Phone className="w-3 h-3" />{profile.phone}</span>}
+                </div>
+              </div>
+              <h2 className="ml-auto text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:block">Información básica</h2>
             </div>
-            <div className="p-5 space-y-3 max-w-lg">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Nombre</label>
-                    <Input
-                      value={generalForm.first_name}
-                      onChange={(e) => setGeneralForm((f) => ({ ...f, first_name: e.target.value }))}
-                      placeholder="María"
-                      className="h-9 text-sm"
-                      disabled={Boolean(profile.customer_linked)}
-                    />
-                    {profile.customer_linked && <p className="mt-1 text-[11px] text-gray-400">Se refleja desde el cliente vinculado.</p>}
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Apellido</label>
-                    <Input
-                      value={generalForm.last_name}
-                      onChange={(e) => setGeneralForm((f) => ({ ...f, last_name: e.target.value }))}
-                      placeholder="García"
-                      className="h-9 text-sm"
-                      disabled={Boolean(profile.customer_linked)}
-                    />
-                    {profile.customer_linked && <p className="mt-1 text-[11px] text-gray-400">Se refleja desde el cliente vinculado.</p>}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Teléfono</label>
-                  <Input
-                    value={generalForm.phone}
-                    onChange={(e) => setGeneralForm((f) => ({ ...f, phone: e.target.value }))}
-                    placeholder="+52 55 1234 5678"
-                    className="h-9 text-sm"
-                    inputMode="tel"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
-                <div className="p-4 sm:p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Nombre</p>
-                  <div className="flex items-start gap-3">
-                    <div className="w-11 h-11 rounded-full bg-primary-cyan/10 flex items-center justify-center text-xs font-black text-primary-cyan shrink-0 uppercase">
-                      {profile.first_name || profile.last_name
-                        ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
-                        : profile.handle.slice(0, 2).toUpperCase()}
+            <div className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Nombre</label>
+                      <Input
+                        value={generalForm.first_name}
+                        onChange={(e) => setGeneralForm((f) => ({ ...f, first_name: e.target.value }))}
+                        placeholder="María"
+                        className="h-9 text-sm"
+                        disabled={Boolean(profile.customer_linked)}
+                      />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-gray-400 mb-1">Nombre y apellido</p>
-                      <p className="text-sm font-bold text-primary-dark leading-snug">
-                        {profile.first_name || profile.last_name
-                          ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-                          : '—'}
-                      </p>
-                      <p className="text-[11px] text-gray-400 mt-1">@{profile.handle}</p>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Apellido</label>
+                      <Input
+                        value={generalForm.last_name}
+                        onChange={(e) => setGeneralForm((f) => ({ ...f, last_name: e.target.value }))}
+                        placeholder="García"
+                        className="h-9 text-sm"
+                        disabled={Boolean(profile.customer_linked)}
+                      />
                     </div>
                   </div>
-                </div>
-                <div className="p-4 sm:p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
-                    <Mail className="w-3 h-3 shrink-0" /> Correo
-                  </p>
-                  <p className="text-sm font-semibold text-primary-dark break-all">{profile.email || '—'}</p>
-                </div>
-                <div className="p-4 sm:p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
-                    <Phone className="w-3 h-3 shrink-0" /> Teléfono
-                  </p>
-                  {profile.phone ? (
-                    <p className="text-sm font-semibold text-primary-dark">{profile.phone}</p>
-                  ) : (
-                    <p className="text-sm text-amber-600">Sin teléfono registrado</p>
+                  {profile.customer_linked && (
+                    <p className="text-[11px] text-gray-400">Nombre se refleja desde el cliente vinculado.</p>
                   )}
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Teléfono</label>
+                    <Input
+                      value={generalForm.phone}
+                      onChange={(e) => setGeneralForm((f) => ({ ...f, phone: e.target.value }))}
+                      placeholder="+52 55 1234 5678"
+                      className="h-9 text-sm"
+                      inputMode="tel"
+                    />
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Datos guardados</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span className="text-xs text-gray-700 break-all">{profile.email || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      {profile.phone
+                        ? <span className="text-xs text-gray-700">{profile.phone}</span>
+                        : <span className="text-xs text-amber-600">Sin teléfono</span>}
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
           </div>
 
           {/* Commission rates + referral link side by side */}
@@ -742,7 +757,7 @@ export default function AdminAffiliateDetailPage() {
           </div>
 
           {/* Payment info */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" id="payment-info">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Datos de pago</h3>
@@ -818,6 +833,64 @@ export default function AdminAffiliateDetailPage() {
               <p className="mt-3 text-[10px] text-gray-400">Estos datos se guardan con el botón global.</p>
             </div>
           </div>
+
+          {/* Coupons */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                <Tag className="w-3.5 h-3.5 text-gray-400" />
+                Cupones vinculados
+                {coupons.length > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
+                    {coupons.length}
+                  </span>
+                )}
+              </h3>
+              <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
+                <Button variant="outline" size="sm" className="h-7 rounded-full text-xs">Agregar cupón</Button>
+              </Link>
+            </div>
+            {coupons.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-3">
+                <Tag className="w-7 h-7 text-gray-200" />
+                <p className="text-sm text-gray-400 font-medium">Sin cupones vinculados</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+                {coupons.map((coupon) => (
+                  <motion.div
+                    key={coupon.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 hover:border-gray-200 hover:bg-white transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-mono font-bold text-primary-dark text-sm tracking-wide">{coupon.code}</span>
+                      <CouponStatusBadge status={coupon.computed_status} />
+                    </div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Percent className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-600">
+                        {coupon.type === 'percentage'
+                          ? `${coupon.value}% descuento`
+                          : coupon.type === 'fixed'
+                            ? `${formatPrice(coupon.value)} descuento`
+                            : `Condicional · ${coupon.value}%`}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString('es-MX') : 'Inmediato'} —{' '}
+                      {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString('es-MX') : 'Sin venc.'}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Usos: {coupon.used_count} / {coupon.max_uses ?? '∞'}</p>
+                    <Link href={`/admin/cupones?couponId=${coupon.id}`} className="mt-2.5 inline-block">
+                      <Button variant="outline" size="sm" className="h-6 rounded-full text-[10px] px-2.5">Ver cupón</Button>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -888,65 +961,6 @@ export default function AdminAffiliateDetailPage() {
             )}
           </div>
 
-          {/* Coupons */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Cupones vinculados
-                {coupons.length > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
-                    {coupons.length}
-                  </span>
-                )}
-              </h3>
-            </div>
-            {coupons.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <Tag className="w-8 h-8 text-gray-200" />
-                <p className="text-sm text-gray-400 font-medium">Sin cupones vinculados</p>
-                <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
-                  <Button variant="outline" size="sm" className="h-7 rounded-full text-xs">Crear el primer cupón</Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-                {coupons.map((coupon) => (
-                  <motion.div
-                    key={coupon.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border border-gray-100 p-4 shadow-md hover:border-gray-200 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-mono font-bold text-primary-dark text-sm tracking-wide">{coupon.code}</span>
-                      <CouponStatusBadge status={coupon.computed_status} />
-                    </div>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Percent className="w-3 h-3 text-gray-400" />
-                      <span className="text-xs text-gray-600">
-                        {coupon.type === 'percentage'
-                          ? `${coupon.value}% descuento`
-                          : coupon.type === 'fixed'
-                            ? `${formatPrice(coupon.value)} descuento`
-                            : `Condicional · ${coupon.value}%`}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-gray-400">
-                      {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString('es-MX') : 'Inmediato'} —{' '}
-                      {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString('es-MX') : 'Sin venc.'}
-                    </p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      Usos: {coupon.used_count} / {coupon.max_uses ?? '∞'}
-                    </p>
-                    <Link href={`/admin/cupones?couponId=${coupon.id}`} className="mt-2.5 inline-block">
-                      <Button variant="outline" size="sm" className="h-6 rounded-full text-[10px] px-2.5">Ver cupón</Button>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Ventas / Pagos tabs */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
@@ -968,16 +982,14 @@ export default function AdminAffiliateDetailPage() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                {kpis.pendingCommission > 0 && (
-                  <Button
-                    size="sm"
-                    className="h-7 rounded-full text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white sm:flex"
-                    onClick={openPayModal}
-                  >
-                    <Banknote className="w-3 h-3 mr-1" />
-                    Registrar pago
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  className="h-7 rounded-full text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white sm:flex"
+                  onClick={openPayModal}
+                >
+                  <Banknote className="w-3 h-3 mr-1" />
+                  Agregar pago
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => void fetchData()} className="h-7 w-7 rounded-full p-0">
                   <RefreshCcw className="w-3.5 h-3.5" />
                 </Button>
@@ -1148,6 +1160,10 @@ export default function AdminAffiliateDetailPage() {
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
                     <Receipt className="w-8 h-8 text-gray-200" />
                     <p className="text-sm text-gray-400 font-medium">Sin pagos registrados</p>
+                    <Button size="sm" className="h-7 rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={openPayModal}>
+                      <Banknote className="w-3 h-3 mr-1.5" />
+                      Registrar primer pago
+                    </Button>
                   </div>
                 ) : (() => {
                   const filtered = payments.filter((p) => {
