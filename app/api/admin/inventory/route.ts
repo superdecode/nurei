@@ -41,13 +41,18 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') ?? undefined
     const lowStockOnly = searchParams.get('low_stock_only') === 'true'
 
-    const movements = await getInventoryMovements(supabase, {
-      productId,
-      type,
-      limit,
-      from,
-      to,
-    })
+    let movements: import('@/types').InventoryMovement[] = []
+    try {
+      movements = await getInventoryMovements(supabase, {
+        productId,
+        type,
+        limit,
+        from,
+        to,
+      })
+    } catch {
+      // movements table may be empty or missing — products still load
+    }
 
     let products: unknown[] = []
     let salesByProduct: Record<string, number> = {}

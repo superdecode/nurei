@@ -137,8 +137,9 @@ export async function GET(req: NextRequest, { params }: Params) {
   // KPI computations — use unlimited attrsCount for accurate totals
   const totalOrders = allAttrs.length
   const totalCommission = allAttrs.reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
+  // payout flow: pending → approved → paid; both pending and approved are unpaid
   const pendingCommission = allAttrs
-    .filter((a) => a.payout_status === 'pending')
+    .filter((a) => a.payout_status === 'pending' || a.payout_status === 'approved')
     .reduce((s, a) => s + (a.commission_amount_cents ?? 0), 0)
   const totalClicks = linkRes.data?.clicks_count ?? 0
   const conversionRate = totalClicks > 0 ? Math.round((totalOrders / totalClicks) * 100 * 10) / 10 : 0

@@ -44,7 +44,7 @@ interface Attribution {
   id: string; order_id: string; attribution_type: string
   coupon_id: string | null
   commission_pct: number; commission_amount_cents: number
-  payout_status: 'pending' | 'paid'; created_at: string
+  payout_status: 'pending' | 'approved' | 'paid'; created_at: string
   orders: { short_id: string; total: number; customer_name: string | null; customer_email: string | null } | null
 }
 
@@ -485,6 +485,11 @@ export default function AdminAffiliateDetailPage() {
 
   return (
     <div className="space-y-6 pb-12">
+
+      <Link href="/admin/affiliates" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-primary-dark transition-colors">
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Afiliados
+      </Link>
 
       {/* ── Header with tabs and actions ── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1030,16 +1035,20 @@ export default function AdminAffiliateDetailPage() {
                                   </span>
                                 )}
                               </TableCell>
-                              <TableCell className="text-xs text-gray-600">{a.commission_pct}%</TableCell>
+                              <TableCell className="text-xs text-gray-600">{Number(a.commission_pct).toFixed(1)}%</TableCell>
                               <TableCell className="text-xs font-bold text-primary-dark whitespace-nowrap">
                                 {formatPrice(a.commission_amount_cents)}
                               </TableCell>
                               <TableCell>
                                 <span className={cn(
                                   'px-2 py-0.5 text-[10px] font-bold rounded-full',
-                                  a.payout_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                  a.payout_status === 'paid'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : a.payout_status === 'approved'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-amber-100 text-amber-700'
                                 )}>
-                                  {a.payout_status === 'paid' ? 'Pagado' : 'Pendiente'}
+                                  {a.payout_status === 'paid' ? 'Pagado' : a.payout_status === 'approved' ? 'Aprobado' : 'Pendiente'}
                                 </span>
                               </TableCell>
                             </TableRow>
@@ -1310,7 +1319,7 @@ export default function AdminAffiliateDetailPage() {
                               </div>
                               <div className="flex items-center justify-between mt-0.5">
                                 <span className="text-[10px] text-gray-400 truncate">{o.customer_name ?? 'Sin nombre'}</span>
-                                <span className="text-[10px] text-gray-400">{o.commission_pct}%</span>
+                                <span className="text-[10px] text-gray-400">{Number(o.commission_pct).toFixed(1)}%</span>
                               </div>
                               <div className="text-[10px] text-gray-400 mt-0.5">
                                 {new Date(o.order_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}

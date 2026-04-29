@@ -241,10 +241,11 @@ export default function InventoryAdminPage() {
     try {
       const res = await fetch('/api/admin/inventory?include_products=true&limit=500')
       const json = await res.json() as { data?: InventoryApiData; error?: string }
-      if (!res.ok || !json.data) {
+      if (!json.data) {
         if (json.error) toast.error(`Error: ${json.error}`)
         return
       }
+      if (json.error) toast.error(`Advertencia: ${json.error}`)
       setApiData({
         movements: json.data.movements ?? [],
         products: json.data.products ?? [],
@@ -608,6 +609,30 @@ export default function InventoryAdminPage() {
           <p className="text-sm text-gray-400 mt-0.5">Control de existencias y trazabilidad</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <Button
+            variant="outline"
+            onClick={() => {
+              import('xlsx').then((XLSX) => {
+                const date = new Date().toISOString().slice(0, 10)
+                const rows = filteredProducts.map((p) => ({
+                  SKU: p.sku ?? '',
+                  Nombre: p.name ?? '',
+                  Categoria: p.category ?? '',
+                  Stock: p.stock_quantity ?? 0,
+                  Estado: stockStatusLabel(computeStockStatus(p)),
+                  Alerta: p.low_stock_threshold ?? '',
+                  Vendidos_30d: p.sold_30d ?? 0,
+                }))
+                const ws = XLSX.utils.json_to_sheet(rows)
+                const wb = XLSX.utils.book_new()
+                XLSX.utils.book_append_sheet(wb, ws, 'Inventario')
+                XLSX.writeFile(wb, `inventario_${date}.xlsx`)
+              })
+            }}
+            className="gap-1.5 h-8 rounded-full text-xs font-semibold"
+          >
+            <Download className="h-3.5 w-3.5" /> Exportar
+          </Button>
           <Button variant="outline" onClick={() => { resetImportModal(); setImportOpen(true) }} className="gap-1.5 h-8 rounded-full text-xs font-semibold">
             <Upload className="h-3.5 w-3.5" /> Importar
           </Button>

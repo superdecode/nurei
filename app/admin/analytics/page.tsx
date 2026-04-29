@@ -1,662 +1,823 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
-  RadialBarChart, RadialBar, Legend,
+  BarChart, Bar, PieChart, Pie, Cell, ScatterChart, Scatter,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  RadialBarChart, RadialBar,
 } from 'recharts'
 import {
-  TrendingUp, Users, MapPin, CreditCard, Truck, Clock,
-  Repeat, Zap, CalendarDays, BarChart3,
+  TrendingUp, ShoppingBag, Users, Tag, Package, Truck,
+  CreditCard, BarChart3, RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatPrice } from '@/lib/utils/format'
+import { PeriodSelector, type DateRange } from '@/components/admin/analytics/PeriodSelector'
+import { MetricCard } from '@/components/admin/analytics/MetricCard'
+import { TimeSeriesChart } from '@/components/admin/analytics/TimeSeriesChart'
+import { RankingTable } from '@/components/admin/analytics/RankingTable'
+import { HeatmapChart } from '@/components/admin/analytics/HeatmapChart'
+import { FunnelChart } from '@/components/admin/analytics/FunnelChart'
+import { ExportButton } from '@/components/admin/analytics/ExportButton'
+import { AlertCard } from '@/components/admin/analytics/AlertCard'
+import { EmptyState } from '@/components/admin/analytics/EmptyState'
+import { useAnalytics } from '@/components/admin/analytics/useAnalytics'
+import type {
+  RevenuePoint, ProductPerformance, CategoryPerformance,
+  CohortRow, CustomerSegment, LTVData,
+  AffiliateROI, CouponPerf, InventoryHealth,
+  FunnelStage, PaymentBreakdown, RefundsAnalysis, DeliveryPerf,
+} from '@/lib/supabase/queries/analytics'
 
-/* ──────────────────────────────────────────────
-   Color palette
-   ────────────────────────────────────────────── */
-const CYAN = '#00E5FF'
-const DARK = '#0A1F2F'
-const GREEN = '#10B981'
-const AMBER = '#F59E0B'
-const RED = '#EF4444'
-const PURPLE = '#8B5CF6'
+const COLORS = ['#FFC107', '#10B981', '#8B5CF6', '#EF4444', '#3B82F6', '#F59E0B', '#06B6D4', '#EC4899']
 
-/* ──────────────────────────────────────────────
-   Period selector
-   ────────────────────────────────────────────── */
-const PERIOD_OPTIONS = [
-  { value: '7d', label: '7 días' },
-  { value: '30d', label: '30 días' },
-  { value: '90d', label: '90 días' },
-  { value: '1y', label: '1 año' },
+const PAYMENT_LABELS: Record<string, string> = {
+  card: 'Tarjeta',
+  cash: 'Efectivo',
+  transfer: 'Transferencia',
+  oxxo: 'OXXO',
+  spei: 'SPEI',
+  stripe: 'Stripe',
+  paypal: 'PayPal',
+}
+
+const TABS = [
+  { id: 'sales', label: 'Ventas', icon: TrendingUp },
+  { id: 'products', label: 'Productos', icon: ShoppingBag },
+  { id: 'customers', label: 'Clientes', icon: Users },
+  { id: 'marketing', label: 'Marketing', icon: Tag },
+  { id: 'operations', label: 'Operaciones', icon: Truck },
+  { id: 'forecast', label: 'Forecast', icon: BarChart3 },
+  { id: 'inventario', label: 'Inventario', icon: Package },
 ]
 
-/* ──────────────────────────────────────────────
-   1. Revenue trend — 30 data points
-   ────────────────────────────────────────────── */
-const REVENUE_TREND = Array.from({ length: 30 }, (_, i) => {
-  const base = 8000 + Math.sin(i / 4) * 3000
-  const noise = (Math.sin(i * 7.3) * 1500) + (Math.cos(i * 3.1) * 800)
-  const revenue = Math.round(base + noise + (i * 120))
-  const orders = Math.round(12 + Math.sin(i / 3) * 5 + (Math.cos(i * 2.7) * 3))
+function getDefaultRange(): DateRange {
   return {
-    day: `${i + 1} Mar`,
-    revenue: Math.max(revenue, 3500),
-    orders: Math.max(orders, 5),
+    dateFrom: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
+    dateTo: new Date().toISOString().slice(0, 10),
   }
-})
-
-/* ──────────────────────────────────────────────
-   2. Orders by day of week
-   ────────────────────────────────────────────── */
-const ORDERS_BY_DAY = [
-  { day: 'Lun', orders: 18, fill: CYAN },
-  { day: 'Mar', orders: 22, fill: CYAN },
-  { day: 'Mié', orders: 20, fill: CYAN },
-  { day: 'Jue', orders: 25, fill: CYAN },
-  { day: 'Vie', orders: 42, fill: GREEN },
-  { day: 'Sáb', orders: 55, fill: AMBER },
-  { day: 'Dom', orders: 38, fill: PURPLE },
-]
-
-/* ──────────────────────────────────────────────
-   3. Hourly heatmap data
-   ────────────────────────────────────────────── */
-const HOURS = ['17h', '18h', '19h', '20h', '21h', '22h', '23h']
-const DAYS_OF_WEEK = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-
-const HEATMAP_DATA: number[][] = [
-  // Lun  Mar  Mié  Jue  Vie  Sáb  Dom
-  [  1,   2,   1,   2,   4,   5,   3 ], // 17h
-  [  3,   3,   4,   4,   7,   9,   6 ], // 18h
-  [  4,   5,   4,   5,   9,  12,   8 ], // 19h
-  [  5,   6,   5,   7,  11,  14,  10 ], // 20h
-  [  4,   4,   4,   6,  10,  11,   7 ], // 21h
-  [  2,   3,   2,   3,   6,   8,   5 ], // 22h
-  [  1,   1,   1,   1,   3,   4,   2 ], // 23h
-]
-
-function getHeatColor(value: number): string {
-  if (value <= 1) return 'bg-cyan-50 text-cyan-400'
-  if (value <= 3) return 'bg-cyan-100 text-cyan-600'
-  if (value <= 5) return 'bg-cyan-200 text-cyan-700'
-  if (value <= 8) return 'bg-cyan-300 text-cyan-800'
-  if (value <= 11) return 'bg-cyan-400 text-white'
-  return 'bg-cyan-600 text-white'
 }
 
-/* ──────────────────────────────────────────────
-   4. Category performance (horizontal bar)
-   ────────────────────────────────────────────── */
-const CATEGORY_PERFORMANCE = [
-  { category: 'Cerveza', revenue: 48500, color: CYAN },
-  { category: 'Tequila', revenue: 32200, color: DARK },
-  { category: 'Whisky', revenue: 28800, color: AMBER },
-  { category: 'Vodka', revenue: 15600, color: GREEN },
-  { category: 'Ron', revenue: 12100, color: PURPLE },
-  { category: 'Mezcal', revenue: 9400, color: RED },
-  { category: 'Vino', revenue: 7800, color: '#6B7280' },
-]
-
-/* ──────────────────────────────────────────────
-   5. Customer metrics
-   ────────────────────────────────────────────── */
-const TOP_ZIP_CODES = [
-  { zip: '06600', colonia: 'Roma Norte', orders: 187, pct: 24 },
-  { zip: '06100', colonia: 'Condesa', orders: 142, pct: 18 },
-  { zip: '11560', colonia: 'Polanco', orders: 118, pct: 15 },
-  { zip: '03100', colonia: 'Del Valle', orders: 96, pct: 12 },
-  { zip: '06700', colonia: 'Roma Sur', orders: 78, pct: 10 },
-]
-
-/* ──────────────────────────────────────────────
-   6. Delivery performance (RadialBar)
-   ────────────────────────────────────────────── */
-const DELIVERY_RADIAL = [
-  { name: 'A tiempo', value: 91, fill: GREEN },
-  { name: 'Retrasados', value: 7, fill: AMBER },
-  { name: 'Cancelados', value: 2, fill: RED },
-]
-
-/* ──────────────────────────────────────────────
-   7. Revenue by payment method
-   ────────────────────────────────────────────── */
-const PAYMENT_DATA = [
-  { name: 'Tarjeta', value: 52, color: CYAN },
-  { name: 'Efectivo', value: 31, color: DARK },
-  { name: 'Transferencia', value: 17, color: PURPLE },
-]
-
-/* ──────────────────────────────────────────────
-   Tooltip style constant
-   ────────────────────────────────────────────── */
-const TOOLTIP_STYLE = {
-  borderRadius: 12,
-  border: '1px solid #e5e7eb',
-  fontSize: 12,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-}
-
-/* ──────────────────────────────────────────────
-   Custom Recharts tooltip for currency
-   ────────────────────────────────────────────── */
-interface CustomPayload {
-  name?: string
-  value?: number
-  dataKey?: string
-  color?: string
-  payload?: Record<string, unknown>
-}
-
-function RevenueTrendTooltip({ active, payload, label }: {
-  active?: boolean
-  payload?: CustomPayload[]
-  label?: string
-}) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={TOOLTIP_STYLE} className="bg-white p-3">
-      <p className="text-xs font-semibold text-primary-dark mb-1">{label}</p>
-      {payload.map((entry, i) => (
-        <p key={i} className="text-xs text-gray-600">
-          {entry.dataKey === 'revenue'
-            ? `Ingresos: $${(entry.value ?? 0).toLocaleString('es-MX')}`
-            : `Pedidos: ${entry.value}`
-          }
-        </p>
-      ))}
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════════
-   MAIN COMPONENT
-   ══════════════════════════════════════════════ */
 export default function AnalyticsPage() {
-  const [period, setPeriod] = useState('30d')
+  const [activeTab, setActiveTab] = useState('sales')
+  const [range, setRange] = useState<DateRange>(getDefaultRange)
 
-  let sectionIdx = 0
-  const nextDelay = () => (sectionIdx++) * 0.1
+  const params = useMemo(() => ({ dateFrom: range.dateFrom, dateTo: range.dateTo }), [range])
+  const enabled = (tab: string) => activeTab === tab
+
+  const { data: revenueData, loading: revenueLoading } = useAnalytics<RevenuePoint[]>(
+    '/api/admin/analytics/revenue', { params: { ...params, granularity: 'day' }, enabled: enabled('sales') },
+  )
+  const { data: paymentsData, loading: paymentsLoading } = useAnalytics<PaymentBreakdown[]>(
+    '/api/admin/analytics/payments/breakdown', { params, enabled: enabled('sales') },
+  )
+
+  const { data: products, loading: productsLoading } = useAnalytics<ProductPerformance[]>(
+    '/api/admin/analytics/products', { params: { ...params, limit: '100' }, enabled: enabled('products') },
+  )
+  const { data: categories, loading: categoriesLoading } = useAnalytics<CategoryPerformance[]>(
+    '/api/admin/analytics/categories', { params, enabled: enabled('products') },
+  )
+  const { data: inventory, loading: inventoryLoading } = useAnalytics<InventoryHealth[]>(
+    '/api/admin/analytics/inventory/health', { enabled: enabled('products') || enabled('inventario') },
+  )
+
+  const { data: cohorts, loading: cohortsLoading } = useAnalytics<CohortRow[]>(
+    '/api/admin/analytics/customers/cohorts', { params, enabled: enabled('customers') },
+  )
+  const { data: segments, loading: segmentsLoading } = useAnalytics<CustomerSegment[]>(
+    '/api/admin/analytics/customers/segments', { enabled: enabled('customers') },
+  )
+  const { data: ltvData, loading: ltvLoading } = useAnalytics<LTVData>(
+    '/api/admin/analytics/customers/ltv', { enabled: enabled('customers') },
+  )
+
+  const { data: affiliates, loading: affiliatesLoading } = useAnalytics<AffiliateROI[]>(
+    '/api/admin/analytics/affiliates/roi', { params, enabled: enabled('marketing') },
+  )
+  const { data: coupons, loading: couponsLoading } = useAnalytics<CouponPerf[]>(
+    '/api/admin/analytics/coupons/performance', { params, enabled: enabled('marketing') },
+  )
+
+  const { data: funnel, loading: funnelLoading } = useAnalytics<FunnelStage[]>(
+    '/api/admin/analytics/funnel', { params, enabled: enabled('operations') },
+  )
+  const { data: refunds, loading: refundsLoading } = useAnalytics<RefundsAnalysis>(
+    '/api/admin/analytics/refunds', { params, enabled: enabled('operations') },
+  )
+  const { data: delivery, loading: deliveryLoading } = useAnalytics<DeliveryPerf>(
+    '/api/admin/analytics/delivery', { params, enabled: enabled('operations') },
+  )
+
+  const { data: forecastData, loading: forecastLoading } = useAnalytics<{
+    historical: { date: string; revenue: number }[]
+    forecast: { date: string; forecast: number; lower: number; upper: number }[]
+  }>('/api/admin/analytics/forecast', { params: { historicalDays: '90', forecastDays: '30' }, enabled: enabled('forecast') })
+
+  const cohortMatrix = useMemo(() => {
+    if (!cohorts) return { rows: [], cols: [] }
+    const maxMonths = 12
+    const rows = cohorts.map((c) => {
+      const d = new Date(c.cohort_month)
+      return d.toLocaleDateString('es-MX', { month: 'short', year: '2-digit' })
+    })
+    const cols = ['M+0', ...Array.from({ length: maxMonths }, (_, i) => `M+${i + 1}`)]
+    const data = cohorts.map((c) => [100, ...Array.from({ length: maxMonths }, (_, i) => c.retention[i + 1] ?? 0)])
+    return { rows, cols, data }
+  }, [cohorts])
+
+  const inventoryAlerts = useMemo(() => {
+    if (!inventory) return []
+    return inventory
+      .filter((p) => p.status === 'stockout' || p.status === 'low')
+      .map((p) => ({
+        type: p.status,
+        severity: p.status === 'stockout' ? 'high' as const : 'medium' as const,
+        message: p.status === 'stockout'
+          ? `Sin stock: ${p.product_name}`
+          : `Stock bajo: ${p.product_name} (${p.days_of_inventory} días)`,
+        link: '/admin/inventario',
+      }))
+  }, [inventory])
+
+  const forecastChartData = useMemo(() => {
+    if (!forecastData) return []
+    const hist = forecastData.historical.map((h) => ({ date: h.date, revenue: h.revenue, type: 'hist' }))
+    const fcast = forecastData.forecast.map((f) => ({ date: f.date, forecast: f.forecast, lower: f.lower, upper: f.upper, type: 'forecast' }))
+    return [...hist.slice(-30), ...fcast]
+  }, [forecastData])
 
   return (
-    <div className="space-y-6">
-      {/* ── Header ─────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-primary-dark">Analytics</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Análisis detallado del negocio</p>
+          <h1 className="text-xl font-bold text-gray-900">Analytics</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Reportes operativos y ejecutivos</p>
         </div>
-        <div className="flex gap-1.5 bg-white rounded-xl p-1 border shadow-sm">
-          {PERIOD_OPTIONS.map((opt) => (
+        <div className="flex items-center gap-3 flex-wrap">
+          <PeriodSelector value={range} onChange={setRange} />
+          <ExportButton report="full_dashboard" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+        </div>
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto pb-1 border-b border-gray-100">
+        {TABS.map((tab) => {
+          const Icon = tab.icon
+          return (
             <button
-              key={opt.value}
-              onClick={() => setPeriod(opt.value)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                period === opt.value
-                  ? 'bg-primary-dark text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                'flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg text-xs font-medium whitespace-nowrap transition-colors',
+                activeTab === tab.id
+                  ? 'bg-white border border-b-white border-gray-100 -mb-px text-amber-600'
+                  : 'text-gray-500 hover:text-gray-800',
               )}
             >
-              {opt.label}
+              <Icon size={13} />
+              {tab.label}
             </button>
-          ))}
-        </div>
+          )
+        })}
       </div>
 
-      {/* ── 1. Revenue Trend (full width) ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: nextDelay() }}
-        className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-primary-dark">Tendencia de ingresos</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Ingresos y pedidos diarios</p>
+      {activeTab === 'sales' && (
+        <motion.div key="sales" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Tendencia de revenue</h2>
+              <ExportButton report="revenue" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {revenueLoading ? (
+              <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />
+            ) : (revenueData ?? []).length === 0 ? (
+              <EmptyState />
+            ) : (
+              <TimeSeriesChart data={revenueData ?? []} metric="revenue" showComparison />
+            )}
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 rounded-full" style={{ backgroundColor: CYAN }} />
-              Ingresos
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 rounded-full" style={{ backgroundColor: PURPLE }} />
-              Pedidos
-            </span>
-          </div>
-        </div>
-        <div className="h-[280px] sm:h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={REVENUE_TREND}>
-              <defs>
-                <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={CYAN} stopOpacity={0.25} />
-                  <stop offset="95%" stopColor={CYAN} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={PURPLE} stopOpacity={0.15} />
-                  <stop offset="95%" stopColor={PURPLE} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                interval={4}
-              />
-              <YAxis
-                yAxisId="revenue"
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-              />
-              <YAxis
-                yAxisId="orders"
-                orientation="right"
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-              />
-              <Tooltip content={<RevenueTrendTooltip />} />
-              <Area
-                yAxisId="revenue"
-                type="monotone"
-                dataKey="revenue"
-                stroke={CYAN}
-                strokeWidth={2.5}
-                fill="url(#gradRevenue)"
-              />
-              <Area
-                yAxisId="orders"
-                type="monotone"
-                dataKey="orders"
-                stroke={PURPLE}
-                strokeWidth={1.5}
-                fill="url(#gradOrders)"
-                strokeDasharray="4 4"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </motion.div>
 
-      {/* ── Row: Orders by day + Hourly heatmap ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* 2. Orders by day of week */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: nextDelay() }}
-          className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <CalendarDays className="w-4 h-4 text-primary-cyan" />
-            <h3 className="text-sm font-semibold text-primary-dark">Pedidos por día de semana</h3>
-          </div>
-          <div className="h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ORDERS_BY_DAY} barSize={32}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ fontWeight: 600 }} />
-                <Bar dataKey="orders" radius={[6, 6, 0, 0]} name="Pedidos">
-                  {ORDERS_BY_DAY.map((entry, idx) => (
-                    <Cell key={idx} fill={entry.fill} />
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Metodos de pago</h2>
+              <ExportButton report="revenue" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {paymentsLoading ? (
+              <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+            ) : (paymentsData ?? []).length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie data={paymentsData ?? []} dataKey="total" nameKey="method" cx="50%" cy="50%" outerRadius={80} paddingAngle={2}>
+                      {(paymentsData ?? []).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(v: unknown) => [formatPrice(Number(v ?? 0)), 'Revenue']} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2">
+                  {(paymentsData ?? []).map((p, i) => (
+                    <div key={p.method} className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between mb-0.5">
+                          <span className="text-xs text-gray-700">{PAYMENT_LABELS[p.method] ?? p.method}</span>
+                          <span className="text-xs font-medium text-gray-900">{formatPrice(p.total)}</span>
+                        </div>
+                        <div className="flex gap-2 text-[10px] text-gray-400">
+                          <span>{p.count} pedidos</span>
+                          <span>Exito: {p.success_rate}%</span>
+                          <span>AOV: {formatPrice(p.avg_ticket)}</span>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
+      )}
 
-        {/* 3. Hourly heatmap */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: nextDelay() }}
-          className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Zap className="w-4 h-4 text-primary-cyan" />
-            <h3 className="text-sm font-semibold text-primary-dark">Intensidad de pedidos por hora</h3>
+      {activeTab === 'products' && (
+        <motion.div key="products" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Performance de productos</h2>
+              <ExportButton report="products" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {productsLoading ? (
+              <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />
+            ) : (products ?? []).length === 0 ? (
+              <EmptyState />
+            ) : (
+              <RankingTable
+                data={products ?? []}
+                searchable
+                searchPlaceholder="Buscar producto..."
+                pageSize={15}
+                columns={[
+                  { key: 'product_name', label: 'Producto', align: 'left' },
+                  { key: 'category', label: 'Categoria', align: 'left' },
+                  { key: 'units_sold', label: 'Unidades', align: 'right', showBar: true, format: (v) => Number(v).toLocaleString('es-MX') },
+                  { key: 'revenue', label: 'Revenue', align: 'right', format: (v) => formatPrice(Number(v)), showBar: true },
+                  { key: 'margin_pct', label: 'Margen', align: 'right', format: (v) => `${Number(v).toFixed(1)}%` },
+                  { key: 'conversion_rate', label: 'Conversion', align: 'right', format: (v) => `${Number(v).toFixed(1)}%` },
+                ]}
+              />
+            )}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="text-[10px] font-medium text-gray-400 pb-2 text-left pr-2" />
-                  {DAYS_OF_WEEK.map((d) => (
-                    <th key={d} className="text-[10px] font-medium text-gray-400 pb-2 text-center px-1">
-                      {d}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {HOURS.map((hour, hIdx) => (
-                  <tr key={hour}>
-                    <td className="text-[10px] font-medium text-gray-400 pr-2 py-0.5">
-                      {hour}
-                    </td>
-                    {DAYS_OF_WEEK.map((_, dIdx) => {
-                      const val = HEATMAP_DATA[hIdx][dIdx]
+
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Matriz BCG (Revenue vs Margen)</h2>
+            </div>
+            {(products ?? []).length === 0 ? <EmptyState /> : (
+              <ResponsiveContainer width="100%" height={300}>
+                <ScatterChart margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                  <XAxis dataKey="revenue" name="Revenue" tickFormatter={formatPrice} tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                  <YAxis dataKey="margin_pct" name="Margen %" tick={{ fontSize: 10, fill: '#94A3B8' }} unit="%" />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null
+                      const d = payload[0]?.payload as ProductPerformance
                       return (
-                        <td key={dIdx} className="px-0.5 py-0.5">
-                          <div
-                            className={cn(
-                              'w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors min-w-[32px]',
-                              getHeatColor(val)
-                            )}
-                          >
-                            {val}
-                          </div>
-                        </td>
+                        <div className="bg-white border border-gray-100 rounded-xl p-3 shadow-lg text-xs">
+                          <p className="font-semibold text-gray-900 mb-1">{d.product_name}</p>
+                          <p className="text-gray-600">Revenue: {formatPrice(d.revenue)}</p>
+                          <p className="text-gray-600">Margen: {d.margin_pct}%</p>
+                          <p className="text-gray-600">Unidades: {d.units_sold}</p>
+                        </div>
                       )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center gap-2 mt-3 justify-end">
-            <span className="text-[9px] text-gray-400">Bajo</span>
-            <div className="flex gap-0.5">
-              {['bg-cyan-50', 'bg-cyan-100', 'bg-cyan-200', 'bg-cyan-300', 'bg-cyan-400', 'bg-cyan-600'].map((c) => (
-                <div key={c} className={cn('w-3 h-3 rounded-sm', c)} />
-              ))}
-            </div>
-            <span className="text-[9px] text-gray-400">Alto</span>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* ── 4. Category performance (full width) ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: nextDelay() }}
-        className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100"
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="w-4 h-4 text-primary-cyan" />
-          <h3 className="text-sm font-semibold text-primary-dark">Rendimiento por categoría</h3>
-        </div>
-        <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={CATEGORY_PERFORMANCE}
-              layout="vertical"
-              barSize={20}
-              margin={{ left: 10, right: 30 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-              <XAxis
-                type="number"
-                tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-              />
-              <YAxis
-                type="category"
-                dataKey="category"
-                tick={{ fontSize: 11, fill: '#6B7280' }}
-                width={65}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ fontWeight: 600 }}
-                formatter={(value) => [`$${Number(value ?? 0).toLocaleString('es-MX')}`, 'Ingresos']}
-              />
-              <Bar dataKey="revenue" radius={[0, 6, 6, 0]} name="Ingresos">
-                {CATEGORY_PERFORMANCE.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </motion.div>
-
-      {/* ── 5. Customer metrics ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: nextDelay() }}
-        className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100"
-      >
-        <div className="flex items-center gap-2 mb-5">
-          <Users className="w-4 h-4 text-primary-cyan" />
-          <h3 className="text-sm font-semibold text-primary-dark">Métricas de clientes</h3>
-        </div>
-
-        {/* Three stat cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${GREEN}15` }}>
-                <Repeat className="w-3.5 h-3.5" style={{ color: GREEN }} />
-              </div>
-              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
-                Clientes recurrentes
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-primary-dark">38%</p>
-            <p className="text-[10px] text-gray-400 mt-1">De los últimos 30 días</p>
-          </div>
-
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${CYAN}15` }}>
-                <TrendingUp className="w-3.5 h-3.5" style={{ color: CYAN }} />
-              </div>
-              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
-                Frecuencia promedio
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-primary-dark">2.4x</p>
-            <p className="text-[10px] text-gray-400 mt-1">Pedidos por cliente / mes</p>
-          </div>
-
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${PURPLE}15` }}>
-                <CreditCard className="w-3.5 h-3.5" style={{ color: PURPLE }} />
-              </div>
-              <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
-                Valor de vida (LTV)
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-primary-dark">$2,840</p>
-            <p className="text-[10px] text-gray-400 mt-1">Promedio por cliente</p>
-          </div>
-        </div>
-
-        {/* Top ZIP codes */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <MapPin className="w-3.5 h-3.5 text-gray-400" />
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Zonas con más pedidos
-            </h4>
-          </div>
-          <div className="space-y-2.5">
-            {TOP_ZIP_CODES.map((z) => (
-              <div key={z.zip} className="flex items-center gap-3">
-                <span className="text-xs font-mono font-bold text-primary-dark w-12">{z.zip}</span>
-                <span className="text-xs text-gray-500 w-24 truncate">{z.colonia}</span>
-                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${z.pct}%`,
-                      backgroundColor: CYAN,
-                      minWidth: z.pct > 0 ? '4px' : '0px',
                     }}
                   />
-                </div>
-                <span className="text-[10px] font-medium text-gray-400 w-16 text-right">
-                  {z.orders} pedidos
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ── Row: Delivery performance + Payment method ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* 6. Delivery performance */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: nextDelay() }}
-          className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Truck className="w-4 h-4 text-primary-cyan" />
-            <h3 className="text-sm font-semibold text-primary-dark">Rendimiento de entregas</h3>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <div className="h-[200px] w-[200px] flex-shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadialBarChart
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="30%"
-                  outerRadius="100%"
-                  data={DELIVERY_RADIAL}
-                  startAngle={180}
-                  endAngle={0}
-                  barSize={12}
-                >
-                  <RadialBar
-                    dataKey="value"
-                    cornerRadius={6}
-                    background={{ fill: '#f3f4f6' }}
-                  />
-                  <Legend
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
-                  />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                </RadialBarChart>
+                  <Scatter data={products ?? []} fill="#FFC107" opacity={0.7} />
+                </ScatterChart>
               </ResponsiveContainer>
-            </div>
+            )}
+          </div>
 
-            <div className="space-y-4 flex-1">
-              <div>
-                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
-                  Tasa de entrega a tiempo
-                </p>
-                <p className="text-3xl font-bold text-primary-dark">91%</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-[10px] text-gray-400">Promedio</span>
-                  </div>
-                  <p className="text-lg font-bold text-primary-dark">24 min</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Zap className="w-3 h-3 text-green-500" />
-                    <span className="text-[10px] text-gray-400">Más rápido</span>
-                  </div>
-                  <p className="text-lg font-bold text-green-600">12 min</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3 col-span-2">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Clock className="w-3 h-3 text-red-400" />
-                    <span className="text-[10px] text-gray-400">Más lento</span>
-                  </div>
-                  <p className="text-lg font-bold text-red-500">48 min</p>
-                </div>
-              </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Analisis por categoria</h2>
+              <ExportButton report="categories" dateFrom={range.dateFrom} dateTo={range.dateTo} />
             </div>
+            {categoriesLoading ? (
+              <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />
+            ) : (categories ?? []).length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {(categories ?? []).slice(0, 4).map((c, i) => (
+                    <div key={c.category} className="bg-gray-50 rounded-xl p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                        <span className="text-[10px] text-gray-500 capitalize truncate">{c.category}</span>
+                      </div>
+                      <p className="text-sm font-bold text-gray-900">{formatPrice(c.revenue)}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{c.units_sold.toLocaleString('es-MX')} uds · {c.orders_count} pedidos</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-3">Revenue por categoria</p>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart
+                        data={[...(categories ?? [])].sort((a, b) => b.revenue - a.revenue)}
+                        layout="vertical"
+                        margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
+                        <XAxis type="number" tickFormatter={(v) => formatPrice(v)} tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                        <YAxis type="category" dataKey="category" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} width={80} />
+                        <Tooltip
+                          formatter={(v: unknown) => [formatPrice(Number(v ?? 0)), 'Revenue']}
+                          contentStyle={{ borderRadius: 12, fontSize: 11 }}
+                        />
+                        <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
+                          {(categories ?? []).map((_, i) => (
+                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-3">Participacion de revenue</p>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={categories ?? []}
+                          dataKey="revenue"
+                          nameKey="category"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={90}
+                          innerRadius={45}
+                          paddingAngle={2}
+                        >
+                          {(categories ?? []).map((_, i) => (
+                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(v: unknown) => [formatPrice(Number(v ?? 0)), 'Revenue']}
+                          contentStyle={{ borderRadius: 12, fontSize: 11 }}
+                        />
+                        <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 10 }} formatter={(v) => String(v)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-3">Unidades vendidas y margen por categoria</p>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart
+                      data={[...(categories ?? [])].sort((a, b) => b.units_sold - a.units_sold)}
+                      margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                      <XAxis dataKey="category" tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                      <YAxis yAxisId="units" tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                      <YAxis yAxisId="margin" orientation="right" unit="%" tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: 12, fontSize: 11 }}
+                        formatter={(v: unknown, name: unknown) =>
+                          name === 'margin_pct' ? [`${Number(v).toFixed(1)}%`, 'Margen'] : [Number(v).toLocaleString('es-MX'), 'Unidades']
+                        }
+                      />
+                      <Bar yAxisId="units" dataKey="units_sold" name="Unidades" fill="#FFC107" radius={[4, 4, 0, 0]} />
+                      <Bar yAxisId="margin" dataKey="margin_pct" name="margin_pct" fill="#10B981" radius={[4, 4, 0, 0]} opacity={0.7} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Salud del inventario</h2>
+              <ExportButton report="inventory" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {inventoryLoading ? (
+              <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />
+            ) : (inventory ?? []).length === 0 ? (
+              <EmptyState />
+            ) : (
+              <>
+                {inventoryAlerts.length > 0 && (
+                  <div className="mb-4">
+                    <AlertCard alerts={inventoryAlerts} />
+                  </div>
+                )}
+                <RankingTable
+                  data={inventory ?? []}
+                  searchable
+                  searchPlaceholder="Buscar producto..."
+                  pageSize={15}
+                  columns={[
+                    { key: 'product_name', label: 'Producto', align: 'left' },
+                    { key: 'category', label: 'Categoria', align: 'left' },
+                    { key: 'stock_quantity', label: 'Stock', align: 'right', format: (v) => Number(v).toLocaleString('es-MX') },
+                    { key: 'units_sold_30d', label: 'Ventas 30d', align: 'right', format: (v) => Number(v).toLocaleString('es-MX') },
+                    { key: 'days_of_inventory', label: 'Dias Inv.', align: 'right', format: (v) => Number(v) >= 9999 ? 'N/A' : String(v) },
+                    {
+                      key: 'status', label: 'Estado', align: 'center', sortable: false,
+                      format: (v) => {
+                        const status = String(v)
+                        const styles: Record<string, string> = {
+                          stockout: 'text-red-600 bg-red-50',
+                          low: 'text-amber-600 bg-amber-50',
+                          overstock: 'text-purple-600 bg-purple-50',
+                          no_sales: 'text-gray-500 bg-gray-50',
+                          ok: 'text-green-600 bg-green-50',
+                        }
+                        const labels: Record<string, string> = {
+                          stockout: 'Sin stock', low: 'Bajo', overstock: 'Sobrestock', no_sales: 'Sin ventas', ok: 'OK',
+                        }
+                        return (
+                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium', styles[status] ?? '')}>
+                            {labels[status] ?? status}
+                          </span>
+                        )
+                      },
+                    },
+                  ]}
+                />
+              </>
+            )}
           </div>
         </motion.div>
+      )}
 
-        {/* 7. Revenue by payment method */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: nextDelay() }}
-          className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <CreditCard className="w-4 h-4 text-primary-cyan" />
-            <h3 className="text-sm font-semibold text-primary-dark">Ingresos por método de pago</h3>
+      {activeTab === 'customers' && (
+        <motion.div key="customers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Matriz de cohortes (retencion)</h2>
+            </div>
+            {cohortsLoading ? (
+              <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+            ) : !cohortMatrix.rows.length ? (
+              <EmptyState />
+            ) : (
+              <HeatmapChart
+                data={cohortMatrix.data ?? []}
+                rowLabels={cohortMatrix.rows}
+                colLabels={cohortMatrix.cols}
+                format={(v) => `${v}%`}
+              />
+            )}
           </div>
 
-          <div className="flex flex-col items-center">
-            <div className="h-[220px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={PAYMENT_DATA}
-                    dataKey="value"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={4}
-                    strokeWidth={0}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-900">Segmentacion RFM</h2>
+              </div>
+              {segmentsLoading ? (
+                <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+              ) : (segments ?? []).length === 0 ? (
+                <EmptyState />
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <RadialBarChart
+                    innerRadius="20%"
+                    outerRadius="90%"
+                    data={(segments ?? []).map((s, i) => ({ name: s.segment, value: s.count, fill: COLORS[i % COLORS.length] }))}
                   >
-                    {PAYMENT_DATA.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(value) => [`${value ?? 0}%`, 'Porcentaje']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                    <RadialBar dataKey="value" label={{ position: 'insideStart', fill: '#fff', fontSize: 10 }} />
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: 10 }} />
+                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-2">
-              {PAYMENT_DATA.map((pm) => (
-                <div key={pm.name} className="flex items-center gap-2">
-                  <span
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: pm.color }}
-                  />
-                  <span className="text-xs text-gray-500">{pm.name}</span>
-                  <span className="text-xs font-bold text-primary-dark">{pm.value}%</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Breakdown amounts */}
-            <div className="w-full mt-5 space-y-2">
-              {[
-                { label: 'Tarjeta', amount: '$78,520', pct: 52, color: CYAN },
-                { label: 'Efectivo', amount: '$46,810', pct: 31, color: DARK },
-                { label: 'Transferencia', amount: '$25,670', pct: 17, color: PURPLE },
-              ].map((m) => (
-                <div key={m.label} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 w-24">{m.label}</span>
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${m.pct}%`,
-                        backgroundColor: m.color,
-                      }}
-                    />
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-900">Distribucion LTV</h2>
+              </div>
+              {ltvLoading ? (
+                <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+              ) : !ltvData?.buckets.length ? (
+                <EmptyState />
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-500 mb-1">LTV Promedio</p>
+                      <p className="text-sm font-bold text-gray-900">{formatPrice(ltvData.avg_ltv)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-500 mb-1">LTV Mediana</p>
+                      <p className="text-sm font-bold text-gray-900">{formatPrice(ltvData.median_ltv)}</p>
+                    </div>
                   </div>
-                  <span className="text-xs font-bold text-primary-dark w-16 text-right">
-                    {m.amount}
-                  </span>
-                </div>
-              ))}
+                  <ResponsiveContainer width="100%" height={140}>
+                    <BarChart data={ltvData.buckets} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                      <XAxis dataKey="range" tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 9, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: 12, fontSize: 11 }} />
+                      <Bar dataKey="count" fill="#FFC107" radius={[4, 4, 0, 0]} name="Clientes" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </>
+              )}
             </div>
           </div>
+
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Top clientes por LTV</h2>
+              <ExportButton report="customers" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {ltvLoading ? (
+              <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+            ) : !(ltvData?.top_customers ?? []).length ? (
+              <EmptyState />
+            ) : (
+              <RankingTable
+                data={ltvData?.top_customers ?? []}
+                searchable
+                searchPlaceholder="Buscar cliente..."
+                columns={[
+                  { key: 'name', label: 'Cliente', align: 'left' },
+                  { key: 'phone', label: 'Telefono', align: 'left' },
+                  { key: 'ltv', label: 'LTV', align: 'right', format: (v) => formatPrice(Number(v)), showBar: true },
+                  { key: 'orders', label: 'Pedidos', align: 'right', format: (v) => Number(v).toLocaleString('es-MX') },
+                  { key: 'last_order_at', label: 'Ultimo pedido', align: 'left', format: (v) => v ? new Date(String(v)).toLocaleDateString('es-MX') : '-' },
+                ]}
+              />
+            )}
+          </div>
         </motion.div>
-      </div>
+      )}
+
+      {activeTab === 'marketing' && (
+        <motion.div key="marketing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">ROI por afiliado</h2>
+              <ExportButton report="affiliates" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {affiliatesLoading ? (
+              <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+            ) : (affiliates ?? []).length === 0 ? (
+              <EmptyState message="Sin actividad de afiliados en el periodo" />
+            ) : (
+              <RankingTable
+                data={affiliates ?? []}
+                searchable
+                searchPlaceholder="Buscar afiliado..."
+                columns={[
+                  { key: 'affiliate_name', label: 'Afiliado', align: 'left' },
+                  { key: 'orders', label: 'Pedidos', align: 'right', format: (v) => Number(v).toLocaleString('es-MX') },
+                  { key: 'revenue', label: 'Revenue', align: 'right', format: (v) => formatPrice(Number(v)), showBar: true },
+                  { key: 'commissions_paid', label: 'Comisiones', align: 'right', format: (v) => formatPrice(Number(v)) },
+                  { key: 'roi', label: 'ROI', align: 'right', format: (v) => `${Number(v).toFixed(1)}%` },
+                  { key: 'conversion_rate', label: 'Conversion', align: 'right', format: (v) => `${Number(v).toFixed(1)}%` },
+                  { key: 'clicks', label: 'Clics', align: 'right', format: (v) => Number(v).toLocaleString('es-MX') },
+                ]}
+              />
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Performance de cupones</h2>
+              <ExportButton report="coupons" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {couponsLoading ? (
+              <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+            ) : (coupons ?? []).length === 0 ? (
+              <EmptyState message="Sin uso de cupones en el periodo" />
+            ) : (
+              <RankingTable
+                data={coupons ?? []}
+                columns={[
+                  { key: 'code', label: 'Codigo', align: 'left' },
+                  { key: 'uses', label: 'Usos', align: 'right', format: (v) => Number(v).toLocaleString('es-MX') },
+                  { key: 'discount_total', label: 'Descuento total', align: 'right', format: (v) => formatPrice(Number(v)) },
+                  { key: 'revenue_attributed', label: 'Revenue', align: 'right', format: (v) => formatPrice(Number(v)), showBar: true },
+                  { key: 'roi', label: 'ROI', align: 'right', format: (v) => `${Number(v).toFixed(1)}%` },
+                  { key: 'redemption_rate', label: 'Redencion', align: 'right', format: (v) => `${Number(v).toFixed(1)}%` },
+                ]}
+              />
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'operations' && (
+        <motion.div key="operations" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-900">Funnel de pedidos</h2>
+              </div>
+              {funnelLoading ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : (funnel ?? []).length === 0 ? (
+                <EmptyState />
+              ) : (
+                <FunnelChart data={funnel ?? []} />
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-900">Performance de entrega</h2>
+              </div>
+              {deliveryLoading ? (
+                <div className="h-32 bg-gray-50 rounded-xl animate-pulse" />
+              ) : !delivery ? (
+                <EmptyState />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-[10px] text-gray-500 mb-1">Tiempo promedio</p>
+                    <p className="text-xl font-bold text-gray-900">{delivery.avg_hours}h</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-[10px] text-gray-500 mb-1">On-time rate</p>
+                    <p className="text-xl font-bold text-gray-900">{delivery.on_time_rate}%</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Analisis de devoluciones</h2>
+              <ExportButton report="refunds" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+            </div>
+            {refundsLoading ? (
+              <div className="h-48 bg-gray-50 rounded-xl animate-pulse" />
+            ) : !refunds ? (
+              <EmptyState />
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-500 mb-1">Total devoluciones</p>
+                    <p className="text-lg font-bold text-gray-900">{refunds.total_refunds}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-500 mb-1">Monto total</p>
+                    <p className="text-lg font-bold text-gray-900">{formatPrice(refunds.total_amount)}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-500 mb-1">Tasa devolucion</p>
+                    <p className="text-lg font-bold text-gray-900">{refunds.refund_rate}%</p>
+                  </div>
+                </div>
+
+                {refunds.by_reason.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-gray-700 mb-2">Por motivo</h4>
+                    <div className="space-y-1.5">
+                      {refunds.by_reason.map((r) => (
+                        <div key={r.reason} className="flex items-center gap-3">
+                          <span className="text-xs text-gray-600 w-40 truncate">{r.reason}</span>
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full">
+                            <div
+                              className="h-full bg-red-400 rounded-full"
+                              style={{ width: `${(r.count / refunds.total_refunds) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-500 w-8 text-right">{r.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'inventario' && (
+        <motion.div key="inventario" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          {inventoryLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-50 rounded-2xl animate-pulse" />)}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: 'Productos activos', value: (inventory ?? []).length, color: 'text-blue-700' },
+                  { label: 'Stock bajo', value: (inventory ?? []).filter((p) => p.status === 'low').length, color: 'text-amber-600' },
+                  { label: 'Sin stock', value: (inventory ?? []).filter((p) => p.status === 'stockout').length, color: 'text-red-600' },
+                  {
+                    label: 'Valor estimado',
+                    value: formatPrice((inventory ?? []).reduce((s, p) => s + p.cost_estimate_cents * p.stock_quantity, 0)),
+                    color: 'text-emerald-700',
+                    raw: true,
+                  },
+                ].map((card) => (
+                  <div key={card.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">{card.label}</p>
+                    <p className={`text-2xl font-bold ${card.color}`}>
+                      {'raw' in card && card.raw ? card.value : Number(card.value).toLocaleString('es-MX')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900 mb-4">Top 5 productos por movimiento (30d)</h2>
+                {(inventory ?? []).filter((p) => p.units_sold_30d > 0).length === 0 ? (
+                  <EmptyState message="Sin ventas en los ultimos 30 dias" />
+                ) : (() => {
+                  const top5 = [...(inventory ?? [])].sort((a, b) => b.units_sold_30d - a.units_sold_30d).slice(0, 5)
+                  const topMax = top5[0]?.units_sold_30d ?? 1
+                  return (
+                    <div className="space-y-3">
+                      {top5.map((p, i) => (
+                        <div key={p.product_id} className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between mb-0.5">
+                              <span className="text-xs text-gray-800 truncate font-medium">{p.product_name}</span>
+                              <span className="text-xs font-bold text-gray-900 ml-2 shrink-0">{p.units_sold_30d} uds</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full">
+                              <div
+                                className="h-full bg-amber-400 rounded-full"
+                                style={{ width: `${(p.units_sold_30d / topMax) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+            </>
+          )}
+        </motion.div>
+      )}
+
+      {activeTab === 'forecast' && (
+        <motion.div key="forecast" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Proyeccion de revenue (30 dias)</h2>
+            </div>
+            {forecastLoading ? (
+              <div className="h-72 bg-gray-50 rounded-xl animate-pulse" />
+            ) : forecastChartData.length === 0 ? (
+              <EmptyState message="Insuficientes datos historicos para proyeccion" />
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={forecastChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: '#94A3B8' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(d) => new Date(d + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#94A3B8' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={70}
+                    tickFormatter={formatPrice}
+                  />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 12 }}
+                    formatter={(v: unknown) => [formatPrice(Number(v ?? 0))]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="revenue" fill="#FFC107" name="Historico" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="forecast" fill="#3B82F6" name="Proyectado" radius={[2, 2, 0, 0]} opacity={0.8} />
+                  <Bar dataKey="upper" fill="#BFDBFE" name="Maximo" radius={[2, 2, 0, 0]} opacity={0.5} />
+                  <Bar dataKey="lower" fill="#DBEAFE" name="Minimo" radius={[2, 2, 0, 0]} opacity={0.5} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }

@@ -31,6 +31,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, minHei
   onChangeRef.current = onChange
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({ heading: false, codeBlock: false, code: false }),
       TextStyle,
