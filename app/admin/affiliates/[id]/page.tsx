@@ -486,29 +486,28 @@ export default function AdminAffiliateDetailPage() {
   return (
     <div className="space-y-6 pb-12">
 
-      {/* ── Header ── */}
-      <div className="flex items-center gap-3">
-        <Link href="/admin/affiliates" className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-black text-gray-900">@{profile.handle}</h1>
-            <span className={cn(
-              'px-2 py-0.5 text-[10px] font-bold rounded-full',
-              profile.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-            )}>
-              {profile.is_active ? 'Activo' : 'Inactivo'}
-            </span>
-            {!hasPaymentInfo && (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">
-                Sin datos de pago
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-gray-400 mt-0.5">{profile.email}</p>
+      {/* ── Header with tabs and actions ── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
+          {(['perfil', 'estadisticas'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveMainTab(tab)}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+                activeMainTab === tab
+                  ? 'bg-white text-primary-dark shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              )}
+            >
+              {tab === 'perfil'
+                ? <><UserCircle className="w-4 h-4" />Perfil</>
+                : <><BarChart2 className="w-4 h-4" />Estadísticas y pagos</>}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={async () => {
@@ -533,16 +532,14 @@ export default function AdminAffiliateDetailPage() {
           >
             <span className="leading-none">{profile.is_active ? 'Desactivar' : 'Activar'}</span>
           </button>
-          {kpis.pendingCommission > 0 && (
-            <Button
-              size="sm"
-              className="h-8 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hidden sm:flex"
-              onClick={openPayModal}
-            >
-              <Banknote className="w-3.5 h-3.5 mr-1.5" />
-              Registrar pago
-            </Button>
-          )}
+          <Button
+            size="sm"
+            className="h-8 rounded-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hidden sm:flex"
+            onClick={openPayModal}
+          >
+            <Banknote className="w-3.5 h-3.5 mr-1.5" />
+            Agregar pago
+          </Button>
           <Button
             size="sm"
             onClick={handleSaveProfile}
@@ -553,27 +550,6 @@ export default function AdminAffiliateDetailPage() {
             {savingProfile ? 'Guardando...' : 'Guardar'}
           </Button>
         </div>
-      </div>
-
-      {/* ── Main tab switcher ── */}
-      <div className="flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
-        {(['perfil', 'estadisticas'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveMainTab(tab)}
-            className={cn(
-              'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
-              activeMainTab === tab
-                ? 'bg-white text-primary-dark shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            )}
-          >
-            {tab === 'perfil'
-              ? <><UserCircle className="w-4 h-4" />Perfil</>
-              : <><BarChart2 className="w-4 h-4" />Estadísticas y pagos</>}
-          </button>
-        ))}
       </div>
 
       {/* ══════════════════════════════════════════
@@ -756,84 +732,6 @@ export default function AdminAffiliateDetailPage() {
             </div>
           </div>
 
-          {/* Payment info */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" id="payment-info">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Datos de pago</h3>
-                {hasPaymentInfo ? (
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">Configurado</span>
-                ) : (
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">Sin configurar</span>
-                )}
-              </div>
-            </div>
-            <div className="p-5">
-              <div className="max-w-lg space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Método de pago</label>
-                      <Input
-                        value={payForm.payment_method}
-                        onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value }))}
-                        placeholder="ej. SPEI, PayPal"
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Banco</label>
-                      <Input
-                        value={payForm.bank_name}
-                        onChange={(e) => setPayForm((f) => ({ ...f, bank_name: e.target.value }))}
-                        placeholder="ej. BBVA, Banorte"
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">CLABE interbancaria</label>
-                    <Input
-                      value={payForm.bank_clabe}
-                      onChange={(e) => setPayForm((f) => ({ ...f, bank_clabe: e.target.value }))}
-                      placeholder="18 dígitos"
-                      className="h-9 text-sm font-mono"
-                      maxLength={18}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Número de cuenta</label>
-                      <Input
-                        value={payForm.bank_account}
-                        onChange={(e) => setPayForm((f) => ({ ...f, bank_account: e.target.value }))}
-                        className="h-9 text-sm font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Titular</label>
-                      <Input
-                        value={payForm.bank_holder}
-                        onChange={(e) => setPayForm((f) => ({ ...f, bank_holder: e.target.value }))}
-                        placeholder="Nombre completo"
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Notas adicionales</label>
-                    <textarea
-                      value={payForm.payment_notes}
-                      onChange={(e) => setPayForm((f) => ({ ...f, payment_notes: e.target.value }))}
-                      className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary-cyan/30 resize-none"
-                      rows={2}
-                      placeholder="Referencias, instrucciones especiales..."
-                    />
-                  </div>
-                </div>
-              <p className="mt-3 text-[10px] text-gray-400">Estos datos se guardan con el botón global.</p>
-            </div>
-          </div>
-
           {/* Coupons */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
@@ -890,6 +788,84 @@ export default function AdminAffiliateDetailPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Payment info */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" id="payment-info">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Datos de pago</h3>
+                {hasPaymentInfo ? (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">Configurado</span>
+                ) : (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">Sin configurar</span>
+                )}
+              </div>
+            </div>
+            <div className="p-5">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Método de pago</label>
+                    <Input
+                      value={payForm.payment_method}
+                      onChange={(e) => setPayForm((f) => ({ ...f, payment_method: e.target.value }))}
+                      placeholder="ej. SPEI, PayPal"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Banco</label>
+                    <Input
+                      value={payForm.bank_name}
+                      onChange={(e) => setPayForm((f) => ({ ...f, bank_name: e.target.value }))}
+                      placeholder="ej. BBVA, Banorte"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Titular</label>
+                    <Input
+                      value={payForm.bank_holder}
+                      onChange={(e) => setPayForm((f) => ({ ...f, bank_holder: e.target.value }))}
+                      placeholder="Nombre completo"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">CLABE interbancaria</label>
+                    <Input
+                      value={payForm.bank_clabe}
+                      onChange={(e) => setPayForm((f) => ({ ...f, bank_clabe: e.target.value }))}
+                      placeholder="18 dígitos"
+                      className="h-9 text-sm font-mono"
+                      maxLength={18}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Número de cuenta</label>
+                    <Input
+                      value={payForm.bank_account}
+                      onChange={(e) => setPayForm((f) => ({ ...f, bank_account: e.target.value }))}
+                      className="h-9 text-sm font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Notas adicionales</label>
+                  <textarea
+                    value={payForm.payment_notes}
+                    onChange={(e) => setPayForm((f) => ({ ...f, payment_notes: e.target.value }))}
+                    className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary-cyan/30 resize-none"
+                    rows={2}
+                    placeholder="Referencias, instrucciones especiales..."
+                  />
+                </div>
+              </div>
+              <p className="mt-3 text-[10px] text-gray-400">Estos datos se guardan con el botón global.</p>
+            </div>
           </div>
         </div>
       )}
