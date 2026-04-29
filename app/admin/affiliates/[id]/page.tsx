@@ -565,74 +565,69 @@ export default function AdminAffiliateDetailPage() {
                   ? `${(profile.first_name ?? '').slice(0, 1)}${(profile.last_name ?? '').slice(0, 1)}`.trim() || profile.handle.slice(0, 2).toUpperCase()
                   : profile.handle.slice(0, 2).toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-primary-dark">
-                  {profile.first_name || profile.last_name
-                    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-                    : `@${profile.handle}`}
-                </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-bold text-primary-dark">
+                    {profile.first_name || profile.last_name
+                      ? [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+                      : `@${profile.handle}`}
+                  </p>
+                  <span className={cn(
+                    'px-2 py-0.5 text-[10px] font-bold rounded-full',
+                    profile.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                  )}>
+                    {profile.is_active ? 'Activo' : 'Inactivo'}
+                  </span>
+                  {!hasPaymentInfo && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">
+                      Sin datos de pago
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-0.5">@{profile.handle}</p>
                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                   <span className="text-[11px] text-gray-400 flex items-center gap-1"><Mail className="w-3 h-3" />{profile.email}</span>
                   {profile.phone && <span className="text-[11px] text-gray-400 flex items-center gap-1"><Phone className="w-3 h-3" />{profile.phone}</span>}
                 </div>
               </div>
-              <h2 className="ml-auto text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:block">Información básica</h2>
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:block">Información básica</h2>
             </div>
             <div className="p-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Nombre</label>
-                      <Input
-                        value={generalForm.first_name}
-                        onChange={(e) => setGeneralForm((f) => ({ ...f, first_name: e.target.value }))}
-                        placeholder="María"
-                        className="h-9 text-sm"
-                        disabled={Boolean(profile.customer_linked)}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-400 block mb-1">Apellido</label>
-                      <Input
-                        value={generalForm.last_name}
-                        onChange={(e) => setGeneralForm((f) => ({ ...f, last_name: e.target.value }))}
-                        placeholder="García"
-                        className="h-9 text-sm"
-                        disabled={Boolean(profile.customer_linked)}
-                      />
-                    </div>
-                  </div>
-                  {profile.customer_linked && (
-                    <p className="text-[11px] text-gray-400">Nombre se refleja desde el cliente vinculado.</p>
-                  )}
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-400 block mb-1">Teléfono</label>
-                    <Input
-                      value={generalForm.phone}
-                      onChange={(e) => setGeneralForm((f) => ({ ...f, phone: e.target.value }))}
-                      placeholder="+52 55 1234 5678"
-                      className="h-9 text-sm"
-                      inputMode="tel"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Nombre</label>
+                  <Input
+                    value={generalForm.first_name}
+                    onChange={(e) => setGeneralForm((f) => ({ ...f, first_name: e.target.value }))}
+                    placeholder="María"
+                    className="h-9 text-sm"
+                    disabled={Boolean(profile.customer_linked)}
+                  />
                 </div>
-                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Datos guardados</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span className="text-xs text-gray-700 break-all">{profile.email || '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      {profile.phone
-                        ? <span className="text-xs text-gray-700">{profile.phone}</span>
-                        : <span className="text-xs text-amber-600">Sin teléfono</span>}
-                    </div>
-                  </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Apellido</label>
+                  <Input
+                    value={generalForm.last_name}
+                    onChange={(e) => setGeneralForm((f) => ({ ...f, last_name: e.target.value }))}
+                    placeholder="García"
+                    className="h-9 text-sm"
+                    disabled={Boolean(profile.customer_linked)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 block mb-1">Teléfono</label>
+                  <Input
+                    value={generalForm.phone}
+                    onChange={(e) => setGeneralForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="+52 55 1234 5678"
+                    className="h-9 text-sm"
+                    inputMode="tel"
+                  />
                 </div>
               </div>
+              {profile.customer_linked && (
+                <p className="text-[11px] text-gray-400 mt-3">Nombre se refleja desde el cliente vinculado.</p>
+              )}
             </div>
           </div>
 
@@ -732,64 +727,6 @@ export default function AdminAffiliateDetailPage() {
             </div>
           </div>
 
-          {/* Coupons */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                <Tag className="w-3.5 h-3.5 text-gray-400" />
-                Cupones vinculados
-                {coupons.length > 0 && (
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
-                    {coupons.length}
-                  </span>
-                )}
-              </h3>
-              <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
-                <Button variant="outline" size="sm" className="h-7 rounded-full text-xs">Agregar cupón</Button>
-              </Link>
-            </div>
-            {coupons.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-3">
-                <Tag className="w-7 h-7 text-gray-200" />
-                <p className="text-sm text-gray-400 font-medium">Sin cupones vinculados</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-                {coupons.map((coupon) => (
-                  <motion.div
-                    key={coupon.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 hover:border-gray-200 hover:bg-white transition-all"
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-mono font-bold text-primary-dark text-sm tracking-wide">{coupon.code}</span>
-                      <CouponStatusBadge status={coupon.computed_status} />
-                    </div>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Percent className="w-3 h-3 text-gray-400" />
-                      <span className="text-xs text-gray-600">
-                        {coupon.type === 'percentage'
-                          ? `${coupon.value}% descuento`
-                          : coupon.type === 'fixed'
-                            ? `${formatPrice(coupon.value)} descuento`
-                            : `Condicional · ${coupon.value}%`}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-gray-400">
-                      {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString('es-MX') : 'Inmediato'} —{' '}
-                      {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString('es-MX') : 'Sin venc.'}
-                    </p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Usos: {coupon.used_count} / {coupon.max_uses ?? '∞'}</p>
-                    <Link href={`/admin/cupones?couponId=${coupon.id}`} className="mt-2.5 inline-block">
-                      <Button variant="outline" size="sm" className="h-6 rounded-full text-[10px] px-2.5">Ver cupón</Button>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Payment info */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" id="payment-info">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
@@ -866,6 +803,64 @@ export default function AdminAffiliateDetailPage() {
               </div>
               <p className="mt-3 text-[10px] text-gray-400">Estos datos se guardan con el botón global.</p>
             </div>
+          </div>
+
+          {/* Coupons */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                <Tag className="w-3.5 h-3.5 text-gray-400" />
+                Cupones vinculados
+                {coupons.length > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">
+                    {coupons.length}
+                  </span>
+                )}
+              </h3>
+              <Link href={`/admin/cupones?create=1&affiliateId=${profile.id}`}>
+                <Button variant="outline" size="sm" className="h-7 rounded-full text-xs">Agregar cupón</Button>
+              </Link>
+            </div>
+            {coupons.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-3">
+                <Tag className="w-7 h-7 text-gray-200" />
+                <p className="text-sm text-gray-400 font-medium">Sin cupones vinculados</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+                {coupons.map((coupon) => (
+                  <motion.div
+                    key={coupon.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 hover:border-gray-200 hover:bg-white transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-mono font-bold text-primary-dark text-sm tracking-wide">{coupon.code}</span>
+                      <CouponStatusBadge status={coupon.computed_status} />
+                    </div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Percent className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-600">
+                        {coupon.type === 'percentage'
+                          ? `${coupon.value}% descuento`
+                          : coupon.type === 'fixed'
+                            ? `${formatPrice(coupon.value)} descuento`
+                            : `Condicional · ${coupon.value}%`}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString('es-MX') : 'Inmediato'} —{' '}
+                      {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString('es-MX') : 'Sin venc.'}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Usos: {coupon.used_count} / {coupon.max_uses ?? '∞'}</p>
+                    <Link href={`/admin/cupones?couponId=${coupon.id}`} className="mt-2.5 inline-block">
+                      <Button variant="outline" size="sm" className="h-6 rounded-full text-[10px] px-2.5">Ver cupón</Button>
+                    </Link>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1316,6 +1311,9 @@ export default function AdminAffiliateDetailPage() {
                               <div className="flex items-center justify-between mt-0.5">
                                 <span className="text-[10px] text-gray-400 truncate">{o.customer_name ?? 'Sin nombre'}</span>
                                 <span className="text-[10px] text-gray-400">{o.commission_pct}%</span>
+                              </div>
+                              <div className="text-[10px] text-gray-400 mt-0.5">
+                                {new Date(o.order_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                               </div>
                             </div>
                           </button>
