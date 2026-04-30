@@ -1,7 +1,7 @@
 -- ============================================
 -- 031: ANALYTICS - ORDERS & CUSTOMERS ENHANCEMENTS
 -- ============================================
-/Users/quiron/CascadeProjects/nurei/supabase/migrations/032_analytics_order_refunds.sql
+
 -- ============================================
 -- ORDERS: Add missing columns for analytics
 -- ============================================
