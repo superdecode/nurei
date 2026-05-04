@@ -3,6 +3,25 @@ import { listProducts, createProduct, getProductBySlug } from '@/lib/supabase/qu
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/server/require-admin'
 
+type ProductCreatePayload = Record<string, unknown>
+
+async function createProductWithOptionalStock(body: ProductCreatePayload, adminUserId: string | null) {
+  const product = await createProduct(body)
+  const stockQuantity = Number(body.stock_quantity ?? 0)
+  if (stockQuantity > 0) {
+    const internalReference = `INV-INI-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`
+    await createServiceClient().from('inventory_movements').insert({
+      product_id: product.id,
+      type: 'entrada',
+      quantity: Math.abs(stockQuantity),
+      reason: typeof body.inventory_note === 'string' && body.inventory_note.trim() ? body.inventory_note.trim() : 'Stock inicial al crear producto',
+      reference: internalReference,
+      created_by: adminUserId,
+    })
+  }
+  return product
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
@@ -35,18 +54,21 @@ export async function POST(request: NextRequest) {
     if (adminCheck.error) return adminCheck.error
 
     const body = await request.json()
-    const product = await createProduct(body)
-    if ((body.stock_quantity ?? 0) > 0) {
-      const internalReference = `INV-INI-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`
-      await createServiceClient().from('inventory_movements').insert({
-        product_id: product.id,
-        type: 'entrada',
-        quantity: Math.abs(body.stock_quantity),
-        reason: body.inventory_note?.trim() || 'Stock inicial al crear producto',
-        reference: internalReference,
-        created_by: adminCheck.userId,
-      })
+    const batch = Array.isArray(body)
+      ? body
+      : Array.isArray((body as { products?: unknown }).products)
+        ? (body as { products: ProductCreatePayload[] }).products
+        : null
+
+    if (batch) {
+      const products = []
+      for (const item of batch as ProductCreatePayload[]) {
+        products.push(await createProductWithOptionalStock(item, adminCheck.userId))
+      }
+      return NextResponse.json({ data: { products } }, { status: 201 })
     }
+
+    const product = await createProductWithOptionalStock(body as ProductCreatePayload, adminCheck.userId)
     return NextResponse.json({ data: product }, { status: 201 })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error creating product'

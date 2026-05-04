@@ -113,13 +113,14 @@ export async function getProductBySlug(slug: string) {
 
 export async function createProduct(product: Partial<Product>) {
   const supabase = createServiceClient()
+  const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
   const row = {
-    name: product.name,
-    slug: product.slug,
+    name: product.name ?? 'Borrador sin nombre',
+    slug: product.slug ?? `borrador-${uniqueSuffix}`,
     description: product.description ?? null,
     category: product.category ?? 'crunchy',
     subcategory: product.subcategory ?? null,
-    sku: product.sku,
+    sku: product.sku ?? `SKU-${uniqueSuffix.toUpperCase().replace(/[^A-Z0-9-]/g, '')}`,
     brand_id: product.brand_id ?? null,
     brand: product.brand ?? null,
     origin: product.origin ?? '',
@@ -133,12 +134,12 @@ export async function createProduct(product: Partial<Product>) {
     compare_at_price: product.compare_at_price ?? null,
     cost_estimate: product.cost_estimate ?? null,
     availability_score: product.availability_score ?? 100,
-    is_active: product.status === 'active',
+    is_active: product.status !== 'archived' && (product.status ?? 'active') === 'active',
     is_featured: product.is_featured ?? false,
     is_limited: product.is_limited ?? false,
     has_variants: product.has_variants ?? false,
     requires_spice_level: product.requires_spice_level ?? false,
-    status: product.status ?? 'draft',
+    status: product.status ?? 'active',
     campaign: product.campaign ?? null,
     images: product.images ?? [],
     primary_image_index: product.primary_image_index ?? 0,

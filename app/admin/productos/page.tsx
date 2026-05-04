@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, LayoutGrid, List, Trash2,
   ChevronUp, ChevronDown, Check, X, Package,
   ArrowUpDown, CheckSquare, Filter,
-  Copy, Layers, Pencil, Eye,
+  Copy, Layers, Pencil,
   Upload, Download,
 } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
@@ -117,6 +117,7 @@ const cardVariants = {
 
 export default function ProductosAdminPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string, color?: string}[]>([])
   const [loading, setLoading] = useState(true)
@@ -197,6 +198,12 @@ export default function ProductosAdminPage() {
     fetchProducts()
     fetchCategories()
   }, [fetchProducts, fetchCategories])
+
+  useEffect(() => {
+    if (searchParams.get('import') === '1') {
+      setImportOpen(true)
+    }
+  }, [searchParams])
 
   // ─── Filtering & Sorting (client-side additional) ──────────────
 

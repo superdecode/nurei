@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Package,
   Phone, Mail, MapPin, Copy, Send, Printer, Loader2,
@@ -24,6 +25,7 @@ import { ORDER_STATUS_MAP, VALID_STATUS_TRANSITIONS, PAYMENT_METHOD_LABELS, CANC
 import type { StatusMeta } from '@/lib/utils/constants'
 import { formatPrice, formatDate, formatPhone } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
+import { useAdminTabsStore } from '@/lib/stores/adminTabsStore'
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -113,6 +115,8 @@ function ElapsedTimeBadge({ createdAt }: { createdAt: string }) {
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const pathname = usePathname()
+  const { openTab, setActive } = useAdminTabsStore()
 
   const [order, setOrder] = useState<Order | null>(null)
   const [adjacent, setAdjacent] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null })
@@ -141,6 +145,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }, [id])
 
   useEffect(() => { fetchOrder() }, [fetchOrder])
+
+  useEffect(() => {
+    if (!order) return
+    openTab({ href: pathname, label: `Detalle orden ${order.short_id}` })
+    setActive(pathname)
+  }, [order, openTab, pathname, setActive])
 
   const playSuccessSound = () => {
     const el = document.getElementById('nurei-success-sound') as HTMLAudioElement | null

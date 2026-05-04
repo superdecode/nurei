@@ -89,6 +89,9 @@ interface ProductFormProps {
   initialProduct?: Product
   initialVariants?: ProductVariant[]
   navProps?: NavProps
+  draftStorageKey?: string
+  onDirtyChange?: (dirty: boolean) => void
+  registerSmartSave?: (fn: (() => Promise<void>) | null) => void
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────
@@ -137,7 +140,7 @@ const emptyForm: ProductFormData = {
   sku: '', brand: '', brand_id: null, origin: '', origin_country: '',
   unit_of_measure: 'g', spice_level: 0, requires_spice_level: false,
   weight_g: '', shipping_weight_g: '', base_price: '', compare_at_price: '', cost_estimate: '',
-  status: 'draft', campaign: '', tags: [], images: [], primary_image_index: 0,
+  status: 'active', campaign: '', tags: [], images: [], primary_image_index: 0,
   has_variants: false, dimensions_cm: { length: '', width: '', height: '' },
   stock_quantity: '', low_stock_threshold: '5', track_inventory: true,
   allow_backorder: false, is_featured: false, is_limited: false,
@@ -263,7 +266,9 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 
 // ─── Main Component ─────────────────────────────────────────────────────
 
-export default function ProductForm({ initialProduct, initialVariants, navProps }: ProductFormProps) {
+export default function ProductForm({
+  initialProduct, initialVariants, navProps, draftStorageKey, onDirtyChange, registerSmartSave,
+}: ProductFormProps) {
   const router = useRouter()
   const isEdit = !!initialProduct
 
@@ -297,6 +302,39 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
   const [brandList, setBrandList] = useState<Array<{ id: string; name: string }>>([])
   const [brandListLoading, setBrandListLoading] = useState(false)
   const brandDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasLoadedDraftRef = useRef(false)
+  const initialSnapshotRef = useRef<string>('')
+  const smartSaveRef = useRef<() => Promise<void>>(async () => {})
+  const lastDirtyRef = useRef<boolean | null>(null)
+
+  useEffect(() => {
+    if (isEdit || !draftStorageKey || hasLoadedDraftRef.current) return
+    hasLoadedDraftRef.current = true
+    try {
+      const raw = localStorage.getItem(`nurei-product-draft:${draftStorageKey}`)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as { form?: ProductFormData; variants?: VariantFormData[] }
+      if (parsed.form) setForm(parsed.form)
+      if (Array.isArray(parsed.variants)) setVariants(parsed.variants)
+    } catch {
+      // ignore draft parse errors
+    }
+  }, [isEdit, draftStorageKey])
+
+  useEffect(() => {
+    initialSnapshotRef.current = JSON.stringify({
+      form: initialProduct ? productToForm(initialProduct) : emptyForm,
+      variants: initialVariants?.map(variantToForm) ?? [],
+    })
+  }, [initialProduct, initialVariants])
+
+  useEffect(() => {
+    const currentSnapshot = JSON.stringify({ form, variants })
+    const isDirty = currentSnapshot !== initialSnapshotRef.current
+    if (lastDirtyRef.current === isDirty) return
+    lastDirtyRef.current = isDirty
+    onDirtyChange?.(isDirty)
+  }, [form, variants, onDirtyChange])
 
   useEffect(() => {
     fetchWithCredentials('/api/admin/categories')
@@ -488,41 +526,48 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
   // ─── Save ───────────────────────────────────────────────────────
 
   const handleSave = async (addAnother = false, statusOverride?: ProductStatus) => {
-    // Validation
+    const statusToSave = statusOverride ?? form.status
+    const saveAsDraft = statusToSave === 'draft'
+
+    // Validation for publish flow only.
     const errors: string[] = []
     const nextFieldErrors: Record<string, string> = {}
-    if (!form.name.trim()) errors.push('Nombre del producto')
-    if (!form.category) errors.push('Categoría')
-    if (!form.base_price || parseFloat(form.base_price) <= 0) errors.push('Precio válido (mayor a $0)')
-    if (!form.images.length) errors.push('Al menos una imagen')
-    if (form.track_inventory) {
-      const stockRaw = form.stock_quantity.trim()
-      if (!stockRaw) {
-        errors.push('Stock')
-        nextFieldErrors.stock_quantity = 'El stock es obligatorio con inventario activo'
-      } else {
-        const n = parseInt(stockRaw, 10)
-        if (Number.isNaN(n) || n < 0) {
-          errors.push('Stock válido')
-          nextFieldErrors.stock_quantity = 'Indica un número mayor o igual a 0'
+    if (!saveAsDraft) {
+      if (!form.name.trim()) errors.push('Nombre del producto')
+      if (!form.category) errors.push('Categoría')
+      if (!form.base_price || parseFloat(form.base_price) <= 0) errors.push('Precio válido (mayor a $0)')
+      if (!form.images.length) errors.push('Al menos una imagen')
+      if (form.track_inventory) {
+        const stockRaw = form.stock_quantity.trim()
+        if (!stockRaw) {
+          errors.push('Stock')
+          nextFieldErrors.stock_quantity = 'El stock es obligatorio con inventario activo'
+        } else {
+          const n = parseInt(stockRaw, 10)
+          if (Number.isNaN(n) || n < 0) {
+            errors.push('Stock válido')
+            nextFieldErrors.stock_quantity = 'Indica un número mayor o igual a 0'
+          }
         }
       }
-    }
-    if (!isEdit && !form.unit_of_measure) {
-      errors.push('Unidad de medida')
-      nextFieldErrors.unit_of_measure = 'Selecciona una unidad de medida'
-    }
-    if (!isEdit && !form.weight_g.trim()) {
-      errors.push('Cantidad por unidad')
-      nextFieldErrors.weight_g = 'La cantidad por unidad es obligatoria'
-    }
+      if (!isEdit && !form.unit_of_measure) {
+        errors.push('Unidad de medida')
+        nextFieldErrors.unit_of_measure = 'Selecciona una unidad de medida'
+      }
+      if (!isEdit && !form.weight_g.trim()) {
+        errors.push('Cantidad por unidad')
+        nextFieldErrors.weight_g = 'La cantidad por unidad es obligatoria'
+      }
 
-    if (errors.length > 0) {
-      setFieldErrors(nextFieldErrors)
-      toast.error(`Datos faltantes:\n${errors.map(e => `• ${e}`).join('\n')}`)
-      return
+      if (errors.length > 0) {
+        setFieldErrors(nextFieldErrors)
+        toast.error(`Datos faltantes:\n${errors.map(e => `• ${e}`).join('\n')}`)
+        return
+      }
+      setFieldErrors({})
+    } else {
+      setFieldErrors({})
     }
-    setFieldErrors({})
 
     const hasNamedVariant = variants.some((v) => v.name.trim().length > 0)
     const effectiveHasVariants = form.has_variants && hasNamedVariant
@@ -533,30 +578,39 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
     const stockQtyParsed = form.track_inventory
       ? parseInt(form.stock_quantity.trim(), 10)
       : (form.stock_quantity.trim() === '' ? 0 : parseInt(form.stock_quantity, 10) || 0)
+    const safeStockQty = Number.isFinite(stockQtyParsed) ? stockQtyParsed : 0
+    const publishableName = form.name.trim() || 'Borrador sin nombre'
+    const slugSeed = form.slug.trim() || (saveAsDraft ? `borrador-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` : publishableName)
+    const basePriceValue = parseFloat(form.base_price)
+    const basePriceParsed = Number.isFinite(basePriceValue) ? Math.round(basePriceValue * 100) : 0
+    const weightParsed = form.weight_g.trim() ? parseInt(form.weight_g, 10) || 0 : 0
+    const compareAtValue = parseFloat(form.compare_at_price)
+    const compareAtParsed = form.compare_at_price && Number.isFinite(compareAtValue) ? Math.round(compareAtValue * 100) : null
+    const costEstimateValue = parseFloat(form.cost_estimate)
+    const costEstimateParsed = form.cost_estimate && Number.isFinite(costEstimateValue) ? Math.round(costEstimateValue * 100) : null
 
     setSaving(true)
     try {
-      const statusToSave = statusOverride ?? form.status
       const body: Record<string, unknown> = {
-        name: form.name,
-        slug: form.slug || slugify(form.name),
+        name: publishableName,
+        slug: slugify(slugSeed),
         description: form.description || null,
-        category: form.category,
+        category: form.category || 'crunchy',
         subcategory: form.subcategory || null,
         sku: form.sku || generateSku(),
         brand_id: form.brand_id,
         brand: form.brand?.trim() || null,
-        origin: form.origin,
-        origin_country: form.origin_country || form.origin,
+        origin: form.origin || 'Japon',
+        origin_country: form.origin_country || form.origin || 'Japon',
         unit_of_measure: form.unit_of_measure,
         spice_level: form.spice_level,
         requires_spice_level: form.requires_spice_level,
-        weight_g: parseInt(form.weight_g, 10) || 0,
+        weight_g: weightParsed,
         shipping_weight_g: form.shipping_weight_g ? parseInt(form.shipping_weight_g, 10) || 0 : null,
-        base_price: Math.round(parseFloat(form.base_price) * 100),
-        price: Math.round(parseFloat(form.base_price) * 100),
-        compare_at_price: form.compare_at_price ? Math.round(parseFloat(form.compare_at_price) * 100) : null,
-        cost_estimate: form.cost_estimate ? Math.round(parseFloat(form.cost_estimate) * 100) : null,
+        base_price: basePriceParsed,
+        price: basePriceParsed,
+        compare_at_price: compareAtParsed,
+        cost_estimate: costEstimateParsed,
         status: statusToSave,
         campaign: form.campaign || null,
         tags: form.tags,
@@ -570,7 +624,7 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
               height: parseFloat(form.dimensions_cm.height) || null,
             }
           : null,
-        stock_quantity: stockQtyParsed,
+        stock_quantity: safeStockQty,
         low_stock_threshold: parseInt(form.low_stock_threshold, 10) || 5,
         track_inventory: form.track_inventory,
         allow_backorder: form.allow_backorder,
@@ -639,8 +693,22 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
         setForm(emptyForm)
         setFieldErrors({})
         setVariants([])
+        if (!isEdit && draftStorageKey) {
+          try { localStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } else {
+        if (!isEdit && draftStorageKey && statusToSave === 'draft') {
+          try {
+            localStorage.setItem(
+              `nurei-product-draft:${draftStorageKey}`,
+              JSON.stringify({ form, variants, updatedAt: Date.now() }),
+            )
+          } catch {}
+        }
+        if (!isEdit && draftStorageKey && statusToSave !== 'draft') {
+          try { localStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
+        }
         router.push('/admin/productos')
       }
     } catch (err: unknown) {
@@ -650,6 +718,35 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
       setSaving(false)
     }
   }
+
+  const isReadyForActiveSave = useCallback(() => {
+    if (!form.name.trim()) return false
+    if (!form.category) return false
+    if (!form.base_price || parseFloat(form.base_price) <= 0) return false
+    if (!form.images.length) return false
+    if (form.track_inventory) {
+      const stockRaw = form.stock_quantity.trim()
+      if (!stockRaw) return false
+      const n = parseInt(stockRaw, 10)
+      if (Number.isNaN(n) || n < 0) return false
+    }
+    if (!isEdit && !form.unit_of_measure) return false
+    if (!isEdit && !form.weight_g.trim()) return false
+    return true
+  }, [form, isEdit])
+
+  useEffect(() => {
+    smartSaveRef.current = async () => {
+      const targetStatus: ProductStatus = isReadyForActiveSave() ? 'active' : 'draft'
+      await handleSave(false, targetStatus)
+    }
+  }, [isReadyForActiveSave, handleSave])
+
+  useEffect(() => {
+    if (!registerSmartSave) return
+    registerSmartSave(() => smartSaveRef.current())
+    return () => registerSmartSave(null)
+  }, [registerSmartSave])
 
   // ─── Variant helpers ────────────────────────────────────────────
 
@@ -689,54 +786,54 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
     : 0
 
   const totalVariantStock = variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
+  const showDraftAction = true
 
   // ─── Render ─────────────────────────────────────────────────────
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-md -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-gray-200/50 mb-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push('/admin/productos')}
-              className="rounded-xl text-gray-400 hover:text-gray-600 shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            {navProps && navProps.total > 1 && (
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => navProps.prev && router.push(`/admin/productos/${navProps.prev.id}/edit`)}
-                  disabled={!navProps.prev}
-                  title={navProps.prev?.name}
-                  className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-[10px] text-gray-400 tabular-nums font-mono">{navProps.current}/{navProps.total}</span>
-                <button
-                  type="button"
-                  onClick={() => navProps.next && router.push(`/admin/productos/${navProps.next.id}/edit`)}
-                  disabled={!navProps.next}
-                  title={navProps.next?.name}
-                  className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+      {isEdit && (
+        <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-md -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-gray-200/50 mb-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push('/admin/productos')}
+                className="rounded-xl text-gray-400 hover:text-gray-600 shrink-0"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              {navProps && navProps.total > 1 && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => navProps.prev && router.push(`/admin/productos/${navProps.prev.id}/edit`)}
+                    disabled={!navProps.prev}
+                    title={navProps.prev?.name}
+                    className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[10px] text-gray-400 tabular-nums font-mono">{navProps.current}/{navProps.total}</span>
+                  <button
+                    type="button"
+                    onClick={() => navProps.next && router.push(`/admin/productos/${navProps.next.id}/edit`)}
+                    disabled={!navProps.next}
+                    title={navProps.next?.name}
+                    className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-base font-bold text-gray-900 truncate">
+                  {form.name || 'Editar producto'}
+                </h1>
               </div>
-            )}
-            <div className="min-w-0">
-              <h1 className="text-base font-bold text-gray-900 truncate">
-                {isEdit ? (form.name || 'Editar producto') : 'Nuevo producto'}
-              </h1>
             </div>
-          </div>
-          <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
-            {isEdit && initialProduct?.created_at && (
+            {initialProduct?.created_at && (
               <div className="hidden sm:flex flex-col items-end gap-0 text-right">
                 <span className="text-[10px] text-gray-400 leading-none">
                   Creado {new Date(initialProduct.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -748,49 +845,9 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
                 )}
               </div>
             )}
-            {!isEdit ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleSave(false, 'draft')}
-                  disabled={saving}
-                  className="rounded-xl h-9 text-xs font-bold"
-                >
-                  Guardar borrador
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void handleSave(false, 'active')}
-                  disabled={saving}
-                  className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-9 px-4 shadow-md text-xs"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-3.5 h-3.5 mr-1.5 inline" /> Guardar y activar</>}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void handleSave(true, 'draft')}
-                  disabled={saving}
-                  className="hidden sm:flex rounded-xl h-9 text-xs font-bold"
-                >
-                  Guardar y crear otro
-                </Button>
-              </>
-            ) : (
-              <Button
-                type="button"
-                onClick={() => void handleSave(false)}
-                disabled={saving}
-                className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-9 px-6 shadow-md"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                Guardar
-              </Button>
-            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,320px] gap-6">
@@ -801,19 +858,28 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
             title="Información básica"
             icon={Package}
             headerRight={(
-              <>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Estado</span>
-                <Select value={form.status} onValueChange={(v) => update({ status: v as ProductStatus })}>
-                  <SelectTrigger className="h-9 min-w-[148px] rounded-full border-gray-200 bg-gray-50 text-xs font-bold shadow-sm">
-                    <SelectValue>{PRODUCT_STATUS_LABELS[form.status]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="draft">Borrador</SelectItem>
-                    <SelectItem value="active">Activo</SelectItem>
-                    <SelectItem value="archived">Archivado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </>
+              isEdit ? (
+                <>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Estado</span>
+                  <Select value={form.status} onValueChange={(v) => update({ status: v as ProductStatus })}>
+                    <SelectTrigger className="h-9 min-w-[148px] rounded-full border-gray-200 bg-gray-50 text-xs font-bold shadow-sm">
+                      <SelectValue>{PRODUCT_STATUS_LABELS[form.status]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="draft">Borrador</SelectItem>
+                      <SelectItem value="active">Activo</SelectItem>
+                      <SelectItem value="archived">Archivado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
+              ) : (
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Estado</span>
+                  <Badge variant="secondary" className="rounded-full bg-emerald-50 text-emerald-700 border-emerald-100">
+                    Activo por defecto
+                  </Badge>
+                </div>
+              )
             )}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1455,34 +1521,34 @@ export default function ProductForm({ initialProduct, initialVariants, navProps 
             </div>
 
             {/* Actions */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/admin/productos')}
-                className="flex-1 rounded-xl h-11 font-bold text-gray-500"
-              >
-                Volver
-              </Button>
-              <div className="flex flex-col sm:flex-row flex-1 gap-2 pl-4 border-l border-gray-100">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                {showDraftAction && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleSave(false, 'draft')}
+                    disabled={saving}
+                    className="rounded-xl h-11 text-xs font-bold min-w-[180px]"
+                  >
+                    Guardar borrador
+                  </Button>
+                )}
                 <Button
                   onClick={() => handleSave(false)}
                   disabled={saving}
-                  className="w-full bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-11 shadow-md"
+                  className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-11 shadow-md min-w-[220px]"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                  {isEdit ? 'Guardar' : 'Crear'}
+                  {isEdit ? 'Guardar' : 'Guardar y activar'}
                 </Button>
-                {!isEdit && (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleSave(true)}
-                    disabled={saving}
-                    className="w-full bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border-yellow-200 rounded-xl h-11 font-bold"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Crear otro
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/admin/productos')}
+                  className="rounded-xl h-11 font-bold text-gray-500 min-w-[160px]"
+                >
+                  Volver
+                </Button>
               </div>
             </div>
           </div>

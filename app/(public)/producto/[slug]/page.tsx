@@ -1,9 +1,9 @@
 'use client'
 
-import { use, useState, useEffect, useRef } from 'react'
+import { use, useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
 import {
   Heart, ShoppingBag, ArrowLeft, Share2, Check,
   ChevronLeft, ChevronRight, Flame, Loader2, X,
@@ -23,6 +23,8 @@ import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { countryToFlag } from '@/lib/utils/country-flag'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+const DESKTOP_DESCRIPTION_COLLAPSED_HEIGHT = 112
 
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
@@ -79,10 +81,9 @@ function ImageLightbox({
 }) {
   const [idx, setIdx] = useState(startIndex)
   const dragX = useMotionValue(0)
-  const bgOpacity = useTransform(dragX, [-200, 0, 200], [0.5, 1, 0.5])
 
-  const prev = () => setIdx((i) => (i - 1 + images.length) % images.length)
-  const next = () => setIdx((i) => (i + 1) % images.length)
+  const prev = useCallback(() => setIdx((i) => (i - 1 + images.length) % images.length), [images.length])
+  const next = useCallback(() => setIdx((i) => (i + 1) % images.length), [images.length])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -92,7 +93,7 @@ function ImageLightbox({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [next, onClose, prev])
 
   return (
     <motion.div
@@ -242,12 +243,12 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
       return
     }
     const checkOverflow = () => {
-      setDescHasOverflow(el.scrollHeight > el.clientHeight + 1)
+      setDescHasOverflow(el.scrollHeight > DESKTOP_DESCRIPTION_COLLAPSED_HEIGHT + 1)
     }
     checkOverflow()
     window.addEventListener('resize', checkOverflow)
     return () => window.removeEventListener('resize', checkOverflow)
-  }, [loading, product?.id, product?.description, descExpanded])
+  }, [loading, product, descExpanded])
 
   if (loading) {
     return (
@@ -768,13 +769,19 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               {product.description && (
                 <div className="mb-5">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Descripción</p>
-                  <div
-                    ref={desktopDescRef}
-                    className={cn('text-gray-500 leading-relaxed prose prose-sm max-w-none [&_p]:mb-1.5 [&_ul]:pl-4 [&_ol]:pl-4 [&_strong]:font-bold [&_em]:italic', !descExpanded && 'line-clamp-4')}
-                    dangerouslySetInnerHTML={{ __html: product.description }}
-                  />
+                  <div className="relative">
+                    <div
+                      ref={desktopDescRef}
+                      className="text-gray-500 leading-relaxed prose prose-sm max-w-none [&_p]:mb-1.5 [&_ul]:pl-4 [&_ol]:pl-4 [&_strong]:font-bold [&_em]:italic"
+                      style={!descExpanded ? { maxHeight: `${DESKTOP_DESCRIPTION_COLLAPSED_HEIGHT}px`, overflow: 'hidden' } : undefined}
+                      dangerouslySetInnerHTML={{ __html: product.description }}
+                    />
+                    {!descExpanded && descHasOverflow && (
+                      <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
+                    )}
+                  </div>
                   {descHasOverflow && (
-                    <button onClick={() => setDescExpanded(!descExpanded)} className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-primary-cyan">
+                    <button type="button" onClick={() => setDescExpanded((v) => !v)} className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-primary-cyan">
                       {descExpanded ? <><ChevronUp className="w-3.5 h-3.5" /> Ver menos</> : <><ChevronDown className="w-3.5 h-3.5" /> Ver más</>}
                     </button>
                   )}

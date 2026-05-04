@@ -10,6 +10,7 @@ import {
 import { useAdminAuthStore } from '@/lib/stores/adminAuth'
 import { useSidebarStore, SIDEBAR_W_EXPANDED, SIDEBAR_W_COLLAPSED } from '@/lib/stores/sidebarStore'
 import { AdminNotificationBell } from './AdminNotificationBell'
+import { AdminWorkspaceTabs } from './AdminWorkspaceTabs'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,22 @@ type UserSettingsPayload = {
     email_on_new_order: boolean
   }
 }
+
+const ADMIN_TAB_ITEMS = [
+  { href: '/admin', label: 'Dashboard' },
+  { href: '/admin/pedidos', label: 'Pedidos' },
+  { href: '/admin/productos', label: 'Productos' },
+  { href: '/admin/inventario', label: 'Inventario' },
+  { href: '/admin/categorias', label: 'Categorias' },
+  { href: '/admin/media', label: 'Multimedia' },
+  { href: '/admin/cupones', label: 'Cupones' },
+  { href: '/admin/affiliates', label: 'Afiliados' },
+  { href: '/admin/pagos', label: 'Pagos' },
+  { href: '/admin/clientes', label: 'Clientes' },
+  { href: '/admin/usuarios', label: 'Usuarios' },
+  { href: '/admin/analytics', label: 'Analytics' },
+  { href: '/admin/configuracion', label: 'Administracion' },
+]
 
 export function AdminTopBar() {
   const { user, logout } = useAdminAuthStore()
@@ -183,7 +200,9 @@ export function AdminTopBar() {
         className="hidden lg:flex fixed top-0 right-0 z-30 items-center gap-1 px-5 h-14 bg-white/90 backdrop-blur-sm border-b border-gray-100 shadow-sm transition-[left] duration-300"
         style={{ left: sidebarWidth }}
       >
-        <div className="flex-1" />
+        <div className="min-w-0 flex-1 pr-3">
+          <AdminWorkspaceTabs navItems={ADMIN_TAB_ITEMS} />
+        </div>
 
         <AdminNotificationBell />
         <div className="h-6 w-px bg-gray-200 mx-1" />
