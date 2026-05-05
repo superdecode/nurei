@@ -270,8 +270,8 @@ function PrintContent() {
         if (productIds.length > 0) {
           const res = await fetch(`/api/products?ids=${productIds.join(',')}`)
           const json = await res.json()
-          const productMap = new Map((json.data?.products ?? []).map((p: any) => [p.id, p.sku]))
-          order.items = order.items.map(i => i.sku ? i : { ...i, sku: productMap.get(i.product_id) })
+          const productMap = new Map((json.data?.products ?? []).map((p: any) => [p.id, p.sku as string]))
+          order.items = order.items.map(i => i.sku ? i : { ...i, sku: productMap.get(i.product_id) as string })
         }
         return order
       })
