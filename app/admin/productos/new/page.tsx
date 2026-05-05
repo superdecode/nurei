@@ -15,7 +15,7 @@ export default function NewProductPage() {
   const currentTabParam = searchParams.get('tab') ?? ''
   const query = searchParams.toString()
   const fullHref = query ? `${pathname}?${query}` : pathname
-  const draftStorageKey = useMemo(() => `new-product-${currentTabParam}`, [currentTabParam])
+  const draftStorageKey = useMemo(() => `new-product-${currentTabParam}-${Math.random().toString(36).slice(2)}`, [currentTabParam])
   const [saveSmart, setSaveSmart] = useState<null | (() => Promise<void>)>(null)
   const [savingFromHeader, setSavingFromHeader] = useState(false)
 

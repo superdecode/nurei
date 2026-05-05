@@ -262,7 +262,18 @@ function PrintContent() {
       ids.map(async (id) => {
         const res = await fetch(`/api/admin/orders/${id}`)
         const json = await res.json() as { data?: { order: Order } }
-        return json.data?.order ?? null
+        const order = json.data?.order ?? null
+        if (!order) return null
+        
+        // Enrich items missing SKU
+        const productIds = order.items.filter(i => !i.sku).map(i => i.product_id)
+        if (productIds.length > 0) {
+          const res = await fetch(`/api/products?ids=${productIds.join(',')}`)
+          const json = await res.json()
+          const productMap = new Map((json.data?.products ?? []).map((p: any) => [p.id, p.sku]))
+          order.items = order.items.map(i => i.sku ? i : { ...i, sku: productMap.get(i.product_id) })
+        }
+        return order
       })
     ).then((results) => {
       setOrders(results.filter(Boolean) as Order[])
