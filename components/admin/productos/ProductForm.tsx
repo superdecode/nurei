@@ -230,21 +230,25 @@ function Section({
           </div>
         )}
       </div>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="px-6 pb-6 space-y-4">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: open ? '1fr' : '0fr',
+          transition: 'grid-template-rows 0.2s ease',
+        }}
+      >
+        <div
+          style={{
+            overflow: 'hidden',
+            opacity: open ? 1 : 0,
+            transition: 'opacity 0.15s ease',
+          }}
+        >
+          <div className="px-6 pb-6 space-y-4">
+            {children}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -4,7 +4,6 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
-import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
@@ -36,7 +35,6 @@ export function RichTextEditor({ value, onChange, placeholder, className, minHei
       StarterKit.configure({ heading: false, codeBlock: false, code: false }),
       TextStyle,
       Color,
-      Underline,
       Placeholder.configure({ placeholder: placeholder ?? 'Descripción del producto…' }),
     ],
     content: value || '',
