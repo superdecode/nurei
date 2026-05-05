@@ -36,7 +36,6 @@ export function RichTextEditor({ value, onChange, placeholder, className, minHei
       StarterKit.configure({ heading: false, codeBlock: false, code: false }),
       TextStyle,
       Color,
-      Underline,
       Placeholder.configure({ placeholder: placeholder ?? 'Descripción del producto…' }),
     ],
     content: value || '',
