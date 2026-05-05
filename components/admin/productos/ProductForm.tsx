@@ -272,12 +272,26 @@ export default function ProductForm({
   const router = useRouter()
   const isEdit = !!initialProduct
 
-  const [form, setForm] = useState<ProductFormData>(
-    initialProduct ? productToForm(initialProduct) : emptyForm
-  )
-  const [variants, setVariants] = useState<VariantFormData[]>(
-    initialVariants?.map(variantToForm) ?? []
-  )
+  const [form, setForm] = useState<ProductFormData>(() => {
+    if (typeof window !== 'undefined' && draftStorageKey) {
+      const saved = sessionStorage.getItem(`nurei-product-draft:${draftStorageKey}`)
+      if (saved) return JSON.parse(saved).form
+    }
+    return initialProduct ? productToForm(initialProduct) : emptyForm
+  })
+  const [variants, setVariants] = useState<VariantFormData[]>(() => {
+    if (typeof window !== 'undefined' && draftStorageKey) {
+      const saved = sessionStorage.getItem(`nurei-product-draft:${draftStorageKey}`)
+      if (saved) return JSON.parse(saved).variants
+    }
+    return initialVariants?.map(variantToForm) ?? []
+  })
+
+  // Sync to sessionStorage
+  useEffect(() => {
+    if (!draftStorageKey) return
+    sessionStorage.setItem(`nurei-product-draft:${draftStorageKey}`, JSON.stringify({ form, variants }))
+  }, [form, variants, draftStorageKey])
   const [saving, setSaving] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [newAxisName, setNewAxisName] = useState('')
@@ -307,19 +321,7 @@ export default function ProductForm({
   const smartSaveRef = useRef<() => Promise<void>>(async () => {})
   const lastDirtyRef = useRef<boolean | null>(null)
 
-  useEffect(() => {
-    if (isEdit || !draftStorageKey || hasLoadedDraftRef.current) return
-    hasLoadedDraftRef.current = true
-    try {
-      const raw = localStorage.getItem(`nurei-product-draft:${draftStorageKey}`)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as { form?: ProductFormData; variants?: VariantFormData[] }
-      if (parsed.form) setForm(parsed.form)
-      if (Array.isArray(parsed.variants)) setVariants(parsed.variants)
-    } catch {
-      // ignore draft parse errors
-    }
-  }, [isEdit, draftStorageKey])
+  // Removed legacy localStorage load useEffect
 
   useEffect(() => {
     initialSnapshotRef.current = JSON.stringify({
@@ -693,21 +695,13 @@ export default function ProductForm({
         setForm(emptyForm)
         setFieldErrors({})
         setVariants([])
-        if (!isEdit && draftStorageKey) {
-          try { localStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
+        if (draftStorageKey) {
+          try { sessionStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
         }
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } else {
-        if (!isEdit && draftStorageKey && statusToSave === 'draft') {
-          try {
-            localStorage.setItem(
-              `nurei-product-draft:${draftStorageKey}`,
-              JSON.stringify({ form, variants, updatedAt: Date.now() }),
-            )
-          } catch {}
-        }
-        if (!isEdit && draftStorageKey && statusToSave !== 'draft') {
-          try { localStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
+        if (draftStorageKey) {
+          try { sessionStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
         }
         router.push('/admin/productos')
       }

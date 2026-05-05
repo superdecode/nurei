@@ -28,6 +28,20 @@ export const useAdminTabsStore = create<AdminTabsState>()(
       dirtyByHref: {},
       openTab: (tab) => {
         const current = get().tabs
+        
+        // Deduplication: if opening a product edit tab, check if one already exists for the same product
+        if (tab.href.includes('/admin/productos/') && tab.href.includes('/edit')) {
+          const productEditPathMatch = tab.href.match(/\/admin\/productos\/([^\/]+)\/edit/)
+          if (productEditPathMatch) {
+            const productId = productEditPathMatch[1]
+            const existingIdx = current.findIndex((x) => x.href.includes(`/admin/productos/${productId}/edit`))
+            if (existingIdx >= 0) {
+              set({ activeHref: current[existingIdx].href })
+              return
+            }
+          }
+        }
+
         const idx = current.findIndex((x) => x.href === tab.href)
         if (idx >= 0) {
           const next = [...current]
