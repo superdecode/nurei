@@ -776,7 +776,7 @@ export default function PedidosAdminPage() {
                     <>
                       <button
                         type="button"
-                        onClick={() => window.open(`/admin/pedidos/print?ids=${drawerOrder.id}&type=ticket`, '_blank')}
+                        onClick={() => { window.location.href = `/admin/pedidos/print?ids=${drawerOrder.id}&type=ticket` }}
                         className="flex items-center gap-1 h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition shadow-sm"
                         title="Imprimir ticket"
                       >

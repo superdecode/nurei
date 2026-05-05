@@ -16,6 +16,7 @@ interface AdminTabsState {
   closeTab: (href: string) => void
   setActive: (href: string) => void
   setDirty: (href: string, dirty: boolean) => void
+  replaceActiveTab: (newHref: string, newLabel: string) => void
 }
 
 const DEFAULT_TAB: AdminTabItem = { href: '/admin', label: 'Dashboard' }
@@ -74,6 +75,15 @@ export const useAdminTabsStore = create<AdminTabsState>()(
         if (dirty) map[href] = true
         else delete map[href]
         set({ dirtyByHref: map })
+      },
+      replaceActiveTab: (newHref, newLabel) => {
+        const current = get().tabs
+        const active = get().activeHref
+        const idx = current.findIndex((x) => x.href === active)
+        if (idx < 0) return
+        const next = [...current]
+        next[idx] = { href: newHref, label: newLabel }
+        set({ tabs: next, activeHref: newHref })
       },
     }),
     { name: 'nurei-admin-tabs' },

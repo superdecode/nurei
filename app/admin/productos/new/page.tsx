@@ -74,6 +74,7 @@ export default function NewProductPage() {
       </div>
       {currentTabParam ? (
         <ProductForm
+          key={draftStorageKey}
           draftStorageKey={draftStorageKey}
           onDirtyChange={handleDirtyChange}
           registerSmartSave={handleRegisterSmartSave}

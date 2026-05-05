@@ -119,28 +119,32 @@ export async function getOrderDetail(
 
   const order = { ...(data as unknown as Order), updates: (updates ?? []) as unknown as OrderUpdate[] }
 
-  // Enrich items that are missing image_url with current product images
+  // Enrich items that are missing image_url or sku with current product data
   const items = (order.items ?? []) as unknown as Array<Record<string, unknown>>
-  const missingImageIds = items
-    .filter((item) => !item.image_url && item.product_id)
+  const missingDataIds = items
+    .filter((item) => (!item.image_url || !item.sku) && item.product_id)
     .map((item) => item.product_id as string)
 
-  if (missingImageIds.length > 0) {
+  if (missingDataIds.length > 0) {
     const { data: products } = await supabase
       .from('products')
-      .select('id, image_thumbnail_url, images, primary_image_index')
-      .in('id', missingImageIds)
+      .select('id, sku, image_thumbnail_url, images, primary_image_index')
+      .in('id', missingDataIds)
 
     if (products) {
       const productMap = new Map(products.map((p: Record<string, unknown>) => [p.id, p]))
       order.items = items.map((item) => {
-        if (item.image_url || !item.product_id) return item
+        if ((item.image_url && item.sku) || !item.product_id) return item
         const p = productMap.get(item.product_id as string) as Record<string, unknown> | undefined
         if (!p) return item
         const imgs = (p.images as string[] | null) ?? []
-        const idx = (p.primary_image_index as number | null) ?? 0
-        const thumb = (p.image_thumbnail_url as string | null) ?? (imgs.length ? imgs[idx] ?? imgs[0] : null)
-        return { ...item, image_url: thumb }
+        const imgIdx = (p.primary_image_index as number | null) ?? 0
+        const thumb = (p.image_thumbnail_url as string | null) ?? (imgs.length ? imgs[imgIdx] ?? imgs[0] : null)
+        return {
+          ...item,
+          ...(!item.image_url && thumb ? { image_url: thumb } : {}),
+          ...(!item.sku && p.sku ? { sku: p.sku } : {}),
+        }
       }) as unknown as typeof order.items
     }
   }

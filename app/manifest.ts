@@ -24,8 +24,9 @@ async function getAppearance(): Promise<{ logo_url?: string; favicon_url?: strin
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const { logo_url, favicon_url, store_name } = await getAppearance()
   const name = store_name ?? 'nurei'
-  const iconUrl = (favicon_url || logo_url) && (favicon_url || logo_url)?.startsWith('http') ? (favicon_url || logo_url) : '/icon-192.png'
-  const iconUrl512 = (favicon_url || logo_url) && (favicon_url || logo_url)?.startsWith('http') ? (favicon_url || logo_url) : '/icon-512.png'
+  const dynamicIcon = (favicon_url || logo_url) ?? ''
+  const iconUrl = dynamicIcon.startsWith('http') ? dynamicIcon : '/icon-192.png'
+  const iconUrl512 = dynamicIcon.startsWith('http') ? dynamicIcon : '/icon-512.png'
 
   return {
     name,

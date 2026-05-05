@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { toast } from 'sonner'
 import type { Product, ProductVariant, ProductStatus, UnitOfMeasure } from '@/types'
+import { useAdminTabsStore } from '@/lib/stores/adminTabsStore'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -270,6 +272,7 @@ export default function ProductForm({
   initialProduct, initialVariants, navProps, draftStorageKey, onDirtyChange, registerSmartSave,
 }: ProductFormProps) {
   const router = useRouter()
+  const { replaceActiveTab } = useAdminTabsStore()
   const isEdit = !!initialProduct
 
   const [form, setForm] = useState<ProductFormData>(() => {
@@ -787,7 +790,7 @@ export default function ProductForm({
   return (
     <div className="max-w-7xl mx-auto">
       {isEdit && (
-        <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-md -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-gray-200/50 mb-6">
+        <div className="sticky top-14 z-30 bg-gray-50/95 backdrop-blur-md -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 border-b border-gray-200/50 mb-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <Button
@@ -802,7 +805,11 @@ export default function ProductForm({
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     type="button"
-                    onClick={() => navProps.prev && router.push(`/admin/productos/${navProps.prev.id}/edit`)}
+                    onClick={() => {
+                      if (!navProps.prev) return
+                      replaceActiveTab(`/admin/productos/${navProps.prev.id}/edit`, navProps.prev.name || 'Editar producto')
+                      router.push(`/admin/productos/${navProps.prev.id}/edit`)
+                    }}
                     disabled={!navProps.prev}
                     title={navProps.prev?.name}
                     className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
@@ -812,7 +819,11 @@ export default function ProductForm({
                   <span className="text-[10px] text-gray-400 tabular-nums font-mono">{navProps.current}/{navProps.total}</span>
                   <button
                     type="button"
-                    onClick={() => navProps.next && router.push(`/admin/productos/${navProps.next.id}/edit`)}
+                    onClick={() => {
+                      if (!navProps.next) return
+                      replaceActiveTab(`/admin/productos/${navProps.next.id}/edit`, navProps.next.name || 'Editar producto')
+                      router.push(`/admin/productos/${navProps.next.id}/edit`)
+                    }}
                     disabled={!navProps.next}
                     title={navProps.next?.name}
                     className="h-7 w-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:bg-gray-50 transition disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
@@ -1549,8 +1560,9 @@ export default function ProductForm({
         </div>
       </div>
 
-      {/* Media selection dialog */}
-      <AnimatePresence>
+      {/* Media selection dialog — rendered in a portal to avoid DOM conflicts with TipTap */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
         {mediaDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
@@ -1920,7 +1932,9 @@ export default function ProductForm({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       <Dialog open={brandManageOpen} onOpenChange={setBrandManageOpen}>
         <DialogContent className="max-w-md overflow-hidden rounded-2xl border-0 p-0 gap-0 shadow-2xl">

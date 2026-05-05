@@ -330,7 +330,7 @@ function PrintContent() {
         {/* Toolbar (screen only) */}
         <div className="no-print sticky top-0 z-10 flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-6 py-3">
           <button
-            onClick={() => window.close()}
+            onClick={() => history.back()}
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
           >
             ← Cerrar
