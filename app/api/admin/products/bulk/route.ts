@@ -5,7 +5,7 @@ import { requireAdmin } from '@/lib/server/require-admin'
 
 const bulkSchema = z.object({
   product_ids: z.array(z.string().uuid()).min(1),
-  action: z.enum(['deactivate', 'apply_discount', 'set_low_stock_threshold', 'set_stock_quantity', 'adjust_stock']),
+  action: z.enum(['deactivate', 'activate', 'apply_discount', 'set_low_stock_threshold', 'set_stock_quantity', 'adjust_stock']),
   value: z.number().optional(),
   note: z.string().max(200).optional(),
 })
@@ -27,6 +27,11 @@ export async function POST(request: NextRequest) {
 
     if (action === 'deactivate') {
       await supabase.from('products').update({ is_active: false, status: 'archived' }).in('id', product_ids)
+      return NextResponse.json({ data: { updated: product_ids.length } })
+    }
+
+    if (action === 'activate') {
+      await supabase.from('products').update({ is_active: true, status: 'active' }).in('id', product_ids)
       return NextResponse.json({ data: { updated: product_ids.length } })
     }
 

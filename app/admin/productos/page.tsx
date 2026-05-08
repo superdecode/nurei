@@ -142,7 +142,8 @@ export default function ProductosAdminPage() {
   const [stockTarget, setStockTarget] = useState<Product | null>(null)
   const [stockAdjustment, setStockAdjustment] = useState('0')
   const [stockNote, setStockNote] = useState('')
-  const [bulkAction, setBulkAction] = useState<'desactivar' | 'descuento' | 'alerta' | 'stock_fijo' | 'ajuste_stock'>('desactivar')
+  const [bulkAction, setBulkAction] = useState<'desactivar' | 'activar' | 'descuento' | 'alerta' | 'stock_fijo' | 'ajuste_stock'>('desactivar')
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
   const [bulkValue, setBulkValue] = useState('')
   const [bulkNote, setBulkNote] = useState('')
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
@@ -347,10 +348,10 @@ export default function ProductosAdminPage() {
 
   const handleBulkDelete = useCallback(async () => {
     const ids = Array.from(selectedIds)
-    if (!confirm(`¿Eliminar ${ids.length} productos seleccionados? Esta acción no se puede deshacer.`)) return
     await Promise.all(ids.map(id => fetch(`/api/products/${id}`, { method: 'DELETE' })))
     toast.success(`${ids.length} productos eliminados`)
     setSelectedIds(new Set())
+    setBulkDeleteModalOpen(false)
     fetchProducts()
   }, [selectedIds, fetchProducts])
 
@@ -395,6 +396,7 @@ export default function ProductosAdminPage() {
     if (ids.length === 0) return
     const payload: Record<string, unknown> = { product_ids: ids, note: bulkNote.trim() || undefined }
     if (bulkAction === 'desactivar') payload.action = 'deactivate'
+    if (bulkAction === 'activar') payload.action = 'activate'
     if (bulkAction === 'descuento') { payload.action = 'apply_discount'; payload.value = Number(bulkValue) }
     if (bulkAction === 'alerta') { payload.action = 'set_low_stock_threshold'; payload.value = Number(bulkValue) }
     if (bulkAction === 'stock_fijo') { payload.action = 'set_stock_quantity'; payload.value = Number(bulkValue) }
@@ -710,7 +712,7 @@ export default function ProductosAdminPage() {
               <CheckSquare className="w-4 h-4 text-yellow-600" />
               <span className="text-sm font-bold text-gray-900">{selectedIds.size} seleccionado{selectedIds.size > 1 ? 's' : ''}</span>
               <Separator orientation="vertical" className="h-5" />
-              <Button variant="ghost" size="sm" onClick={handleBulkDelete} className="text-error hover:bg-error/10 text-xs h-7">
+              <Button variant="ghost" size="sm" onClick={() => setBulkDeleteModalOpen(true)} className="text-error hover:bg-error/10 text-xs h-7">
                 <Trash2 className="w-3 h-3 mr-1" /> Eliminar
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setBulkModalOpen(true)} className="text-xs h-7">
@@ -1220,11 +1222,14 @@ export default function ProductosAdminPage() {
           <div className="mt-4 space-y-4">
             <Select value={bulkAction} onValueChange={(v) => setBulkAction(v as typeof bulkAction)}>
               <SelectTrigger className="h-12 min-h-[3rem] w-full text-base font-medium">
-                <SelectValue placeholder="Tipo de acción" />
+                <SelectValue placeholder="Selecciona" />
               </SelectTrigger>
               <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[min(100vw-2rem,28rem)]">
                 <SelectItem value="desactivar" className="py-3 text-base">
-                  Desactivar productos seleccionados
+                  Desactivar productos
+                </SelectItem>
+                <SelectItem value="activar" className="py-3 text-base">
+                  Activar productos
                 </SelectItem>
                 <SelectItem value="descuento" className="py-3 text-base">
                   Aplicar el mismo descuento porcentual a todos
@@ -1240,7 +1245,7 @@ export default function ProductosAdminPage() {
                 </SelectItem>
               </SelectContent>
             </Select>
-            {bulkAction !== 'desactivar' && (
+            {bulkAction !== 'desactivar' && bulkAction !== 'activar' && (
               <Input
                 type="number"
                 className="h-12 text-base"
@@ -1253,6 +1258,35 @@ export default function ProductosAdminPage() {
             <Button onClick={handleBulkAction} className="h-12 w-full text-base font-bold">
               Aplicar a {selectedIds.size} producto{selectedIds.size !== 1 ? 's' : ''}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
+        <DialogContent size="sm" className="p-0">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 px-8 py-5">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-white">Eliminar Productos</DialogTitle>
+                <p className="text-xs text-white/70">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-8 space-y-6">
+            <p className="text-sm text-gray-600">
+              ¿Eliminar <span className="font-bold text-primary-dark">{selectedIds.size} producto{selectedIds.size !== 1 ? 's' : ''}</span> seleccionado{selectedIds.size !== 1 ? 's' : ''}?
+            </p>
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => setBulkDeleteModalOpen(false)} className="flex-1 rounded-xl h-10 font-bold text-gray-500">
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={handleBulkDelete} className="flex-1 rounded-xl h-10 font-bold">
+                Eliminar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

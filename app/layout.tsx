@@ -24,7 +24,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
 }
 
-async function getAppearanceSettings(): Promise<{ logo_url?: string; favicon_url?: string; store_name?: string }> {
+async function getAppearanceSettings(): Promise<{ logo_url?: string; favicon_url?: string; store_name?: string; slogan?: string }> {
   try {
     const supabase = createServiceClient()
     const { data } = await supabase
@@ -38,6 +38,7 @@ async function getAppearanceSettings(): Promise<{ logo_url?: string; favicon_url
       logo_url: appearance?.logo_url || undefined,
       favicon_url: appearance?.favicon_url || undefined,
       store_name: storeInfo?.name || undefined,
+      slogan: storeInfo?.slogan || undefined,
     }
   } catch {
     return {}
@@ -45,16 +46,17 @@ async function getAppearanceSettings(): Promise<{ logo_url?: string; favicon_url
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { logo_url, favicon_url, store_name } = await getAppearanceSettings()
+  const { logo_url, favicon_url, store_name, slogan } = await getAppearanceSettings()
 
-  const title = store_name ? `${store_name} — Premium Asian Snacks` : 'nurei — Premium Asian Snacks'
+  const displaySlogan = slogan || 'Premium Asian Snacks'
+  const title = store_name ? `${store_name} — ${displaySlogan}` : `nurei — ${displaySlogan}`
   const faviconUrl = favicon_url || '/favicon.ico'
   const logoUrl = logo_url || '/logo.png'
 
   return {
     title,
     description:
-      'Curaduría premium de snacks asiáticos importados. De Tokyo a tu puerta en CDMX. Real-time stock sync.',
+      slogan || 'Curaduría premium de snacks asiáticos importados. De Tokyo a tu puerta en CDMX. Real-time stock sync.',
     keywords: ['snacks asiáticos', 'importación', 'japonés', 'coreano', 'premium', 'CDMX', 'nurei'],
     manifest: '/manifest.json',
     icons: {
@@ -67,7 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       title,
-      description: 'Curaduría premium de snacks asiáticos. De Tokyo a CDMX.',
+      description: slogan || 'Curaduría premium de snacks asiáticos. De Tokyo a CDMX.',
       type: 'website',
       images: logo_url ? [{ url: logo_url }] : [],
     },

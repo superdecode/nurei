@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 
-async function getAppearance(): Promise<{ logo_url?: string; favicon_url?: string; store_name?: string }> {
+async function getAppearance(): Promise<{ logo_url?: string; favicon_url?: string; store_name?: string; slogan?: string }> {
   try {
     const supabase = createServiceClient()
     const { data } = await supabase
@@ -15,6 +15,7 @@ async function getAppearance(): Promise<{ logo_url?: string; favicon_url?: strin
       logo_url: appearance?.logo_url || undefined,
       favicon_url: appearance?.favicon_url || undefined,
       store_name: storeInfo?.name || undefined,
+      slogan: storeInfo?.slogan || undefined,
     }
   } catch {
     return {}
@@ -22,7 +23,7 @@ async function getAppearance(): Promise<{ logo_url?: string; favicon_url?: strin
 }
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const { logo_url, favicon_url, store_name } = await getAppearance()
+  const { logo_url, favicon_url, store_name, slogan } = await getAppearance()
   const name = store_name ?? 'nurei'
   const dynamicIcon = (favicon_url || logo_url) ?? ''
   const iconUrl = dynamicIcon.startsWith('http') ? dynamicIcon : '/icon-192.png'
@@ -31,7 +32,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   return {
     name,
     short_name: name,
-    description: 'Premium Asian Snacks',
+    description: slogan || 'Premium Asian Snacks',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',

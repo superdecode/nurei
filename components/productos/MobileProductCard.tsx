@@ -142,14 +142,14 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
           {/* Discount badge */}
           {discountPercent > 0 && !isOutOfStock && (
             <span className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-black bg-red-500 text-white rounded-full leading-none">
-              -{discountPercent}%
+              -{discountPercent}% Off
             </span>
           )}
 
           {/* Limited badge */}
           {product.is_limited && !discountPercent && !isOutOfStock && (
             <span className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-bold bg-nurei-promo text-white rounded-full leading-none">
-              Ltd
+              🕐 Ltd
             </span>
           )}
 

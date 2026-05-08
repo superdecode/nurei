@@ -16,6 +16,7 @@ export async function GET() {
 
     const store_info = {
       name: typeof storeInfoRaw.name === 'string' ? storeInfoRaw.name : '',
+      slogan: typeof storeInfoRaw.slogan === 'string' ? storeInfoRaw.slogan : '',
       phone: typeof storeInfoRaw.phone === 'string' ? storeInfoRaw.phone : '',
       whatsapp: typeof storeInfoRaw.whatsapp === 'string' ? storeInfoRaw.whatsapp : '',
       email: typeof storeInfoRaw.support_email === 'string'

@@ -160,17 +160,17 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
             <div className="absolute top-3 left-3 flex flex-col gap-1.5">
               {product.is_limited && (
                 <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full shadow-lg">
-                  Limitado
+                  🕐 Limitado
                 </span>
               )}
               {discountPercent > 0 && (
                 <span className="px-2.5 py-1 text-[10px] font-black uppercase bg-red-500 text-white rounded-full shadow-lg">
-                  -{discountPercent}%
+                  -{discountPercent}% Off
                 </span>
               )}
               {product.is_featured && (
                 <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-gray-900 rounded-full shadow-lg">
-                  Popular
+                  🔥 Popular
                 </span>
               )}
               {product.has_variants && (

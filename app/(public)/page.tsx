@@ -227,16 +227,24 @@ export default function LandingPage() {
     { value: 'all', label: 'Todo', emoji: '✨' }
   ])
   const [featuredAdded, setFeaturedAdded] = useState(false)
+  const [storeName, setStoreName] = useState('')
+  const [storeSlogan, setStoreSlogan] = useState('')
 
   useEffect(() => {
     async function load() {
       try {
-        const [prodRes, catRes] = await Promise.all([
+        const [prodRes, catRes, storeRes] = await Promise.all([
           fetch('/api/products?status=active'),
-          fetch('/api/admin/categories')
+          fetch('/api/admin/categories'),
+          fetch('/api/store/info')
         ])
         const prodJson = await prodRes.json()
         const catJson = await catRes.json()
+        const storeJson = await storeRes.json()
+        if (storeJson.data?.store_info) {
+          setStoreName(storeJson.data.store_info.name || '')
+          setStoreSlogan(storeJson.data.store_info.slogan || '')
+        }
         
         const loadedProducts: Product[] = prodJson.data?.products ?? []
         setAllProducts(loadedProducts)
@@ -293,7 +301,7 @@ export default function LandingPage() {
               >
                 <span className="flex h-2 w-2 rounded-full bg-nurei-cta animate-pulse" />
                 <span className="text-xs font-bold tracking-wider text-gray-500 uppercase">
-                  Premium Asian Snacks
+                  {storeSlogan || 'Premium Asian Snacks'}
                 </span>
               </motion.div>
 

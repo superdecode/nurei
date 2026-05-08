@@ -457,12 +457,6 @@ export default function ProductForm({
 
   const handleMediaUpload = useCallback(async (files: FileList | null) => {
     if (!files?.length) return
-    const MAX_SIZE = 2 * 1024 * 1024 // 2MB
-    const oversizedFiles = Array.from(files).filter(f => f.size > MAX_SIZE)
-    if (oversizedFiles.length > 0) {
-      toast.error(`${oversizedFiles.length === 1 ? 'El archivo' : 'Los archivos'} supera${oversizedFiles.length === 1 ? '' : 'n'} el límite de 2 MB. Por favor reduce el tamaño antes de subir.`)
-      return
-    }
     setMediaUploading(true)
     try {
       for (const file of Array.from(files)) {
@@ -848,28 +842,18 @@ export default function ProductForm({
                 </h1>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {initialProduct?.created_at && (
-                <div className="hidden sm:flex flex-col items-end gap-0 text-right">
-                  <span className="text-[10px] text-gray-400 leading-none">
-                    Creado {new Date(initialProduct.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {initialProduct?.created_at && (
+              <div className="hidden sm:flex flex-col items-end gap-0 text-right">
+                <span className="text-[10px] text-gray-400 leading-none">
+                  Creado {new Date(initialProduct.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                {initialProduct.updated_at && initialProduct.updated_at !== initialProduct.created_at && (
+                  <span className="text-[10px] text-gray-300 leading-none mt-0.5">
+                    Editado {new Date(initialProduct.updated_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </span>
-                  {initialProduct.updated_at && initialProduct.updated_at !== initialProduct.created_at && (
-                    <span className="text-[10px] text-gray-300 leading-none mt-0.5">
-                      Editado {new Date(initialProduct.updated_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                  )}
-                </div>
-              )}
-              <Button
-                onClick={() => handleSave(false)}
-                disabled={saving}
-                className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-9 shadow-md text-xs gap-2"
-              >
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                Guardar
-              </Button>
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

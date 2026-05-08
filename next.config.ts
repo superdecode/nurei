@@ -5,8 +5,21 @@ const nextConfig: NextConfig = {
   experimental: {
     workerThreads: false,
     webpackMemoryOptimizations: true,
+    // Limitar memoria del compilador
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'framer-motion',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      'date-fns',
+    ],
   },
   productionBrowserSourceMaps: false,
+  // Reducir compilación paralela para ahorrar memoria
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
 };
 
 export default nextConfig;
