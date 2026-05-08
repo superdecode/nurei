@@ -88,9 +88,9 @@ export async function POST(request: NextRequest) {
       metadata: {
         order_id: order.id,
         short_id: order.short_id,
+        customer_name: order.customer_name,
         ...(referralLinkId ? { referral_link_id: referralLinkId } : {}),
       },
-      customer_name: order.customer_name ?? undefined,
     })
 
     // Save the session ID on the order
