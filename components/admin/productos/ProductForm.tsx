@@ -2,17 +2,16 @@
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Save, Plus, X, ChevronDown, ChevronUp, Package, ImageIcon,
-  DollarSign, Tag, Layers, Settings2, Flame, Copy, Trash2,
+  Layers, Settings2, Flame, Trash2,
   ArrowLeft, ChevronLeft, ChevronRight, Loader2, GripVertical, Check, Sparkles, Search,
-  SortDesc, Calendar, Trash, UploadCloud, CheckCircle2, Circle, AlertCircle, Settings,
+  SortDesc, Trash, UploadCloud, CheckCircle2, Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -116,8 +115,6 @@ const ORIGINS = [
   'Vietnam', 'Indonesia', 'Filipinas', 'Malasia', 'India', 'Mexico',
 ]
 
-const VARIANT_AXES = ['Sabor', 'Tamano', 'Color', 'Peso', 'Presentacion']
-
 const PRODUCT_STATUS_LABELS: Record<ProductStatus, string> = {
   draft: 'Borrador',
   active: 'Activo',
@@ -125,6 +122,11 @@ const PRODUCT_STATUS_LABELS: Record<ProductStatus, string> = {
 }
 
 const SPICE_CATEGORIES = ['spicy', 'snacks', 'ramen', 'salsas']
+
+type DraftSnapshot = {
+  form: ProductFormData
+  variants: VariantFormData[]
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -192,6 +194,52 @@ function variantToForm(v: ProductVariant): VariantFormData {
     compare_at_price: v.compare_at_price ? (v.compare_at_price / 100).toFixed(2) : '',
     stock: v.stock.toString(), attributes: v.attributes,
     image: v.image ?? '', status: v.status,
+  }
+}
+
+function readDraftSnapshot(storageKey: string): DraftSnapshot | null {
+  const storageKeyName = `nurei-product-draft:${storageKey}`
+  try {
+    const localValue = localStorage.getItem(storageKeyName)
+    if (localValue) return JSON.parse(localValue) as DraftSnapshot
+  } catch {
+    // ignore corrupted storage
+  }
+  try {
+    const sessionValue = sessionStorage.getItem(storageKeyName)
+    if (sessionValue) return JSON.parse(sessionValue) as DraftSnapshot
+  } catch {
+    // ignore corrupted storage
+  }
+  return null
+}
+
+function writeDraftSnapshot(storageKey: string, snapshot: DraftSnapshot) {
+  const storageKeyName = `nurei-product-draft:${storageKey}`
+  const value = JSON.stringify(snapshot)
+  try {
+    localStorage.setItem(storageKeyName, value)
+  } catch {
+    // ignore storage failures
+  }
+  try {
+    sessionStorage.setItem(storageKeyName, value)
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function clearDraftSnapshot(storageKey: string) {
+  const storageKeyName = `nurei-product-draft:${storageKey}`
+  try {
+    localStorage.removeItem(storageKeyName)
+  } catch {
+    // ignore storage failures
+  }
+  try {
+    sessionStorage.removeItem(storageKeyName)
+  } catch {
+    // ignore storage failures
   }
 }
 
@@ -276,33 +324,37 @@ export default function ProductForm({
   initialProduct, initialVariants, navProps, draftStorageKey, onDirtyChange, registerSmartSave,
 }: ProductFormProps) {
   const router = useRouter()
-  const { replaceActiveTab } = useAdminTabsStore()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { replaceActiveTab, closeTab } = useAdminTabsStore()
   const isEdit = !!initialProduct
+  const storageKey = draftStorageKey ?? (initialProduct ? `edit-product-${initialProduct.id}` : 'new-product')
+  const currentTabHref = (() => {
+    const query = searchParams.toString()
+    return query ? `${pathname}?${query}` : pathname
+  })()
 
   const [form, setForm] = useState<ProductFormData>(() => {
-    if (typeof window !== 'undefined' && draftStorageKey) {
-      const saved = sessionStorage.getItem(`nurei-product-draft:${draftStorageKey}`)
-      if (saved) return JSON.parse(saved).form
+    if (typeof window !== 'undefined') {
+      const saved = readDraftSnapshot(storageKey)
+      if (saved?.form) return saved.form
     }
     return initialProduct ? productToForm(initialProduct) : emptyForm
   })
   const [variants, setVariants] = useState<VariantFormData[]>(() => {
-    if (typeof window !== 'undefined' && draftStorageKey) {
-      const saved = sessionStorage.getItem(`nurei-product-draft:${draftStorageKey}`)
-      if (saved) return JSON.parse(saved).variants
+    if (typeof window !== 'undefined') {
+      const saved = readDraftSnapshot(storageKey)
+      if (saved?.variants) return saved.variants
     }
     return initialVariants?.map(variantToForm) ?? []
   })
 
   // Sync to sessionStorage
   useEffect(() => {
-    if (!draftStorageKey) return
-    sessionStorage.setItem(`nurei-product-draft:${draftStorageKey}`, JSON.stringify({ form, variants }))
-  }, [form, variants, draftStorageKey])
+    writeDraftSnapshot(storageKey, { form, variants })
+  }, [form, storageKey, variants])
   const [saving, setSaving] = useState(false)
   const [tagInput, setTagInput] = useState('')
-  const [newAxisName, setNewAxisName] = useState('')
-  const [variantAxes, setVariantAxes] = useState<string[]>([])
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false)
   const [media, setMedia] = useState<Array<{ id: string; url: string; filename: string; size_bytes: number; created_at?: string }>>([])
   const [mediaSearch, setMediaSearch] = useState('')
@@ -313,7 +365,7 @@ export default function ProductForm({
   const [mediaConvertToWebp, setMediaConvertToWebp] = useState(false)
   const [mediaUrlInput, setMediaUrlInput] = useState('')
   const [mediaUrlImporting, setMediaUrlImporting] = useState(false)
-  const [mediaDeleting, setMediaDeleting] = useState<string | null>(null)
+  const [, setMediaDeleting] = useState<string | null>(null)
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false)
   const [categories, setCategories] = useState<{value: string, label: string, emoji: string, color?: string}[]>([])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -323,7 +375,6 @@ export default function ProductForm({
   const [brandList, setBrandList] = useState<Array<{ id: string; name: string }>>([])
   const [brandListLoading, setBrandListLoading] = useState(false)
   const brandDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hasLoadedDraftRef = useRef(false)
   const initialSnapshotRef = useRef<string>('')
   const smartSaveRef = useRef<() => Promise<void>>(async () => {})
   const lastDirtyRef = useRef<boolean | null>(null)
@@ -483,7 +534,7 @@ export default function ProductForm({
     } finally {
       setMediaUploading(false)
     }
-  }, [])
+  }, [mediaConvertToWebp])
 
   const handleMediaFromUrl = useCallback(async (url: string) => {
     if (!url.trim()) return
@@ -540,7 +591,13 @@ export default function ProductForm({
 
   // ─── Save ───────────────────────────────────────────────────────
 
-  const handleSave = async (addAnother = false, statusOverride?: ProductStatus) => {
+  const closeCurrentTabAndReturn = useCallback(() => {
+    clearDraftSnapshot(storageKey)
+    closeTab(currentTabHref)
+    router.replace('/admin/productos')
+  }, [closeTab, currentTabHref, router, storageKey])
+
+  const handleSave = useCallback(async (addAnother = false, statusOverride?: ProductStatus) => {
     const statusToSave = statusOverride ?? form.status
     const saveAsDraft = statusToSave === 'draft'
 
@@ -595,7 +652,8 @@ export default function ProductForm({
       : (form.stock_quantity.trim() === '' ? 0 : parseInt(form.stock_quantity, 10) || 0)
     const safeStockQty = Number.isFinite(stockQtyParsed) ? stockQtyParsed : 0
     const publishableName = form.name.trim() || 'Borrador sin nombre'
-    const slugSeed = form.slug.trim() || (saveAsDraft ? `borrador-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` : publishableName)
+    const draftSlug = slugify(form.name.trim()) || `borrador-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const slugSeed = saveAsDraft ? draftSlug : (form.slug.trim() || publishableName)
     const basePriceValue = parseFloat(form.base_price)
     const basePriceParsed = Number.isFinite(basePriceValue) ? Math.round(basePriceValue * 100) : 0
     const weightParsed = form.weight_g.trim() ? parseInt(form.weight_g, 10) || 0 : 0
@@ -708,15 +766,10 @@ export default function ProductForm({
         setForm(emptyForm)
         setFieldErrors({})
         setVariants([])
-        if (draftStorageKey) {
-          try { sessionStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
-        }
+        clearDraftSnapshot(storageKey)
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } else {
-        if (draftStorageKey) {
-          try { sessionStorage.removeItem(`nurei-product-draft:${draftStorageKey}`) } catch {}
-        }
-        router.push('/admin/productos')
+        closeCurrentTabAndReturn()
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al guardar'
@@ -724,7 +777,7 @@ export default function ProductForm({
     } finally {
       setSaving(false)
     }
-  }
+  }, [closeCurrentTabAndReturn, form, initialProduct, isEdit, storageKey, update, variants])
 
   const isReadyForActiveSave = useCallback(() => {
     if (!form.name.trim()) return false
@@ -806,7 +859,7 @@ export default function ProductForm({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push('/admin/productos')}
+                onClick={closeCurrentTabAndReturn}
                 className="rounded-xl text-gray-400 hover:text-gray-600 shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -1556,7 +1609,7 @@ export default function ProductForm({
                     disabled={saving}
                     className="rounded-xl h-11 text-xs font-bold min-w-[180px]"
                   >
-                    Guardar borrador
+                    {isEdit ? 'Guardar como Borrador' : 'Guardar borrador'}
                   </Button>
                 )}
                 <Button
@@ -1569,7 +1622,7 @@ export default function ProductForm({
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => router.push('/admin/productos')}
+                  onClick={closeCurrentTabAndReturn}
                   className="rounded-xl h-11 font-bold text-gray-500 min-w-[160px]"
                 >
                   Volver

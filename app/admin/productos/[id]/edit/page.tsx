@@ -64,5 +64,5 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     total: navList.length,
   } : undefined
 
-  return <ProductForm initialProduct={product} initialVariants={variants} navProps={navProps} />
+  return <ProductForm initialProduct={product} initialVariants={variants} navProps={navProps} draftStorageKey={`edit-product-${id}`} />
 }

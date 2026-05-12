@@ -21,6 +21,11 @@ interface AdminTabsState {
 
 const DEFAULT_TAB: AdminTabItem = { href: '/admin', label: 'Dashboard' }
 
+function normalizeHref(href: string) {
+  const [path] = href.split('?')
+  return path === '/admin/productos/new' ? '/admin/productos/new' : href
+}
+
 export const useAdminTabsStore = create<AdminTabsState>()(
   persist(
     (set, get) => ({
@@ -29,10 +34,11 @@ export const useAdminTabsStore = create<AdminTabsState>()(
       dirtyByHref: {},
       openTab: (tab) => {
         const current = get().tabs
+        const nextTab = { ...tab, href: normalizeHref(tab.href) }
         
         // Deduplication: if opening a product edit tab, check if one already exists for the same product
-        if (tab.href.includes('/admin/productos/') && tab.href.includes('/edit')) {
-          const productEditPathMatch = tab.href.match(/\/admin\/productos\/([^\/]+)\/edit/)
+        if (nextTab.href.includes('/admin/productos/') && nextTab.href.includes('/edit')) {
+          const productEditPathMatch = nextTab.href.match(/\/admin\/productos\/([^\/]+)\/edit/)
           if (productEditPathMatch) {
             const productId = productEditPathMatch[1]
             const existingIdx = current.findIndex((x) => x.href.includes(`/admin/productos/${productId}/edit`))
@@ -43,25 +49,26 @@ export const useAdminTabsStore = create<AdminTabsState>()(
           }
         }
 
-        const idx = current.findIndex((x) => x.href === tab.href)
+        const idx = current.findIndex((x) => normalizeHref(x.href) === nextTab.href)
         if (idx >= 0) {
           const next = [...current]
-          next[idx] = { ...next[idx], label: tab.label }
-          set({ tabs: next, activeHref: tab.href })
+          next[idx] = { ...next[idx], ...nextTab }
+          set({ tabs: next, activeHref: nextTab.href })
           return
         }
-        set({ tabs: [...current, tab], activeHref: tab.href })
+        set({ tabs: [...current, nextTab], activeHref: nextTab.href })
       },
       closeTab: (href) => {
         const current = get().tabs
-        const next = current.filter((x) => x.href !== href)
+        const normalizedHref = normalizeHref(href)
+        const next = current.filter((x) => normalizeHref(x.href) !== normalizedHref)
         const safeTabs = next.length > 0 ? next : [DEFAULT_TAB]
         const currentActive = get().activeHref
         const currentDirty = get().dirtyByHref
         const restDirty = { ...currentDirty }
-        delete restDirty[href]
+        delete restDirty[normalizedHref]
         let nextActive = currentActive
-        if (href === currentActive) {
+        if (normalizeHref(currentActive ?? '') === normalizedHref) {
           nextActive = safeTabs[safeTabs.length - 1].href
         }
         set({ tabs: safeTabs, activeHref: nextActive ?? safeTabs[0].href, dirtyByHref: restDirty })
@@ -82,8 +89,15 @@ export const useAdminTabsStore = create<AdminTabsState>()(
         const idx = current.findIndex((x) => x.href === active)
         if (idx < 0) return
         const next = [...current]
-        next[idx] = { href: newHref, label: newLabel }
-        set({ tabs: next, activeHref: newHref })
+        next[idx] = { ...next[idx], href: normalizeHref(newHref), label: newLabel }
+        const dirtyByHref = { ...get().dirtyByHref }
+        const previousHref = normalizeHref(active ?? '')
+        const nextHref = normalizeHref(newHref)
+        if (previousHref && previousHref !== nextHref && dirtyByHref[previousHref]) {
+          dirtyByHref[nextHref] = dirtyByHref[previousHref]
+          delete dirtyByHref[previousHref]
+        }
+        set({ tabs: next, activeHref: nextHref, dirtyByHref })
       },
     }),
     { name: 'nurei-admin-tabs' },

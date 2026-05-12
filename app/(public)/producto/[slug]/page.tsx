@@ -437,12 +437,12 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
             </div>
 
             {/* Badges */}
-            <div className="absolute top-3 left-16 flex gap-1.5">
+            <div className="absolute top-14 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5 sm:top-3 sm:left-16">
               {product.is_limited && (
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full">Ltd</span>
               )}
               {discountPercent > 0 && (
-                <span className="px-2 py-0.5 text-[10px] font-black uppercase bg-red-500 text-white rounded-full">-{discountPercent}%</span>
+                <span className="px-2 py-0.5 text-[10px] font-black uppercase bg-red-500 text-white rounded-full shadow-lg">-{discountPercent}%</span>
               )}
               {product.is_featured && !discountPercent && (
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-nurei-cta text-gray-900 rounded-full">Popular</span>

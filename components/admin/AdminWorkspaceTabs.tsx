@@ -39,15 +39,10 @@ export function AdminWorkspaceTabs({ navItems }: { navItems: NavItem[] }) {
   const fullHref = query ? `${pathname}?${query}` : pathname
   const label = useMemo(() => {
     const base = resolveLabel(pathname, navItems)
-    if (!pathname.startsWith('/admin/productos/new')) return base
-    const tabNumber = searchParams.get('tab')
-    if (!tabNumber) return base
-    const n = Number(tabNumber)
-    return Number.isFinite(n) && n > 0 ? `${base} ${n}` : `${base} ${tabNumber}`
-  }, [pathname, navItems, searchParams])
+    return base
+  }, [pathname, navItems])
 
   useEffect(() => {
-    if (pathname.startsWith('/admin/productos/new') && !searchParams.get('tab')) return
     openTab({ href: fullHref, label })
     setActive(fullHref)
   }, [fullHref, label, openTab, pathname, searchParams, setActive])

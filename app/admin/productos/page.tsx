@@ -44,7 +44,7 @@ const STATUS_FILTERS = [
 ] as const
 
 type StatusFilter = typeof STATUS_FILTERS[number]['value']
-type SortField = 'name' | 'category' | 'price' | 'status' | 'created_at'
+type SortField = 'name' | 'category' | 'country' | 'price' | 'status' | 'created_at'
 type SortDirection = 'asc' | 'desc'
 type ViewMode = 'table' | 'grid'
 type CategoryOption = { slug: string; name: string; emoji?: string | null }
@@ -61,6 +61,10 @@ const STATUS_LABELS: Record<string, string> = {
   archived: 'Archivado',
 }
 
+const PAGE_SIZE_OPTIONS = [10, 14, 24, 50] as const
+const PAGE_STORAGE_KEY = 'nurei-admin-productos-page'
+const PAGE_SIZE_STORAGE_KEY = 'nurei-admin-productos-page-size'
+
 
 
 
@@ -73,9 +77,11 @@ function SkeletonRow() {
       <TableCell className="py-2 pl-2 pr-4"><div className="w-12 h-12 bg-gray-100 rounded-lg animate-pulse" /></TableCell>
       <TableCell><div className="w-32 h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
       <TableCell><div className="w-16 h-4 bg-gray-100 rounded-full animate-pulse" /></TableCell>
+      <TableCell><div className="w-16 h-4 bg-gray-100 rounded-full animate-pulse" /></TableCell>
       <TableCell><div className="w-16 h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
       <TableCell><div className="w-12 h-4 bg-gray-100 rounded-full animate-pulse" /></TableCell>
       <TableCell><div className="w-10 h-4 bg-gray-100 rounded animate-pulse" /></TableCell>
+      <TableCell><div className="w-16 h-4 bg-gray-100 rounded animate-pulse ml-auto" /></TableCell>
     </TableRow>
   )
 }
@@ -125,6 +131,7 @@ export default function ProductosAdminPage() {
   // UI state
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [countryFilter, setCountryFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [hasDiscountFilter, setHasDiscountFilter] = useState(false)
   const [stockFilterProd, setStockFilterProd] = useState('')
@@ -157,8 +164,18 @@ export default function ProductosAdminPage() {
     invalid: number
   } | null>(null)
   const [importBusy, setImportBusy] = useState(false)
-  const [page, setPage] = useState(1)
-  const pageSize = 14
+  const [page, setPage] = useState(() => {
+    if (typeof window === 'undefined') return 1
+    const raw = window.localStorage.getItem(PAGE_STORAGE_KEY)
+    const n = raw ? Number(raw) : 1
+    return Number.isFinite(n) && n > 0 ? n : 1
+  })
+  const [pageSize, setPageSize] = useState(() => {
+    if (typeof window === 'undefined') return 14
+    const raw = window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY)
+    const n = raw ? Number(raw) : 14
+    return PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number]) ? n : 14
+  })
 
   // ─── Fetch ────────────────────────────────────────────────────
 
@@ -206,11 +223,24 @@ export default function ProductosAdminPage() {
     }
   }, [searchParams])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(PAGE_STORAGE_KEY, String(page))
+  }, [page])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize))
+  }, [pageSize])
+
   // ─── Filtering & Sorting (client-side additional) ──────────────
 
   const filteredProducts = useMemo(() => {
     let result = [...products]
     if (hasDiscountFilter) result = result.filter((p) => (p.compare_at_price ?? 0) > (p.base_price ?? p.price))
+    if (countryFilter !== 'all') {
+      result = result.filter((p) => (p.origin_country ?? p.origin ?? '').trim() === countryFilter)
+    }
     if (stockFilterProd) {
       result = result.filter((p) => {
         const qty = p.stock_quantity ?? 0
@@ -226,6 +256,7 @@ export default function ProductosAdminPage() {
       switch (sortField) {
         case 'name': cmp = a.name.localeCompare(b.name, 'es'); break
         case 'category': cmp = a.category.localeCompare(b.category, 'es'); break
+        case 'country': cmp = (a.origin_country ?? a.origin ?? '').localeCompare(b.origin_country ?? b.origin ?? '', 'es'); break
         case 'price': cmp = (a.base_price ?? a.price) - (b.base_price ?? b.price); break
         case 'status': cmp = (a.status ?? '').localeCompare(b.status ?? ''); break
         case 'created_at': cmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break
@@ -233,12 +264,12 @@ export default function ProductosAdminPage() {
       return sortDir === 'asc' ? cmp : -cmp
     })
     return result
-  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd])
+  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter])
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize
     return filteredProducts.slice(start, start + pageSize)
-  }, [filteredProducts, page])
+  }, [filteredProducts, page, pageSize])
 
   // ─── Derived ──────────────────────────────────────────────────
 
@@ -260,6 +291,15 @@ export default function ProductosAdminPage() {
     archived: products.filter((p) => p.status === 'archived').length,
   }), [products])
 
+  const countryOptions = useMemo(() => {
+    const values = new Set(
+      products
+        .map((p) => (p.origin_country ?? p.origin ?? '').trim())
+        .filter((value): value is string => !!value),
+    )
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [products])
+
   const activeFilters = useMemo(() => {
     const f: Array<{ id: string; label: string; onRemove: () => void }> = []
     if (statusFilter !== 'all') f.push({ id: 'status', label: STATUS_LABELS[statusFilter] ?? statusFilter, onRemove: () => setStatusFilter('all') })
@@ -267,13 +307,14 @@ export default function ProductosAdminPage() {
       const cat = categories.find((c) => c.value === categoryFilter)
       f.push({ id: 'cat', label: cat?.label ?? categoryFilter, onRemove: () => setCategoryFilter('all') })
     }
+    if (countryFilter !== 'all') f.push({ id: 'country', label: countryFilter, onRemove: () => setCountryFilter('all') })
     if (hasDiscountFilter) f.push({ id: 'discount', label: 'Con descuento', onRemove: () => setHasDiscountFilter(false) })
     if (stockFilterProd) {
       const labels: Record<string, string> = { available: 'Disponible', low_stock: 'Stock bajo', out_of_stock: 'Agotado' }
       f.push({ id: 'stock', label: labels[stockFilterProd] ?? stockFilterProd, onRemove: () => setStockFilterProd('') })
     }
     return f
-  }, [statusFilter, categoryFilter, hasDiscountFilter, stockFilterProd, categories])
+  }, [statusFilter, categoryFilter, countryFilter, hasDiscountFilter, stockFilterProd, categories])
 
   // Smart filter panel
   const [filterOpen, setFilterOpen] = useState(false)
@@ -503,7 +544,11 @@ export default function ProductosAdminPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [statusFilter, categoryFilter, search, viewMode])
+  }, [statusFilter, categoryFilter, countryFilter, search, viewMode, pageSize])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   // Sort header helper
   function SortHeader({ field, children }: { field: SortField; children: React.ReactNode }) {
@@ -634,6 +679,43 @@ export default function ProductosAdminPage() {
                     </div>
                   </div>
 
+                  {/* País */}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">País</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { setCountryFilter('all'); setPage(1) }}
+                        className={cn(
+                          'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
+                          countryFilter === 'all'
+                            ? 'bg-primary-dark text-white border-primary-dark'
+                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300',
+                        )}
+                      >
+                        Todos
+                        {countryFilter === 'all' && <Check className="h-2.5 w-2.5 ml-0.5" />}
+                      </button>
+                      {countryOptions.map((country) => {
+                        const isActive = countryFilter === country
+                        return (
+                          <button
+                            key={country}
+                            type="button"
+                            onClick={() => { setCountryFilter(isActive ? 'all' : country); setPage(1) }}
+                            className={cn(
+                              'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
+                              isActive ? 'bg-primary-dark text-white border-primary-dark' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300',
+                            )}
+                          >
+                            {country}
+                            {isActive && <Check className="h-2.5 w-2.5 ml-0.5" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
                   {/* Stock */}
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Stock</p>
@@ -664,7 +746,7 @@ export default function ProductosAdminPage() {
                   </div>
 
                   {activeFilters.length > 0 && (
-                    <button type="button" onClick={() => { setStatusFilter('all'); setCategoryFilter('all'); setHasDiscountFilter(false); setStockFilterProd(''); setFilterOpen(false) }}
+                    <button type="button" onClick={() => { setStatusFilter('all'); setCategoryFilter('all'); setCountryFilter('all'); setHasDiscountFilter(false); setStockFilterProd(''); setFilterOpen(false); setPage(1) }}
                       className="w-full text-center text-xs text-gray-400 hover:text-red-500 transition pt-1 border-t border-gray-100">
                       Limpiar filtros
                     </button>
@@ -765,6 +847,9 @@ export default function ProductosAdminPage() {
                       <TableHead className="w-[13%] min-w-0 whitespace-normal p-1.5 text-[10px]">
                         <SortHeader field="category">Categoria</SortHeader>
                       </TableHead>
+                      <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                        <SortHeader field="country">País</SortHeader>
+                      </TableHead>
                       <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-[10px]">
                         <SortHeader field="price">Precio</SortHeader>
                       </TableHead>
@@ -839,6 +924,11 @@ export default function ProductosAdminPage() {
                                   : { backgroundColor: '#f3f4f6', color: '#4b5563' }}
                               >
                                 {catInfo.label}
+                              </span>
+                            </TableCell>
+                            <TableCell className="min-w-0 p-1.5">
+                              <span className="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-100">
+                                {product.origin_country ?? product.origin ?? 'Sin país'}
                               </span>
                             </TableCell>
                             <TableCell className="min-w-0 p-1.5">
@@ -921,11 +1011,34 @@ export default function ProductosAdminPage() {
                   </div>
                 )}
               </div>
-              <div className="mt-4 flex items-center justify-between px-2">
+              <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-gray-500">Página {page} de {totalPages}</p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-                  <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Siguiente</Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(value) => {
+                        const next = Number(value)
+                        if (!Number.isFinite(next)) return
+                        setPageSize(next)
+                        setPage(1)
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-[104px] rounded-full border-gray-200 bg-white text-xs font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map((size) => (
+                          <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                    <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Siguiente</Button>
+                  </div>
                 </div>
               </div>
             </motion.div>
