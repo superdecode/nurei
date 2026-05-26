@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Plus, Heart, Ban } from 'lucide-react'
+import { Check, Plus, Heart, Ban, Flame } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
@@ -233,6 +233,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
             <div className="mt-3 flex items-center gap-3">
               {product.spice_level > 0 && (
                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-nurei-promo/10 rounded-full">
+                  <Flame className="w-3 h-3 text-nurei-promo flex-shrink-0" />
                   <SpiceDots level={product.spice_level} />
                   <span className="text-[10px] text-nurei-promo font-bold italic">
                     {SPICE_LABELS[product.spice_level]}

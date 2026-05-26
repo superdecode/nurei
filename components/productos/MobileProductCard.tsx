@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Ban } from 'lucide-react'
+import { Ban, Flame } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
+import { SPICE_LABELS } from '@/lib/utils/constants'
 import { countryToFlag } from '@/lib/utils/country-flag'
 import type { Product } from '@/types'
 
@@ -171,6 +172,14 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
             <div className="mt-0.5">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-nurei-promo bg-nurei-promo/10 rounded-full animate-pulse">
                 ¡Últimas unidades!
+              </span>
+            </div>
+          )}
+          {product.spice_level > 0 && !isOutOfStock && (
+            <div className="mt-1 flex items-center gap-1 px-2 py-0.5 bg-nurei-promo/10 rounded-full w-fit">
+              <Flame className="w-2.5 h-2.5 text-nurei-promo flex-shrink-0" />
+              <span className="text-[9px] text-nurei-promo font-bold italic">
+                {SPICE_LABELS[product.spice_level]}
               </span>
             </div>
           )}
