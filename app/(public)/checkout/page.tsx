@@ -159,8 +159,8 @@ function getFieldError(field: keyof ShippingForm, value: string) {
   return ''
 }
 
-function isCardLikePayment(slug: string) {
-  return slug === 'card' || slug === 'stripe_card' || slug.endsWith('_card')
+function isManualCardPayment(slug: string) {
+  return slug === 'card' || (slug.endsWith('_card') && slug !== 'stripe_card')
 }
 
 function cardTypeLabel(number: string) {
@@ -611,7 +611,7 @@ export default function CheckoutPage() {
   }
 
   const validatePaymentStep = () => {
-    if (!isCardLikePayment(paymentMethod)) return true
+    if (!isManualCardPayment(paymentMethod)) return true
 
     const nextErrors: Partial<Record<keyof CardForm, string>> = {}
     if (!luhnCheck(cardForm.number)) nextErrors.number = 'Número de tarjeta inválido.'
@@ -717,6 +717,31 @@ export default function CheckoutPage() {
       setOrderId(nextOrderId)
 
       setProcessingStage('paying')
+      if (paymentMethod === 'stripe_card') {
+        const paymentResponse = await fetch('/api/payment/create-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: nextOrderId }),
+        })
+        const paymentPayload = await paymentResponse.json()
+
+        if (!paymentResponse.ok) {
+          toast.error(paymentPayload?.error ?? 'No se pudo iniciar el pago con Stripe.')
+          setProcessingStage(null)
+          return
+        }
+
+        const checkoutUrl = paymentPayload?.data?.checkout_url as string | undefined
+        if (!checkoutUrl) {
+          toast.error('Stripe no devolvió una URL de pago válida.')
+          setProcessingStage(null)
+          return
+        }
+
+        window.location.href = checkoutUrl
+        return
+      }
+
       const normalizedCardNumber = cardForm.number.replace(/\D/g, '')
       const paymentResponse = await fetch('/api/payments/process', {
         method: 'POST',
@@ -728,16 +753,15 @@ export default function CheckoutPage() {
           method: paymentMethod,
           saveMethod: savePaymentMethod,
           cartLastUpdatedAt,
-          card:
-            isCardLikePayment(paymentMethod)
-              ? {
-                  token: `tok_${Date.now()}_${normalizedCardNumber.slice(-4)}`,
-                  holderName: cardForm.name,
-                  expiry: cardForm.expiry,
-                  last4: normalizedCardNumber.slice(-4),
-                  brand: cardTypeLabel(cardForm.number).toLowerCase(),
-                }
-              : undefined,
+          card: isManualCardPayment(paymentMethod)
+            ? {
+                token: `tok_${Date.now()}_${normalizedCardNumber.slice(-4)}`,
+                holderName: cardForm.name,
+                expiry: cardForm.expiry,
+                last4: normalizedCardNumber.slice(-4),
+                brand: cardTypeLabel(cardForm.number).toLowerCase(),
+              }
+            : undefined,
         }),
       })
       const paymentPayload = await paymentResponse.json()
@@ -1453,7 +1477,7 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {isCardLikePayment(paymentMethod) && (
+                  {isManualCardPayment(paymentMethod) && (
                     <div className="space-y-4">
                       <div>
                         <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">

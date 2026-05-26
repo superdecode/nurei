@@ -42,14 +42,14 @@ export async function POST(request: NextRequest) {
         await supabase.from('orders').update({
           payment_status: 'paid',
           paid_at: new Date().toISOString(),
-          status: 'paid',
+          status: 'confirmed',
           confirmed_at: new Date().toISOString(),
           stripe_payment_intent_id: session.payment_intent as string,
         }).eq('id', orderId)
 
         await supabase.from('order_updates').insert({
           order_id: orderId,
-          status: 'paid',
+          status: 'confirmed',
           message: 'Pago confirmado: pedido en pendiente de aceptación',
           updated_by: 'stripe_webhook',
           metadata: { event: 'payment_confirmed' },
@@ -80,7 +80,16 @@ export async function POST(request: NextRequest) {
           await supabase.from('orders').update({
             payment_status: 'failed',
             status: 'failed',
+            failure_reason: 'Pago rechazado por Stripe',
           }).eq('id', orderId)
+
+          await supabase.from('order_updates').insert({
+            order_id: orderId,
+            status: 'failed',
+            message: 'Stripe rechazó el pago',
+            updated_by: 'stripe_webhook',
+            metadata: { event: 'payment_failed' },
+          })
         }
         break
       }

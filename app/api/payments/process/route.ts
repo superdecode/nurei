@@ -72,9 +72,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (method === 'stripe_card') {
+      return NextResponse.json(
+        { error: 'stripe_card debe procesarse con Stripe Checkout' },
+        { status: 400 }
+      )
+    }
+
     const cardLike =
       method === 'card' ||
-      method === 'stripe_card' ||
       method.endsWith('_card')
 
     const supabase = createServiceClient()

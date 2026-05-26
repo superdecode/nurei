@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     // Fetch the order from the database
     const { data: order, error: fetchError } = await supabase
       .from('orders')
-      .select('id, short_id, total, payment_status, items, customer_name, coupon_discount')
+      .select('id, short_id, total, payment_status, items, customer_name, customer_email, coupon_discount')
       .eq('id', order_id)
       .single()
 
@@ -73,7 +73,16 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
+      ...(order.customer_email ? { customer_email: order.customer_email } : {}),
       line_items: lineItems,
+      payment_intent_data: {
+        metadata: {
+          order_id: order.id,
+          short_id: order.short_id,
+          customer_name: order.customer_name ?? '',
+          ...(referralLinkId ? { referral_link_id: referralLinkId } : {}),
+        },
+      },
       ...(order.coupon_discount > 0
         ? {
             discounts: [
