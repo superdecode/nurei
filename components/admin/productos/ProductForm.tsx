@@ -121,7 +121,6 @@ const PRODUCT_STATUS_LABELS: Record<ProductStatus, string> = {
   archived: 'Archivado',
 }
 
-const SPICE_CATEGORIES = ['spicy', 'snacks', 'ramen', 'salsas']
 
 type DraftSnapshot = {
   form: ProductFormData
@@ -411,16 +410,6 @@ export default function ProductForm({
       })
       .catch(console.error)
   }, [])
-
-  // Auto-detect spice level requirement based on category
-  useEffect(() => {
-    if (!form.category) return
-    const shouldRequireSpice = SPICE_CATEGORIES.includes(form.category)
-    setForm((prev) => {
-      if (shouldRequireSpice === prev.requires_spice_level) return prev
-      return { ...prev, requires_spice_level: shouldRequireSpice }
-    })
-  }, [form.category])
 
   const update = useCallback((updates: Partial<ProductFormData>) => {
     setForm(prev => {
@@ -1425,7 +1414,27 @@ export default function ProductForm({
                 />
               </div>
 
-              {/* Spice level — only if relevant category */}
+              {/* Spice level — toggle manual */}
+              <div className="sm:col-span-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => update({ requires_spice_level: !form.requires_spice_level, spice_level: !form.requires_spice_level ? 1 : 0 })}
+                  className={cn(
+                    'relative w-10 h-5 rounded-full transition-colors flex-shrink-0',
+                    form.requires_spice_level ? 'bg-red-500' : 'bg-gray-200'
+                  )}
+                >
+                  <span className={cn(
+                    'absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform',
+                    form.requires_spice_level ? 'translate-x-5' : 'translate-x-0'
+                  )} />
+                </button>
+                <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5 cursor-pointer select-none" onClick={() => update({ requires_spice_level: !form.requires_spice_level, spice_level: !form.requires_spice_level ? 1 : 0 })}>
+                  <Flame className={cn('w-3.5 h-3.5', form.requires_spice_level ? 'text-red-500' : 'text-gray-300')} />
+                  Opcion picante
+                </label>
+              </div>
+
               {form.requires_spice_level && (
                 <div className="sm:col-span-2 space-y-2">
                   <label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
