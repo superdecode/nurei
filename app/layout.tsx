@@ -46,12 +46,10 @@ async function getAppearanceSettings(): Promise<{ logo_url?: string; favicon_url
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { logo_url, favicon_url, store_name, slogan } = await getAppearanceSettings()
+  const { logo_url, store_name, slogan } = await getAppearanceSettings()
 
   const displaySlogan = slogan || 'Premium Asian Snacks'
   const title = store_name ? `${store_name} — ${displaySlogan}` : `nurei — ${displaySlogan}`
-  const faviconUrl = favicon_url || '/favicon.ico'
-  const logoUrl = logo_url || '/logo.png'
 
   return {
     title,
@@ -61,11 +59,11 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: '/manifest.json',
     icons: {
       icon: [
-        { url: faviconUrl, sizes: 'any' },
-        { url: logoUrl, type: 'image/png', sizes: '64x64' },
+        { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
       ],
-      apple: [{ url: logoUrl, sizes: '180x180', type: 'image/png' }],
-      shortcut: faviconUrl,
+      apple: [{ url: '/icon-192.png', sizes: '180x180', type: 'image/png' }],
+      shortcut: '/favicon.ico',
     },
     openGraph: {
       title,

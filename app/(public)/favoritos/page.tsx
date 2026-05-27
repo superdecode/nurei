@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Loader2 } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import Link from 'next/link'
 import { useFavoritesStore } from '@/lib/stores/favorites'
 import { ProductCard } from '@/components/productos/ProductCard'
 import { Container } from '@/components/layout/Container'
+import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 import type { Product } from '@/types'
 
 export default function FavoritosPage() {
@@ -31,6 +32,14 @@ export default function FavoritosPage() {
   }, [])
 
   if (!mounted) return null
+
+  if (loading) {
+    return (
+      <Container className="py-16 flex justify-center">
+        <SnackWaitAnimation stage="loading" />
+      </Container>
+    )
+  }
 
   const favoriteProducts = allProducts.filter((p) => favoriteIds.includes(p.id))
 

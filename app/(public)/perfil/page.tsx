@@ -38,6 +38,12 @@ function OrderStatusIcon({ status }: { status: OrderStatus }) {
   return <Icon className="w-3 h-3 inline-block shrink-0" />
 }
 
+function getDisplayOrderStatus(order: Order): OrderStatus {
+  return order.payment_status === 'paid' && (order.status === 'pending' || order.status === 'pending_payment')
+    ? 'confirmed'
+    : order.status
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatDateTime(iso: string) {
@@ -139,8 +145,9 @@ function OrderLineThumb({ url, label }: { url?: string | null; label: string }) 
 
 function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) {
   const updates = buildSyntheticOrderUpdates(order)
-  const statusInfo = ORDER_STATUS_MAP[order.status]
-  const isCancelled = order.status === 'cancelled' || order.status === 'failed'
+  const displayStatus = getDisplayOrderStatus(order)
+  const statusInfo = ORDER_STATUS_MAP[displayStatus]
+  const isCancelled = displayStatus === 'cancelled' || displayStatus === 'failed'
 
   const copyShortId = () => {
     navigator.clipboard.writeText(order.short_id)
@@ -164,7 +171,7 @@ function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) 
           <p className="text-xs text-gray-400">{formatDateTime(order.created_at)}</p>
         </div>
         <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full ${statusInfo.bgColor} ${statusInfo.color}`}>
-          <OrderStatusIcon status={order.status} />
+          <OrderStatusIcon status={displayStatus} />
           {statusInfo.label}
         </span>
       </div>
@@ -207,7 +214,7 @@ function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) 
                 const info = ORDER_STATUS_MAP[step]
                 const update = updates.find((u) => u.status === step)
                 const isCompleted = update != null
-                const isActive = order.status === step
+                const isActive = displayStatus === step
                 const isLast = i === STATUS_FLOW.length - 1
 
                 return (
@@ -378,7 +385,8 @@ function TabPedidos({
       ) : (
         <div className="space-y-3">
           {filtered.map((order) => {
-            const status = ORDER_STATUS_MAP[order.status]
+            const displayStatus = getDisplayOrderStatus(order)
+            const status = ORDER_STATUS_MAP[displayStatus]
             return (
               <motion.button
                 key={order.id}
@@ -398,9 +406,15 @@ function TabPedidos({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-full ${status.bgColor} ${status.color}`}>
-                      <OrderStatusIcon status={order.status} />
+                      <OrderStatusIcon status={displayStatus} />
                       {status.label}
                     </span>
+                    {order.payment_status === 'paid' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <Check className="w-3 h-3" />
+                        Pagado
+                      </span>
+                    )}
                     <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
                   </div>
                 </div>

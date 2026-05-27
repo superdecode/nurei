@@ -5,14 +5,15 @@ import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
 
 /** Lazy-init: avoid instantiating Stripe at module load (breaks build when STRIPE_SECRET_KEY is unset). */
 function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY
+  const key = process.env.STRIPE_SECRET_KEY?.trim()
   if (!key) return null
+  if (!/^sk_(test|live)_/.test(key)) return null
   return new Stripe(key, { apiVersion: '2026-02-25.clover' })
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim()
     const stripe = getStripe()
     if (!stripe || !webhookSecret) {
       return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 })

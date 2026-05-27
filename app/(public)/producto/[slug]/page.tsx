@@ -1,12 +1,13 @@
 'use client'
 
 import { use, useState, useEffect, useRef, useCallback } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, useReducedMotion } from 'framer-motion'
 import {
   Heart, ShoppingBag, ArrowLeft, Share2, Check,
-  ChevronLeft, ChevronRight, Flame, Loader2, X,
+  ChevronLeft, ChevronRight, Flame, X,
   ZoomIn, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,6 +22,7 @@ import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { countryToFlag } from '@/lib/utils/country-flag'
+import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,21 @@ function getCategoryEmoji(category: string): string {
     snacks: '🍿', ramen: '🍜', dulces: '🍬', salsas: '🫙',
   }
   return map[category] || '🍘'
+}
+
+function getCategoryFlightStyles(category: string): { ring: string; glow: string } {
+  const map: Record<string, { ring: string; glow: string }> = {
+    crunchy: { ring: 'ring-amber-200 bg-amber-50 text-amber-700', glow: 'shadow-amber-500/20' },
+    spicy: { ring: 'ring-red-200 bg-red-50 text-red-600', glow: 'shadow-red-500/20' },
+    limited_edition: { ring: 'ring-emerald-200 bg-emerald-50 text-emerald-700', glow: 'shadow-emerald-500/20' },
+    drinks: { ring: 'ring-sky-200 bg-sky-50 text-sky-600', glow: 'shadow-sky-500/20' },
+    snacks: { ring: 'ring-yellow-200 bg-yellow-50 text-yellow-700', glow: 'shadow-yellow-500/20' },
+    ramen: { ring: 'ring-orange-200 bg-orange-50 text-orange-700', glow: 'shadow-orange-500/20' },
+    dulces: { ring: 'ring-pink-200 bg-pink-50 text-pink-600', glow: 'shadow-pink-500/20' },
+    salsas: { ring: 'ring-stone-200 bg-stone-50 text-stone-700', glow: 'shadow-stone-500/20' },
+  }
+
+  return map[category] || { ring: 'ring-gray-200 bg-white text-gray-700', glow: 'shadow-black/10' }
 }
 
 function cleanTagLabel(tag: string): string {
@@ -64,6 +81,79 @@ function ShareButtons({ name, slug }: { name: string; slug: string }) {
       <button onClick={() => share('copy')} className="p-2.5 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors" title="Copiar link">
         <Share2 className="w-4 h-4" />
       </button>
+    </div>
+  )
+}
+
+type FlyingSnack = {
+  id: number
+  icon: string
+  qty: number
+  start: { x: number; y: number }
+  end: { x: number; y: number }
+  styles: { ring: string; glow: string }
+}
+
+function FlyingSnackTrail({
+  items,
+  onDone,
+}: {
+  items: FlyingSnack[]
+  onDone: (id: number) => void
+}) {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[90] overflow-hidden">
+      <AnimatePresence>
+        {items.map((item) => {
+          const dx = item.start.x - item.end.x
+          const dy = item.start.y - item.end.y
+
+          return (
+            <motion.div
+              key={item.id}
+              className={cn(
+                'absolute flex items-center justify-center rounded-full border shadow-2xl backdrop-blur-md',
+                item.styles.ring,
+                item.styles.glow,
+              )}
+              style={{
+                left: item.end.x,
+                top: item.end.y,
+                width: 54,
+                height: 54,
+              }}
+              initial={{
+                opacity: 0,
+                x: dx,
+                y: dy,
+                scale: 0.55,
+                rotate: -18,
+              }}
+              animate={{
+                opacity: [0, 1, 1, 0],
+                x: [dx, dx * 0.35, 0],
+                y: [dy, dy - 90, 0],
+                scale: [0.55, 1.15, 0.92, 0.18],
+                rotate: [-18, 8, 24],
+              }}
+              transition={{
+                duration: 0.95,
+                ease: 'easeInOut',
+              }}
+              onAnimationComplete={() => onDone(item.id)}
+            >
+              <span className="text-2xl leading-none select-none drop-shadow-sm">
+                {item.icon}
+              </span>
+              {item.qty > 1 && (
+                <span className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-gray-900 text-[10px] font-black text-white flex items-center justify-center shadow-lg">
+                  x{item.qty}
+                </span>
+              )}
+            </motion.div>
+          )
+        })}
+      </AnimatePresence>
     </div>
   )
 }
@@ -184,6 +274,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const router = useRouter()
   const addItem = useCartStore((s) => s.addItem)
   const { isFavorite, toggleFavorite } = useFavoritesStore()
+  const prefersReducedMotion = useReducedMotion()
 
   const [product, setProduct] = useState<Product | null>(null)
   const [variants, setVariants] = useState<ProductVariant[]>([])
@@ -200,6 +291,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const [descHasOverflow, setDescHasOverflow] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [flyingSnacks, setFlyingSnacks] = useState<FlyingSnack[]>([])
   const desktopDescRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -252,8 +344,8 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
   if (loading) {
     return (
-      <Container className="py-20 flex justify-center">
-        <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+      <Container className="py-16 flex justify-center">
+        <SnackWaitAnimation stage="loading" />
       </Container>
     )
   }
@@ -284,7 +376,37 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
     setLightboxOpen(true)
   }
 
-  const handleAdd = async () => {
+  const launchSnackTrail = (sourceEl: HTMLButtonElement) => {
+    if (prefersReducedMotion) return
+    if (typeof window === 'undefined') return
+
+    const cartTarget = document.querySelector<HTMLElement>('[data-cart-target="true"]')
+    if (!cartTarget) return
+
+    const sourceRect = sourceEl.getBoundingClientRect()
+    const targetRect = cartTarget.getBoundingClientRect()
+
+    const nextId = Date.now() + Math.floor(Math.random() * 1000)
+    setFlyingSnacks((current) => [
+      ...current,
+      {
+        id: nextId,
+        icon: getCategoryEmoji(product.category),
+        qty: quantity,
+        start: {
+          x: sourceRect.left + sourceRect.width / 2,
+          y: sourceRect.top + sourceRect.height / 2,
+        },
+        end: {
+          x: targetRect.left + targetRect.width / 2,
+          y: targetRect.top + targetRect.height / 2,
+        },
+        styles: getCategoryFlightStyles(product.category),
+      },
+    ])
+  }
+
+  const handleAdd = async (event: ReactMouseEvent<HTMLButtonElement>) => {
     if (!canAddToCart) {
       toast.error('Selecciona una variante primero')
       return
@@ -305,6 +427,7 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
       setStockFeedback(null)
       for (let i = 0; i < quantity; i++) addItem(product)
       setAdded(true)
+      launchSnackTrail(event.currentTarget)
       toast.success(`${quantity}x ${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`)
       setTimeout(() => setAdded(false), 1400)
     } catch {
@@ -348,8 +471,10 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
         whileTap={{ scale: 0.97 }}
         onClick={handleAdd}
         disabled={!canAddToCart || (selectedVariant?.stock === 0)}
+        animate={added ? { scale: [1, 1.03, 1], y: [0, -1, 0] } : { scale: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
         className={cn(
-          'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all',
+          'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all duration-300',
           added ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' :
           !canAddToCart ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
           'bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/25 hover:shadow-xl'
@@ -928,8 +1053,10 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
             whileTap={{ scale: 0.96 }}
             onClick={handleAdd}
             disabled={!canAddToCart}
+            animate={added ? { scale: [1, 1.03, 1], y: [0, -1, 0] } : { scale: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
             className={cn(
-              'flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl font-bold text-sm transition-all shrink-0',
+              'flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl font-bold text-sm transition-all duration-300 shrink-0',
               added ? 'bg-green-500 text-white' :
               !canAddToCart ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
               'bg-nurei-cta text-gray-900 shadow-md shadow-nurei-cta/25'
@@ -940,6 +1067,11 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           </motion.button>
         </div>
       </div>
+
+      <FlyingSnackTrail
+        items={flyingSnacks}
+        onDone={(id) => setFlyingSnacks((current) => current.filter((item) => item.id !== id))}
+      />
 
       {/* ── Image lightbox ── */}
       <AnimatePresence>

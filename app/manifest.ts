@@ -25,9 +25,6 @@ async function getAppearance(): Promise<{ logo_url?: string; favicon_url?: strin
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const { logo_url, favicon_url, store_name, slogan } = await getAppearance()
   const name = store_name ?? 'nurei'
-  const dynamicIcon = (favicon_url || logo_url) ?? ''
-  const iconUrl = dynamicIcon.startsWith('http') ? dynamicIcon : '/icon-192.png'
-  const iconUrl512 = dynamicIcon.startsWith('http') ? dynamicIcon : '/icon-512.png'
 
   return {
     name,
@@ -38,8 +35,8 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     background_color: '#ffffff',
     theme_color: '#ffffff',
     icons: [
-      { src: iconUrl, sizes: '192x192', type: 'image/png' },
-      { src: iconUrl512, sizes: '512x512', type: 'image/png' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
   }
 }

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Container } from '@/components/layout/Container'
 import { OrderTimeline } from '@/components/pedido/OrderTimeline'
+import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 import { formatPrice } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import type { Order, OrderStatus } from '@/types'
@@ -244,24 +245,35 @@ export default function TrackingPage() {
 
   // Fetch order — retry up to 2 times on network failure
   useEffect(() => {
+    let cancelled = false
     async function fetchOrder() {
-      for (let attempt = 0; attempt < 3; attempt++) {
+      const maxAttempts = isSuccess ? 6 : 3
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-          const res = await fetch(`/api/orders/${params.id}`)
+          const res = await fetch(`/api/orders/${params.id}`, { cache: 'no-store' })
           if (res.ok) {
             const { data } = await res.json()
-            setOrder(data.order ?? data)
+            const nextOrder = data.order ?? data
+            if (!cancelled) setOrder(nextOrder)
+
+            if (!isSuccess || nextOrder.payment_status === 'paid') {
+              break
+            }
           }
-          break
         } catch {
-          if (attempt === 2) break
-          await new Promise((r) => setTimeout(r, 800 * (attempt + 1)))
+          // retry below
+        }
+        if (attempt < maxAttempts - 1) {
+          await new Promise((r) => setTimeout(r, isSuccess ? 900 : 800 * (attempt + 1)))
         }
       }
       setLoading(false)
     }
     void fetchOrder()
-  }, [params.id])
+    return () => {
+      cancelled = true
+    }
+  }, [params.id, isSuccess])
 
   useEffect(() => {
     ;(async () => {
@@ -286,13 +298,10 @@ export default function TrackingPage() {
 
   if (loading) {
     return (
-      <Container className="py-20 text-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="w-8 h-8 border-2 border-primary-cyan border-t-transparent rounded-full mx-auto"
-        />
-        <p className="text-gray-400 mt-4">Cargando pedido...</p>
+      <Container className="py-20">
+        <div className="flex justify-center">
+          <SnackWaitAnimation stage="loading" />
+        </div>
       </Container>
     )
   }
@@ -312,9 +321,12 @@ export default function TrackingPage() {
     )
   }
 
-  const statusInfo = ORDER_STATUS_MAP[order.status]
-  const isDelivered = order.status === 'delivered'
-  const isCancelled = order.status === 'cancelled' || order.status === 'failed'
+  const paymentIsConfirmed = order.payment_status === 'paid'
+  const displayStatus = paymentIsConfirmed && (order.status === 'pending' || order.status === 'pending_payment')
+    ? 'confirmed'
+    : order.status
+  const isDelivered = displayStatus === 'delivered'
+  const isCancelled = displayStatus === 'cancelled' || displayStatus === 'failed'
   const isExpress = (order.shipping_method ?? '').toLowerCase().includes('express')
   const etaLabel = isExpress
     ? storeInfo?.shipping?.express_estimated_time
@@ -331,6 +343,10 @@ export default function TrackingPage() {
   const supportEmailHref = supportEmail
     ? `mailto:${supportEmail}?subject=${encodeURIComponent(`Ayuda con pedido #${order.short_id}`)}`
     : null
+  const displayStatusInfo = ORDER_STATUS_MAP[displayStatus]
+  const displayStatusText = paymentIsConfirmed
+    ? 'Pago aprobado'
+    : displayStatusInfo.label
 
   return (
     <motion.section
@@ -371,15 +387,15 @@ export default function TrackingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          <StatusIcon status={order.status} />
+          <StatusIcon status={displayStatus} />
 
           <motion.h1
-            className={`text-2xl sm:text-3xl font-bold mt-3 ${statusInfo.color}`}
+            className={`text-2xl sm:text-3xl font-bold mt-3 ${displayStatusInfo.color}`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.4 }}
           >
-            {statusInfo.label}
+            {displayStatusText}
           </motion.h1>
 
           <motion.div
@@ -448,7 +464,7 @@ export default function TrackingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <OrderTimeline currentStatus={order.status} createdAt={order.created_at} />
+          <OrderTimeline currentStatus={displayStatus} createdAt={order.created_at} />
         </motion.div>
 
         {/* Order details accordion */}
@@ -596,6 +612,13 @@ export default function TrackingPage() {
                   </motion.div>
                 </a>
               )}
+            </div>
+            <div className="mt-3">
+              <Link href="/perfil?tab=pedidos" className="block">
+                <Button className="w-full h-10 text-sm font-semibold bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover">
+                  Ir a mis pedidos
+                </Button>
+              </Link>
             </div>
           </motion.div>
         )}

@@ -44,6 +44,7 @@ import {
 } from '@/lib/types/checkout-shipping'
 import { SearchableSelect } from '@/components/forms/SearchableSelect'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
+import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 
 type CheckoutStep = 1 | 2 | 3 | 4
 type Direction = 'forward' | 'backward'
@@ -356,17 +357,9 @@ export default function CheckoutPage() {
     typeof freeShipMin === 'number' && freeShipMin > 0 ? subtotal >= freeShipMin : false
 
   const selectedMethod = shippingMethods.find((method) => method.id === selectedShippingMethod)
-  const standardMethod = shippingMethods.find((m) => m.id === 'standard')
   const shippingFee = selectedMethod?.price ?? 0
   const effectiveCouponDiscount = couponState.discountAmount
   const total = Math.max(0, subtotal + shippingFee - effectiveCouponDiscount)
-
-  const processingCopy =
-    processingStage === 'creating'
-      ? 'Preparando tu pedido…'
-      : processingStage === 'paying'
-        ? 'Casi listo…'
-        : '¡Confirmando!'
 
   const scrollCheckoutTop = useCallback(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -893,14 +886,7 @@ export default function CheckoutPage() {
     <section className="py-8 pb-28 lg:pb-10 bg-gray-50 min-h-screen">
       {processingStage && (
         <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-sm flex items-center justify-center">
-          <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-xl text-center">
-            <div className="mx-auto mb-4 w-12 h-12 rounded-full border-2 border-primary-cyan/30 border-t-primary-cyan animate-spin" />
-            <p className="text-lg font-semibold text-primary-dark">{processingCopy}</p>
-            <p className="text-sm text-gray-500 mt-2">Estamos asegurando que todo quede perfecto.</p>
-            <div className="mt-5 h-2 rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full checkout-loading-bar" />
-            </div>
-          </div>
+          <SnackWaitAnimation stage={processingStage} />
         </div>
       )}
 

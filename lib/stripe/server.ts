@@ -11,10 +11,15 @@ let _stripe: Stripe | null = null
 
 export function getStripeServer(): Stripe {
   if (!_stripe) {
-    const key = process.env.STRIPE_SECRET_KEY
+    const key = process.env.STRIPE_SECRET_KEY?.trim()
     if (!key || key === 'sk_test_placeholder') {
       throw new Error(
         'STRIPE_SECRET_KEY is not configured. Add it to .env.local and restart the dev server.'
+      )
+    }
+    if (!/^sk_(test|live)_/.test(key)) {
+      throw new Error(
+        'STRIPE_SECRET_KEY looks invalid. Make sure you pasted the full secret key (starts with sk_test_ or sk_live_) and not the variable name.'
       )
     }
     _stripe = new Stripe(key, {

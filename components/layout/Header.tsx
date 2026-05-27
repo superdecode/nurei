@@ -135,6 +135,7 @@ export function Header() {
               animate={isBumping ? { scale: [1, 1.2, 0.9, 1.1, 1] } : { scale: 1 }}
               transition={{ duration: 0.3 }}
               onClick={openCart}
+              data-cart-target="true"
               className="relative flex items-center justify-center w-11 h-11 rounded-2xl text-gray-500 hover:text-gray-900 hover:bg-yellow-50 transition-all duration-200"
               aria-label="Abrir carrito"
             >
