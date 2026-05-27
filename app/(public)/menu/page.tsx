@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Container } from '@/components/layout/Container'
 import { CategoryFilter } from '@/components/productos/CategoryFilter'
 import { ProductGrid } from '@/components/productos/ProductGrid'
@@ -13,6 +13,7 @@ import { PageTransition } from '@/components/motion'
 import { formatPrice } from '@/lib/utils/format'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import type { Product } from '@/types'
+import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 
 // ── Filter helpers ─────────────────────────────────────────────────────────
 
@@ -408,8 +409,8 @@ export default function MenuPage() {
             </div>
 
             {loading ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+              <div className="flex justify-center py-16 px-4">
+                <SnackWaitAnimation stage="loading" />
               </div>
             ) : desktopProducts.length === 0 && isFiltering ? (
               <motion.div
@@ -464,8 +465,8 @@ export default function MenuPage() {
         </AnimatePresence>
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+          <div className="flex justify-center py-16 px-4">
+            <SnackWaitAnimation stage="loading" />
           </div>
         ) : isFiltering ? (
           // Search/filter mode on mobile: flat list
