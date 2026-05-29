@@ -17,12 +17,13 @@ const springConfig = { type: 'spring' as const, stiffness: 500, damping: 30 }
 export function CartItem({ item, onRemove }: CartItemProps) {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const removeItem = useCartStore((s) => s.removeItem)
-  const [prevPrice, setPrevPrice] = useState(item.product.price * item.quantity)
+  const unitPrice = item.variant_price ?? item.product.base_price ?? item.product.price
+  const [prevPrice, setPrevPrice] = useState(unitPrice * item.quantity)
   const [showSwipeHint, setShowSwipeHint] = useState(true)
   const dragX = useMotionValue(0)
   const deleteOpacity = useTransform(dragX, [-120, -60], [1, 0])
   const deleteScale = useTransform(dragX, [-120, -60, 0], [1, 0.8, 0.5])
-  const currentPrice = item.product.price * item.quantity
+  const currentPrice = unitPrice * item.quantity
 
   // Hide swipe hint after 3 seconds
   useEffect(() => {
@@ -41,7 +42,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
     if (onRemove) {
       onRemove()
     } else {
-      removeItem(item.product.id)
+      removeItem(item.product.id, item.variant_id)
     }
   }
 
@@ -80,9 +81,9 @@ export function CartItem({ item, onRemove }: CartItemProps) {
           whileTap={{ scale: 0.95 }}
           className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
         >
-          {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
+          {(item.variant_image ?? item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
             <img
-              src={item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
+              src={item.variant_image ?? item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
               alt={item.product.name}
               className="w-full h-full object-cover rounded-xl"
             />
@@ -95,8 +96,13 @@ export function CartItem({ item, onRemove }: CartItemProps) {
           <p className="text-sm font-black text-gray-900 truncate tracking-tight leading-snug">
             {item.product.name}
           </p>
+          {item.variant_label && (
+            <p className="text-[11px] text-blue-600 font-semibold truncate mt-0.5">
+              {item.variant_label}
+            </p>
+          )}
           <p className="text-[11px] sm:text-xs text-gray-400 font-bold uppercase mt-0.5">
-            {formatPrice(item.product.price)} c/u
+            {formatPrice(unitPrice)} c/u
           </p>
 
           <div className="flex items-center justify-between mt-2 sm:mt-1.5">
@@ -105,7 +111,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
               <motion.button
                 whileTap={{ scale: 0.8 }}
                 transition={springConfig}
-                onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.variant_id)}
                 className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
               >
                 <Minus className="w-3.5 h-3.5" />
@@ -129,7 +135,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
               <motion.button
                 whileTap={{ scale: 0.8 }}
                 transition={springConfig}
-                onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.variant_id)}
                 className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
               >
                 <Plus className="w-3.5 h-3.5" />

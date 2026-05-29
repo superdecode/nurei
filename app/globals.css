@@ -119,10 +119,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
   }
   html {
     @apply font-sans scroll-smooth;
     -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
   }
 
   ::selection {

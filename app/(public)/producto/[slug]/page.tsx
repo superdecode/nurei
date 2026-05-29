@@ -425,7 +425,12 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
         return
       }
       setStockFeedback(null)
-      for (let i = 0; i < quantity; i++) addItem(product)
+      for (let i = 0; i < quantity; i++) addItem(product, selectedVariant ? {
+        id: selectedVariant.id,
+        name: selectedVariant.name,
+        image: selectedVariant.image,
+        price: selectedVariant.price,
+      } : null)
       setAdded(true)
       launchSnackTrail(event.currentTarget)
       toast.success(`${quantity}x ${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`)

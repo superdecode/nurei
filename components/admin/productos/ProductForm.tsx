@@ -64,6 +64,7 @@ interface ProductFormData {
 interface VariantFormData {
   id?: string
   name: string
+  sku: string
   sku_suffix: string
   price: string
   compare_at_price: string
@@ -188,7 +189,9 @@ function productToForm(p: Product): ProductFormData {
 
 function variantToForm(v: ProductVariant): VariantFormData {
   return {
-    id: v.id, name: v.name, sku_suffix: v.sku_suffix ?? '',
+    id: v.id, name: v.name,
+    sku: v.sku ?? '',
+    sku_suffix: v.sku_suffix ?? '',
     price: (v.price / 100).toFixed(2),
     compare_at_price: v.compare_at_price ? (v.compare_at_price / 100).toFixed(2) : '',
     stock: v.stock.toString(), attributes: v.attributes,
@@ -722,9 +725,10 @@ export default function ProductForm({
       if (effectiveHasVariants) {
         const variantData = variants
           .filter((v) => v.name.trim().length > 0)
-          .map(v => ({
+          .map((v, i) => ({
             ...(v.id ? { id: v.id } : {}),
             name: v.name.trim(),
+            sku: v.sku.trim() || generateVariantSku(form.sku, i),
             sku_suffix: v.sku_suffix || null,
             price: Math.round(parseFloat(v.price || '0') * 100),
             compare_at_price: v.compare_at_price ? Math.round(parseFloat(v.compare_at_price) * 100) : null,
@@ -799,9 +803,17 @@ export default function ProductForm({
 
   // ─── Variant helpers ────────────────────────────────────────────
 
+  const generateVariantSku = (productSku: string, index: number): string => {
+    const rand = Math.random().toString(36).substring(2, 6).toUpperCase()
+    const shortId = productSku.replace(/[^A-Z0-9]/gi, '').substring(0, 4).toUpperCase() || 'NUR'
+    return `NUR-${shortId}-${index + 1}-${rand}`
+  }
+
   const addVariant = () => {
+    const nextIndex = variants.length
     setVariants(prev => [...prev, {
-      name: '', sku_suffix: '', price: form.base_price, compare_at_price: '',
+      name: '', sku: generateVariantSku(form.sku, nextIndex), sku_suffix: '',
+      price: form.base_price, compare_at_price: '',
       stock: '0', attributes: {}, image: '', status: 'active',
     }])
   }
@@ -1293,11 +1305,11 @@ export default function ProductForm({
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] text-gray-400 uppercase font-bold">SKU suffix</label>
+                          <label className="text-[10px] text-gray-400 uppercase font-bold">SKU</label>
                           <Input
-                            value={variant.sku_suffix}
-                            onChange={(e) => updateVariant(idx, { sku_suffix: e.target.value })}
-                            placeholder="-FR"
+                            value={variant.sku}
+                            onChange={(e) => updateVariant(idx, { sku: e.target.value })}
+                            placeholder="Auto-generado si vacío"
                             className="h-9 text-sm font-mono"
                           />
                         </div>

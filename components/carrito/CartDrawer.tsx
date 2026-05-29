@@ -222,7 +222,7 @@ export function CartDrawer() {
             <div className="flex-1 overflow-y-auto px-4 sm:px-5 pb-2 scrollbar-none">
               <AnimatePresence mode="popLayout">
                 {items.map((item) => (
-                  <CartItem key={item.product.id} item={item} />
+                  <CartItem key={`${item.product.id}:${item.variant_id ?? ''}`} item={item} />
                 ))}
               </AnimatePresence>
             </div>

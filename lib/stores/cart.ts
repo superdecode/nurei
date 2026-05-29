@@ -3,17 +3,28 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { clearShippingDraft } from '@/lib/checkout-shipping-cache'
-import type { Product, CartItem } from '@/types'
+import type { Product, CartItem, ProductVariant } from '@/types'
 
 interface CartStore {
   items: CartItem[]
-  addItem: (product: Product) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  addItem: (product: Product, variant?: Pick<ProductVariant, 'id' | 'name' | 'image' | 'price'> | null) => void
+  removeItem: (productId: string, variantId?: string | null) => void
+  updateQuantity: (productId: string, quantity: number, variantId?: string | null) => void
   clearCart: () => void
   getSubtotal: () => number
   getTotal: (shippingFee: number, discount?: number) => number
   getItemCount: () => number
+}
+
+function cartKey(productId: string, variantId?: string | null): string {
+  return variantId ? `${productId}:${variantId}` : productId
+}
+
+function itemMatches(item: CartItem, productId: string, variantId?: string | null): boolean {
+  if (item.product.id !== productId) return false
+  const itemVariantId = item.variant_id ?? null
+  const targetVariantId = variantId ?? null
+  return itemVariantId === targetVariantId
 }
 
 export const useCartStore = create<CartStore>()(
@@ -21,38 +32,46 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
 
-      addItem: (product: Product) => {
+      addItem: (product: Product, variant?: Pick<ProductVariant, 'id' | 'name' | 'image' | 'price'> | null) => {
         set((state) => {
-          const existing = state.items.find(
-            (item) => item.product.id === product.id
+          const existing = state.items.find((item) =>
+            itemMatches(item, product.id, variant?.id)
           )
           if (existing) {
             return {
               items: state.items.map((item) =>
-                item.product.id === product.id
+                itemMatches(item, product.id, variant?.id)
                   ? { ...item, quantity: item.quantity + 1 }
                   : item
               ),
             }
           }
-          return { items: [...state.items, { product, quantity: 1 }] }
+          const newItem: CartItem = {
+            product,
+            quantity: 1,
+            variant_id: variant?.id ?? null,
+            variant_label: variant?.name ?? null,
+            variant_image: variant?.image ?? null,
+            variant_price: variant?.price ?? null,
+          }
+          return { items: [...state.items, newItem] }
         })
       },
 
-      removeItem: (productId: string) => {
+      removeItem: (productId: string, variantId?: string | null) => {
         set((state) => ({
-          items: state.items.filter((item) => item.product.id !== productId),
+          items: state.items.filter((item) => !itemMatches(item, productId, variantId)),
         }))
       },
 
-      updateQuantity: (productId: string, quantity: number) => {
+      updateQuantity: (productId: string, quantity: number, variantId?: string | null) => {
         if (quantity <= 0) {
-          get().removeItem(productId)
+          get().removeItem(productId, variantId)
           return
         }
         set((state) => ({
           items: state.items.map((item) =>
-            item.product.id === productId ? { ...item, quantity } : item
+            itemMatches(item, productId, variantId) ? { ...item, quantity } : item
           ),
         }))
       },
@@ -63,10 +82,10 @@ export const useCartStore = create<CartStore>()(
       },
 
       getSubtotal: () => {
-        return get().items.reduce(
-          (sum, item) => sum + item.product.price * item.quantity,
-          0
-        )
+        return get().items.reduce((sum, item) => {
+          const unitPrice = item.variant_price ?? item.product.base_price ?? item.product.price
+          return sum + unitPrice * item.quantity
+        }, 0)
       },
 
       getTotal: (shippingFee: number, discount: number = 0) => {
@@ -82,3 +101,5 @@ export const useCartStore = create<CartStore>()(
     }
   )
 )
+
+export { cartKey }

@@ -49,7 +49,7 @@ interface CartSummaryModalProps {
 function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selected: boolean; onToggleSelect: () => void }) {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const removeItem = useCartStore((s) => s.removeItem)
-  const price = item.product.base_price ?? item.product.price
+  const price = item.variant_price ?? item.product.base_price ?? item.product.price
   const hasDiscount = !!item.product.compare_at_price && item.product.compare_at_price > price
   const lineTotal = price * item.quantity
 
@@ -79,9 +79,9 @@ function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selec
 
       {/* Image */}
       <div className="w-14 h-14 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
-        {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
+        {(item.variant_image ?? item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
           <img
-            src={item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
+            src={item.variant_image ?? item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
             alt={item.product.name}
             className="w-full h-full object-cover"
           />
@@ -93,6 +93,9 @@ function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selec
       {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-gray-900 line-clamp-1">{item.product.name}</p>
+        {item.variant_label && (
+          <p className="text-[11px] text-blue-600 font-semibold truncate">{item.variant_label}</p>
+        )}
         <div className="flex items-center gap-1.5 mt-0.5">
           {hasDiscount && (
             <span className="text-[10px] text-gray-300 line-through tabular-nums">{formatPrice(item.product.compare_at_price!)}</span>
@@ -105,7 +108,7 @@ function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selec
           <div className="flex items-center gap-1 bg-gray-100 rounded-full p-0.5">
             <motion.button
               whileTap={{ scale: 0.8 }}
-              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+              onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.variant_id)}
               className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-gray-600 shadow-sm"
             >
               <MinusIcon />
@@ -124,7 +127,7 @@ function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selec
             </AnimatePresence>
             <motion.button
               whileTap={{ scale: 0.8 }}
-              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+              onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.variant_id)}
               className="w-7 h-7 rounded-full bg-nurei-cta flex items-center justify-center text-gray-900 shadow-sm"
             >
               <PlusIcon />
@@ -149,7 +152,7 @@ function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selec
         </AnimatePresence>
         <motion.button
           whileTap={{ scale: 0.75, rotate: -10 }}
-          onClick={() => removeItem(item.product.id)}
+          onClick={() => removeItem(item.product.id, item.variant_id)}
           className="text-gray-300 hover:text-red-400 transition-colors"
         >
           <TrashIcon />
@@ -194,11 +197,15 @@ export function CartSummaryModal({ open, onClose }: CartSummaryModalProps) {
     })
   }, [])
 
-  const selectAll = () => setSelected(new Set(items.map((i) => i.product.id)))
+  const itemKey = (item: CartItem) => `${item.product.id}:${item.variant_id ?? ''}`
+
+  const selectAll = () => setSelected(new Set(items.map(itemKey)))
   const clearSelection = () => setSelected(new Set())
 
   const removeSelected = () => {
-    selected.forEach((id) => removeItem(id))
+    items
+      .filter((item) => selected.has(itemKey(item)))
+      .forEach((item) => removeItem(item.product.id, item.variant_id))
     clearSelection()
   }
 
@@ -305,10 +312,10 @@ export function CartSummaryModal({ open, onClose }: CartSummaryModalProps) {
                   <AnimatePresence mode="popLayout">
                     {items.map((item) => (
                       <CartItemRow
-                        key={item.product.id}
+                        key={itemKey(item)}
                         item={item}
-                        selected={selected.has(item.product.id)}
-                        onToggleSelect={() => toggleSelect(item.product.id)}
+                        selected={selected.has(itemKey(item))}
+                        onToggleSelect={() => toggleSelect(itemKey(item))}
                       />
                     ))}
                   </AnimatePresence>

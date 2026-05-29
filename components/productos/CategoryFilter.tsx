@@ -116,7 +116,7 @@ export function CategoryFilter({
                     value={searchQuery}
                     onChange={(e) => onSearchChange?.(e.target.value)}
                     placeholder="Buscar snacks, marcas, países…"
-                    className="w-full h-10 pl-9 pr-9 rounded-2xl bg-gray-100 border border-transparent text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-nurei-cta/40 focus:border-nurei-cta/30 transition-all"
+                    className="w-full h-10 pl-9 pr-9 rounded-2xl bg-gray-100 border border-transparent text-[16px] font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-nurei-cta/40 focus:border-nurei-cta/30 transition-all"
                     autoComplete="off"
                     enterKeyHint="search"
                   />
@@ -236,7 +236,7 @@ export function CategoryFilter({
                   value={searchQuery}
                   onChange={(e) => onSearchChange?.(e.target.value)}
                   placeholder="Buscar snacks, marcas…"
-                  className="w-full h-9 pl-8.5 pr-8 rounded-xl bg-gray-100 border border-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-nurei-cta/40 focus:bg-white focus:border-nurei-cta/30 transition-all"
+                  className="w-full h-9 pl-8.5 pr-8 rounded-xl bg-gray-100 border border-transparent text-[16px] sm:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-nurei-cta/40 focus:bg-white focus:border-nurei-cta/30 transition-all"
                   autoComplete="off"
                 />
                 {searchQuery && (

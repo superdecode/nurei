@@ -45,14 +45,14 @@ import {
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { InventoryMovement, InventoryMovementType, Product, StockStatus } from '@/types'
+import type { InventoryMovement, InventoryMovementType, Product, ProductVariant, StockStatus } from '@/types'
 import { computeStockStatus, stockStatusLabel } from '@/lib/inventory/stock-status'
 import { cn } from '@/lib/utils'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type InventoryProduct = Product & { sold_30d?: number; entries_30d?: number }
+type InventoryProduct = Product & { sold_30d?: number; entries_30d?: number; has_variants?: boolean }
 
 type InventoryApiData = {
   movements: InventoryMovement[]
@@ -193,6 +193,7 @@ export default function InventoryAdminPage() {
   // ─ Adjust modal ───────────────────────────────────────────────────────────
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [adjustProduct, setAdjustProduct] = useState<InventoryProduct | null>(null)
+  const [adjustVariant, setAdjustVariant] = useState<{ id: string; label: string; stock: number } | null>(null)
   const [adjustKind, setAdjustKind] = useState<'entrada' | 'salida' | 'correccion'>('entrada')
   const [adjustValue, setAdjustValue] = useState('')
   const [adjustMotivo, setAdjustMotivo] = useState(MOTIVO_PRESETS[0])
@@ -213,6 +214,40 @@ export default function InventoryAdminPage() {
   const [bulkAdjustMotivo, setBulkAdjustMotivo] = useState(MOTIVO_PRESETS[0])
   const [bulkAdjustNota, setBulkAdjustNota] = useState('')
   const [bulkAlertValue, setBulkAlertValue] = useState('')
+
+  // ─ Variant expand ─────────────────────────────────────────────────────────
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [variantsCache, setVariantsCache] = useState<Record<string, ProductVariant[]>>({})
+  const [variantsLoading, setVariantsLoading] = useState<Set<string>>(new Set())
+
+  const toggleExpand = async (product: InventoryProduct) => {
+    const id = product.id
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+    if (!variantsCache[id]) {
+      setVariantsLoading((prev) => new Set(prev).add(id))
+      try {
+        const res = await fetch(`/api/products/${id}/variants`)
+        const json = await res.json()
+        setVariantsCache((prev) => ({ ...prev, [id]: json.data ?? [] }))
+      } catch {
+        setVariantsCache((prev) => ({ ...prev, [id]: [] }))
+      } finally {
+        setVariantsLoading((prev) => { const n = new Set(prev); n.delete(id); return n })
+      }
+    }
+  }
+
+  const refreshVariants = async (productId: string) => {
+    try {
+      const res = await fetch(`/api/products/${productId}/variants`)
+      const json = await res.json()
+      setVariantsCache((prev) => ({ ...prev, [productId]: json.data ?? [] }))
+    } catch { /* ignore */ }
+  }
 
   // ─ Import modal ───────────────────────────────────────────────────────────
   const [importOpen, setImportOpen] = useState(false)
@@ -465,20 +500,25 @@ export default function InventoryAdminPage() {
     const v = Number(adjustValue)
     if (!Number.isFinite(v) || v < 0) { toast.error('Cantidad inválida'); return }
     try {
+      const body: Record<string, unknown> = {
+        product_id: adjustProduct.id,
+        kind: adjustKind,
+        value: Math.round(adjustKind === 'correccion' ? v : Math.abs(v)),
+        motivo: adjustMotivo,
+        nota: adjustNota.trim() || undefined,
+      }
+      if (adjustVariant) body.variant_id = adjustVariant.id
       const res = await fetch('/api/admin/inventory/adjust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: adjustProduct.id,
-          kind: adjustKind,
-          value: Math.round(adjustKind === 'correccion' ? v : Math.abs(v)),
-          motivo: adjustMotivo,
-          nota: adjustNota.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error()
       toast.success('Movimiento guardado')
-      setAdjustOpen(false); setAdjustValue(''); setAdjustNota('')
+      setAdjustOpen(false); setAdjustValue(''); setAdjustNota(''); setAdjustVariant(null)
+      if (adjustVariant) {
+        await refreshVariants(adjustProduct.id)
+      }
       fetchInventory()
     } catch { toast.error('No se pudo guardar') }
   }
@@ -951,10 +991,15 @@ export default function InventoryAdminPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedProducts.map((product) => {
+              paginatedProducts.flatMap((product) => {
                 const st = computeStockStatus(product)
                 const catInfo = categories.find((c) => c.value === product.category)
-                return (
+                const isExpanded = expandedIds.has(product.id)
+                const isLoadingVariants = variantsLoading.has(product.id)
+                const variants = variantsCache[product.id] ?? []
+                const hasVariants = product.has_variants
+
+                const productRow = (
                   <TableRow
                     key={product.id}
                     className={cn(
@@ -975,16 +1020,28 @@ export default function InventoryAdminPage() {
                       </button>
                     </TableCell>
                     <TableCell className="min-w-0 py-2 pl-2 pr-4">
-                      <div className="mx-auto h-9 w-9 max-w-full rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
-                        {product.images?.[product.primary_image_index ?? 0] ? (
-                          <img
-                            src={product.images[product.primary_image_index ?? 0]}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Package className="w-5 h-5 text-gray-300" />
+                      <div className="flex items-center gap-1.5">
+                        {hasVariants && (
+                          <button
+                            type="button"
+                            title={isExpanded ? 'Contraer variantes' : 'Expandir variantes'}
+                            onClick={() => toggleExpand(product)}
+                            className="shrink-0 rounded-md p-0.5 text-gray-400 hover:text-primary-dark transition-colors"
+                          >
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </button>
                         )}
+                        <div className="mx-auto h-9 w-9 max-w-full rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
+                          {product.images?.[product.primary_image_index ?? 0] ? (
+                            <img
+                              src={product.images[product.primary_image_index ?? 0]}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="w-5 h-5 text-gray-300" />
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="min-w-0 p-1.5">
@@ -1013,18 +1070,20 @@ export default function InventoryAdminPage() {
                         >
                           {product.stock_quantity ?? 0}
                         </span>
-                        <button
-                          type="button"
-                          title="Ajustar inventario"
-                          className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
-                          onClick={() => {
-                            setAdjustProduct(product)
-                            setAdjustKind('entrada'); setAdjustValue(''); setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota('')
-                            setAdjustOpen(true)
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                        {!hasVariants && (
+                          <button
+                            type="button"
+                            title="Ajustar inventario"
+                            className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
+                            onClick={() => {
+                              setAdjustProduct(product); setAdjustVariant(null)
+                              setAdjustKind('entrada'); setAdjustValue(''); setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota('')
+                              setAdjustOpen(true)
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="min-w-0 p-1.5">
@@ -1036,17 +1095,19 @@ export default function InventoryAdminPage() {
                     <TableCell className="min-w-0 p-1.5 text-sm text-gray-500 tabular-nums">{product.sold_30d ?? 0}</TableCell>
                     <TableCell className="min-w-0 max-w-full p-1 text-right">
                       <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5">
-                        <button
-                          type="button"
-                          title="Ajuste manual"
-                          className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
-                          onClick={() => {
-                            setAdjustProduct(product); setAdjustKind('entrada'); setAdjustValue('')
-                            setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
-                          }}
-                        >
-                          <Wrench className="h-3.5 w-3.5" />
-                        </button>
+                        {!hasVariants && (
+                          <button
+                            type="button"
+                            title="Ajuste manual"
+                            className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                            onClick={() => {
+                              setAdjustProduct(product); setAdjustVariant(null); setAdjustKind('entrada'); setAdjustValue('')
+                              setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
+                            }}
+                          >
+                            <Wrench className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           title="Alerta mínima"
@@ -1067,6 +1128,98 @@ export default function InventoryAdminPage() {
                     </TableCell>
                   </TableRow>
                 )
+
+                if (!hasVariants || !isExpanded) return [productRow]
+
+                const variantRows = isLoadingVariants
+                  ? [
+                      <TableRow key={`${product.id}-loading`} className="bg-gray-50/50">
+                        <TableCell colSpan={9} className="py-2 pl-16 text-xs text-gray-400">
+                          Cargando variantes…
+                        </TableCell>
+                      </TableRow>,
+                    ]
+                  : variants.map((variant) => {
+                      const vSt = variant.stock <= 0 ? 'out_of_stock' : variant.stock <= (product.low_stock_threshold ?? 5) ? 'low_stock' : 'available'
+                      return (
+                        <TableRow
+                          key={`${product.id}-v-${variant.id}`}
+                          className="border-b bg-gray-50/60 hover:bg-gray-50"
+                        >
+                          <TableCell className="py-2 pl-6 pr-2" />
+                          <TableCell className="py-2 pl-2 pr-4">
+                            <div className="ml-5 h-7 w-7 rounded-md border border-gray-100 bg-white flex items-center justify-center overflow-hidden">
+                              {variant.image ? (
+                                <img src={variant.image} alt={variant.name} className="w-full h-full object-cover rounded-md" />
+                              ) : (
+                                <Package className="w-3.5 h-3.5 text-gray-300" />
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-0 p-1.5 pl-4">
+                            <div className="min-w-0 flex items-center gap-1.5">
+                              <span className="text-[10px] text-gray-300">└</span>
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-semibold text-gray-700">{variant.name}</p>
+                                {variant.sku && (
+                                  <p className="truncate font-mono text-[10px] text-gray-400">{variant.sku}</p>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-0 p-1.5 text-xs text-gray-400">—</TableCell>
+                          <TableCell className="min-w-0 p-1.5 text-center">
+                            <div className="inline-flex items-center justify-center gap-0.5">
+                              <span
+                                className={cn(
+                                  'text-sm font-semibold tabular-nums',
+                                  vSt === 'out_of_stock' ? 'text-amber-700' : vSt === 'low_stock' ? 'text-amber-700' : 'text-emerald-700'
+                                )}
+                              >
+                                {variant.stock ?? 0}
+                              </span>
+                              <button
+                                type="button"
+                                title="Ajustar esta variante"
+                                className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
+                                onClick={() => {
+                                  setAdjustProduct(product)
+                                  setAdjustVariant({ id: variant.id, label: variant.name, stock: variant.stock ?? 0 })
+                                  setAdjustKind('entrada'); setAdjustValue(''); setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota('')
+                                  setAdjustOpen(true)
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-0 p-1.5">
+                            <span className={cn('inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full', STATUS_COLORS[vSt])}>
+                              {stockStatusLabel(vSt)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="min-w-0 p-1.5" />
+                          <TableCell className="min-w-0 p-1.5" />
+                          <TableCell className="min-w-0 p-1 text-right">
+                            <button
+                              type="button"
+                              title="Ajuste manual"
+                              className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                              onClick={() => {
+                                setAdjustProduct(product)
+                                setAdjustVariant({ id: variant.id, label: variant.name, stock: variant.stock ?? 0 })
+                                setAdjustKind('entrada'); setAdjustValue(''); setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota('')
+                                setAdjustOpen(true)
+                              }}
+                            >
+                              <Wrench className="h-3.5 w-3.5" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+
+                return [productRow, ...variantRows]
               })
             )}
           </TableBody>
@@ -1097,13 +1250,24 @@ export default function InventoryAdminPage() {
           <div className="border-b border-gray-100 px-6 py-4 pr-12">
             <DialogTitle className="text-base font-semibold">Ajuste de inventario</DialogTitle>
             {adjustProduct && (
-              <p className="text-sm text-gray-500 mt-0.5">{adjustProduct.name}</p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {adjustProduct.name}
+                {adjustVariant && (
+                  <span className="ml-2 text-blue-600 font-semibold">— {adjustVariant.label}</span>
+                )}
+              </p>
             )}
           </div>
           {adjustProduct && (
             <div className="px-6 py-5 space-y-3">
               <p className="text-sm text-gray-500">
-                Stock actual: <span className="font-semibold text-primary-dark">{adjustProduct.stock_quantity ?? 0}</span>
+                Stock actual:{' '}
+                <span className="font-semibold text-primary-dark">
+                  {adjustVariant ? adjustVariant.stock : (adjustProduct.stock_quantity ?? 0)}
+                </span>
+                {adjustVariant && (
+                  <span className="text-xs text-gray-400 ml-1">(variante)</span>
+                )}
               </p>
               <Select
                 value={adjustKind}

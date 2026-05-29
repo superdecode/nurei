@@ -91,7 +91,7 @@ export async function getInventoryProductsSnapshot(
   let query = supabase
     .from('products')
     .select(
-      'id, name, sku, category, base_price, price, stock_quantity, low_stock_threshold, track_inventory, allow_backorder, updated_at, is_active, status, images, primary_image_index'
+      'id, name, sku, category, base_price, price, stock_quantity, low_stock_threshold, track_inventory, allow_backorder, updated_at, is_active, status, images, primary_image_index, has_variants'
     )
     .order('updated_at', { ascending: false })
     .limit(options.limit ?? 500)

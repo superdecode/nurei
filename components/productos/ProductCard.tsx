@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Plus, Heart, Ban, Flame } from 'lucide-react'
+import { Check, Plus, Heart, Ban, Flame, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
@@ -54,12 +54,60 @@ function SpiceDots({ level }: { level: number }) {
   )
 }
 
+function ImageCarousel({ images, primaryIndex }: { images: string[]; primaryIndex: number }) {
+  const [idx, setIdx] = useState(primaryIndex)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (images.length <= 1) return
+    intervalRef.current = setInterval(() => {
+      setIdx((prev) => (prev + 1) % images.length)
+    }, 2500)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [images.length])
+
+  return (
+    <div className="relative w-full h-full">
+      <AnimatePresence mode="wait">
+        <motion.img
+          key={idx}
+          src={images[idx]}
+          alt=""
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4 }}
+          className="w-full h-full object-cover"
+        />
+      </AnimatePresence>
+      {images.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none">
+          {images.map((_, i) => (
+            <div
+              key={i}
+              className={`rounded-full transition-all duration-300 ${
+                i === idx ? 'w-3 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const SPRING_SNAP = { type: 'spring', stiffness: 400, damping: 20 } as const
 const SPRING_SMOOTH = { type: 'spring', stiffness: 300, damping: 28 } as const
 
 export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
-  const currentCartQuantity = useCartStore((s) => s.items.find((item) => item.product.id === product.id)?.quantity ?? 0)
+  const currentCartQuantity = useCartStore((s) =>
+    s.items
+      .filter((item) => item.product.id === product.id && !item.variant_id)
+      .reduce((sum, item) => sum + item.quantity, 0)
+  )
   const { isFavorite, toggleFavorite } = useFavoritesStore()
   const [added, setAdded] = useState(false)
   const [stockFeedback, setStockFeedback] = useState<string | null>(null)
@@ -68,6 +116,8 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    // Products with variants must be configured on the detail page
+    if (product.has_variants) return
     try {
       const response = await fetch(`/api/products/${product.id}/stock`, {
         method: 'POST',
@@ -109,6 +159,9 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
   const discountPercent = product.compare_at_price && product.compare_at_price > price
     ? Math.round((1 - price / product.compare_at_price) * 100) : 0
 
+  const hasImages = product.images && product.images.length > 0
+  const primaryImage = hasImages ? product.images[product.primary_image_index] : null
+
   return (
     <Link href={`/producto/${product.slug}`}>
       <motion.div
@@ -121,17 +174,25 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
       >
         {/* ── Image area ── */}
         <div className="relative aspect-square bg-gray-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
-          {product.images?.[product.primary_image_index] ? (
-            <motion.img
-              src={product.images[product.primary_image_index]}
-              alt={product.name}
-              className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+          {hasImages && primaryImage ? (
+            product.has_variants && product.images.length > 1 ? (
+              <div className={`w-full h-full transition-transform duration-700 ease-out ${
                 isOutOfStock ? '' : 'group-hover:scale-110'
-              }`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
-            />
+              }`}>
+                <ImageCarousel images={product.images} primaryIndex={product.primary_image_index} />
+              </div>
+            ) : (
+              <motion.img
+                src={primaryImage}
+                alt={product.name}
+                className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                  isOutOfStock ? '' : 'group-hover:scale-110'
+                }`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+              />
+            )
           ) : (
             <motion.span
               className="text-5xl sm:text-6xl select-none opacity-40"
@@ -142,7 +203,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
             </motion.span>
           )}
 
-          {/* Out of stock — warm amber wash + pill */}
+          {/* Out of stock overlay */}
           {isOutOfStock && (
             <>
               <div className="absolute inset-0 bg-[#FFF3CE]/65" />
@@ -193,7 +254,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
             <Heart className="w-4 h-4" fill={fav ? 'currentColor' : 'none'} />
           </motion.button>
 
-          {/* Bottom row: low stock + country chips coexist on the same line */}
+          {/* Bottom row: low stock + country chips */}
           {(isLowStock || product.origin_country || product.origin) && (
             <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 pointer-events-none">
               {isLowStock ? (
@@ -249,7 +310,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
           {/* Price + CTA */}
           <div className="mt-auto pt-4 flex items-end justify-between gap-3">
             <div className="flex flex-col">
-              {product.compare_at_price && product.compare_at_price > price && (
+              {product.compare_at_price && product.compare_at_price > price && !product.has_variants && (
                 <span className="text-[10px] font-bold text-gray-300 line-through tabular-nums">
                   {formatPrice(product.compare_at_price)}
                 </span>
@@ -257,7 +318,9 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
               <span className={`text-xl font-black tabular-nums tracking-tight transition-colors duration-300 ${
                 isOutOfStock ? 'text-amber-400' : 'text-gray-900'
               }`}>
-                {formatPrice(price)}
+                {product.has_variants ? (
+                  <span className="text-base font-bold text-gray-500">Desde{' '}<span className="text-gray-900 font-black">{formatPrice(price)}</span></span>
+                ) : formatPrice(price)}
               </span>
             </div>
 
@@ -265,6 +328,11 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
               <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
                 <Ban className="w-3 h-3 shrink-0" />
                 Sin stock
+              </span>
+            ) : product.has_variants ? (
+              <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-full bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/30">
+                Ver opciones
+                <ChevronRight className="w-3 h-3" />
               </span>
             ) : (
               <motion.button

@@ -5,6 +5,7 @@ import { createInventoryMovement } from '@/lib/supabase/queries/inventory'
 
 const adjustSchema = z.object({
   product_id: z.string().uuid(),
+  variant_id: z.string().uuid().optional(),
   kind: z.enum(['entrada', 'salida', 'correccion']),
   /** Cantidad positiva a sumar (entrada) o restar (salida), o stock objetivo absoluto (correccion) */
   value: z.number().int().min(0),
@@ -29,13 +30,62 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payload inválido', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { product_id, kind, value, motivo, nota } = parsed.data
+    const { product_id, variant_id, kind, value, motivo, nota } = parsed.data
     const supabase = createServiceClient()
     const reference = refCode('INV-MAN')
+    const reason = [motivo, nota].filter(Boolean).join(' · ')
 
+    // ── Variant-level adjustment ──────────────────────────────────────────────
+    if (variant_id) {
+      const { data: variant, error: vErr } = await supabase
+        .from('product_variants')
+        .select('id, stock')
+        .eq('id', variant_id)
+        .eq('product_id', product_id)
+        .single()
+      if (vErr || !variant) return NextResponse.json({ error: 'Variante no encontrada' }, { status: 404 })
+
+      let newStock: number
+      if (kind === 'entrada') {
+        if (value <= 0) return NextResponse.json({ error: 'La entrada debe ser mayor a 0' }, { status: 400 })
+        newStock = (variant.stock ?? 0) + value
+      } else if (kind === 'salida') {
+        if (value <= 0) return NextResponse.json({ error: 'La salida debe ser mayor a 0' }, { status: 400 })
+        newStock = Math.max(0, (variant.stock ?? 0) - value)
+      } else {
+        newStock = value
+      }
+
+      const { error: updateErr } = await supabase
+        .from('product_variants')
+        .update({ stock: newStock })
+        .eq('id', variant_id)
+      if (updateErr) throw updateErr
+
+      // Sync product.stock_quantity = sum of active variant stocks
+      const { data: allVariants } = await supabase
+        .from('product_variants')
+        .select('stock')
+        .eq('product_id', product_id)
+        .eq('status', 'active')
+      const totalStock = (allVariants ?? []).reduce((s, v) => s + (v.stock ?? 0), 0)
+      await supabase.from('products').update({ stock_quantity: totalStock }).eq('id', product_id)
+
+      await createInventoryMovement(supabase, {
+        product_id,
+        type: kind === 'entrada' ? 'entrada' : kind === 'salida' ? 'salida' : 'ajuste',
+        quantity: kind === 'entrada' ? value : kind === 'salida' ? -Math.abs(value) : newStock - (variant.stock ?? 0),
+        reason: `[Var] ${reason}`,
+        reference,
+        created_by: undefined,
+      })
+
+      return NextResponse.json({ data: { variant_id, newStock, totalStock } })
+    }
+
+    // ── Product-level adjustment ──────────────────────────────────────────────
     if (kind === 'entrada') {
       if (value <= 0) return NextResponse.json({ error: 'La entrada debe ser mayor a 0' }, { status: 400 })
-      const reason = [motivo, nota].filter(Boolean).join(' · ')
       const movement = await createInventoryMovement(supabase, {
         product_id,
         type: 'entrada',
@@ -49,7 +99,6 @@ export async function POST(request: NextRequest) {
 
     if (kind === 'salida') {
       if (value <= 0) return NextResponse.json({ error: 'La salida debe ser mayor a 0' }, { status: 400 })
-      const reason = [motivo, nota].filter(Boolean).join(' · ')
       const movement = await createInventoryMovement(supabase, {
         product_id,
         type: 'salida',
@@ -69,7 +118,6 @@ export async function POST(request: NextRequest) {
     if (delta === 0) {
       return NextResponse.json({ data: { skipped: true, message: 'Sin cambio de stock' } })
     }
-    const reason = [motivo, nota].filter(Boolean).join(' · ')
     const movement = await createInventoryMovement(supabase, {
       product_id,
       type: 'ajuste',

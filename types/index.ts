@@ -176,6 +176,7 @@ export interface ProductVariant {
   id: string
   product_id: string
   name: string
+  sku: string | null
   sku_suffix: string | null
   price: number
   compare_at_price: number | null
@@ -672,13 +673,17 @@ export interface ValidateCouponResponse {
 export interface CartItem {
   product: Product
   quantity: number
+  variant_id?: string | null
+  variant_label?: string | null
+  variant_image?: string | null
+  variant_price?: number | null
 }
 
 export interface CartState {
   items: CartItem[]
-  addItem: (product: Product) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  addItem: (product: Product, variant?: Pick<ProductVariant, 'id' | 'name' | 'image' | 'price'> | null) => void
+  removeItem: (productId: string, variantId?: string | null) => void
+  updateQuantity: (productId: string, quantity: number, variantId?: string | null) => void
   clearCart: () => void
   getSubtotal: () => number
   getTotal: (shippingFee: number, discount?: number) => number

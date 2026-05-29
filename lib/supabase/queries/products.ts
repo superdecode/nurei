@@ -272,6 +272,7 @@ export async function upsertVariants(productId: string, variants: Partial<Produc
     ...(v.id ? { id: v.id } : {}),
     product_id: productId,
     name: v.name ?? '',
+    sku: v.sku ?? null,
     sku_suffix: v.sku_suffix ?? null,
     price: v.price ?? 0,
     compare_at_price: v.compare_at_price ?? null,
