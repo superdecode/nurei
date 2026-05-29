@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import sharp from 'sharp'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const { url, convertToWebp } = await request.json()
     if (!url || typeof url !== 'string') {

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { addOrderNote } from '@/lib/supabase/queries/adminOrders'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const { id } = await params
     const body = (await req.json()) as { message?: string }

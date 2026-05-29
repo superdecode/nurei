@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { resolveInternalUserDisplayName } from '@/lib/server/user-display-name'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 type NotificationPrefs = {
   sound_enabled: boolean
@@ -24,6 +25,8 @@ function normalizePrefs(raw: unknown): NotificationPrefs {
 }
 
 export async function GET() {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = await createServerSupabaseClient()
     const service = createServiceClient()
@@ -98,6 +101,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = await createServerSupabaseClient()
     const service = createServiceClient()

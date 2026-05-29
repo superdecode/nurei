@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 const CSV_TEMPLATE = `sku,nombre,categoria,stock,precio,alerta_stock
 NUR-EJEMPLO-001,Ramen ejemplo,ramen,24,8500,5
@@ -6,7 +7,8 @@ NUR-EJEMPLO-002,Bebida ejemplo,drinks,12,4500,8
 `
 
 export async function GET() {
-
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   return new NextResponse(CSV_TEMPLATE, {
     status: 200,
     headers: {

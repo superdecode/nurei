@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAdminRoles, createAdminRole } from '@/lib/supabase/queries/adminRoles'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export async function GET() {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const roles = await getAdminRoles(supabase)
@@ -13,6 +16,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const body = await request.json()

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { computeStockStatus } from '@/lib/inventory/stock-status'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export type AdminNotificationItem = {
   id: string
@@ -13,6 +14,8 @@ export type AdminNotificationItem = {
 }
 
 export async function GET() {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const items: AdminNotificationItem[] = []

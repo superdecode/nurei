@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getOrderDetail, getAdjacentOrderIds, updateOrderStatus } from '@/lib/supabase/queries/adminOrders'
+import { requireAdmin } from '@/lib/server/require-admin'
 import { VALID_STATUS_TRANSITIONS } from '@/lib/utils/constants'
 import { sendOrderStatusEmail } from '@/lib/email/send-order-emails'
 import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
@@ -10,6 +11,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const { id } = await params
     const supabase = createServiceClient()
@@ -34,6 +37,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const { id } = await params
     const body = (await req.json()) as { status?: string; note?: string }

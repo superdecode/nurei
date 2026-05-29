@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { exportOrders } from '@/lib/supabase/queries/adminOrders'
+import { requireAdmin } from '@/lib/server/require-admin'
 import { ORDER_STATUS_MAP, PAYMENT_METHOD_LABELS } from '@/lib/utils/constants'
 import type { Order, OrderItem, OrderStatus } from '@/types'
 
@@ -55,6 +56,8 @@ function buildCsv(orders: Order[]): string {
 }
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)

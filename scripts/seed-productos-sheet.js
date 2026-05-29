@@ -4,9 +4,13 @@
 
 const { createClient } = require('@supabase/supabase-js')
 
-const SUPABASE_URL = 'https://jotoxalbyvbppvgtdbee.supabase.co'
-const SERVICE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvdG94YWxieXZicHB2Z3RkYmVlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE5ODY5MywiZXhwIjoyMDkxNzc0NjkzfQ.OUGAYXiLM0iUtYjXIpeNlOLKuQmeM5o93KF-C-W42Pc'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error('ERROR: Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars before running this script.')
+  process.exit(1)
+}
 
 const client = createClient(SUPABASE_URL, SERVICE_KEY)
 

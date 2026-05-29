@@ -7,6 +7,7 @@ import {
   bulkUpdateStock,
   getInventoryProductsSnapshot,
 } from '@/lib/supabase/queries/inventory'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 const movementSchema = z.object({
   product_id: z.string().uuid(),
@@ -28,6 +29,8 @@ const bulkSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
@@ -125,6 +128,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const body = await request.json()

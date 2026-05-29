@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { listCategories, createCategory, updateCategory, deleteCategory, reorderCategories } from '@/lib/supabase/queries/categories'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export async function GET() {
   try {
@@ -25,6 +26,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const body = await request.json()
@@ -36,10 +39,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const body = await request.json()
-    
+
     if (body.reorder) {
       await reorderCategories(supabase, body.orders)
       return NextResponse.json({ message: 'Reordered' })
@@ -65,6 +70,8 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)

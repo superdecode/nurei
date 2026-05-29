@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import Papa from 'papaparse'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 type ParsedRow = {
   sku: string
@@ -61,6 +62,8 @@ const confirmSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
 
   const contentType = request.headers.get('content-type') ?? ''
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 /**
  * Plantilla CSV — columnas en español, compatibles con alias en inglés al importar.
@@ -22,6 +23,8 @@ NUR-EJEMPLO-002,Bebida ejemplo,drinks,45,12,8,draft,,bebida-slug,ml,500,
 `
 
 export async function GET() {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   return new NextResponse(CSV_TEMPLATE, {
     status: 200,
     headers: {

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { listOrders } from '@/lib/supabase/queries/adminOrders'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)

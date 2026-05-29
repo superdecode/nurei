@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createInventoryMovement } from '@/lib/supabase/queries/inventory'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 const adjustSchema = z.object({
   product_id: z.string().uuid(),
@@ -22,6 +23,8 @@ function refCode(prefix: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
 
     const body = await request.json()

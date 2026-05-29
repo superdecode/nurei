@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPaymentMethods, updatePaymentMethod, togglePaymentMethod } from '@/lib/supabase/queries/paymentMethods'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
@@ -15,6 +18,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
     const body = await request.json()
