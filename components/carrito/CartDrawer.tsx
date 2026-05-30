@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ArrowRight, PartyPopper } from 'lucide-react'
@@ -12,6 +13,7 @@ import { useUIStore } from '@/lib/stores/ui'
 import { formatPrice } from '@/lib/utils/format'
 import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
 import { computeStandardShippingFeeCents } from '@/lib/store/normalize-checkout-settings'
+import { CartSummaryModal } from './CartSummaryModal'
 
 function AnimatedPrice({ value, className }: { value: number; className?: string }) {
   return (
@@ -168,6 +170,15 @@ export function CartDrawer() {
   const getItemCount = useCartStore((s) => s.getItemCount)
   const isCartOpen = useUIStore((s) => s.isCartOpen)
   const closeCart = useUIStore((s) => s.closeCart)
+  const [mobileModalOpen, setMobileModalOpen] = useState(false)
+
+  // On mobile (<640px) intercept openCart and show the bottom sheet modal instead
+  useEffect(() => {
+    if (isCartOpen && typeof window !== 'undefined' && window.innerWidth < 640) {
+      closeCart()
+      setMobileModalOpen(true)
+    }
+  }, [isCartOpen, closeCart])
 
   const { bootstrap, loading: checkoutLoading } = useStoreCheckout()
 
@@ -186,6 +197,8 @@ export function CartDrawer() {
     !checkoutLoading && bootstrap !== null && subtotal >= minOrder
 
   return (
+    <>
+    <CartSummaryModal open={mobileModalOpen} onClose={() => setMobileModalOpen(false)} />
     <Sheet open={isCartOpen} onOpenChange={(open) => !open && closeCart()}>
       <SheetContent
         showCloseButton={false}
@@ -303,5 +316,6 @@ export function CartDrawer() {
         )}
       </SheetContent>
     </Sheet>
+    </>
   )
 }

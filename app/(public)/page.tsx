@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Container } from '@/components/layout/Container'
 // Products fetched from Supabase via API
 import { SPICE_LABELS } from '@/lib/utils/constants'
-import { formatPrice } from '@/lib/utils/format'
+import { formatPrice, stripHtml } from '@/lib/utils/format'
 import { useCartStore } from '@/lib/stores/cart'
 import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
 import type { Product } from '@/types'
@@ -134,7 +134,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         </h3>
 
         <p className="mt-1.5 text-xs text-nurei-muted line-clamp-2 leading-relaxed">
-          {product.description}
+          {stripHtml(product.description)}
         </p>
 
         {/* Spice + Weight row */}
@@ -155,7 +155,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         {/* Price + CTA */}
         <div className="mt-auto pt-4 flex items-end justify-between gap-3">
           <div className="flex items-baseline gap-2">
-            {product.compare_at_price && (
+            {product.compare_at_price && !product.has_variants && (
               <span className="text-xs text-nurei-muted/50 line-through tabular-nums">
                 {formatPrice(product.compare_at_price)}
               </span>
@@ -163,7 +163,9 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
             <span className={`text-xl font-black tabular-nums tracking-tight transition-colors duration-300 ${
               isOutOfStock ? 'text-amber-400' : 'text-gray-900'
             }`}>
-              {formatPrice(product.price)}
+              {product.has_variants ? (
+                <span className="text-base font-bold text-gray-500">Desde <span className="text-gray-900 font-black">{formatPrice(product.base_price ?? product.price)}</span></span>
+              ) : formatPrice(product.base_price ?? product.price)}
             </span>
           </div>
 
@@ -172,6 +174,15 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
               <Ban className="w-3 h-3 shrink-0" />
               Sin stock
             </span>
+          ) : product.has_variants ? (
+            <Link
+              href={`/producto/${product.slug}`}
+              className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-full bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/20"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Ver opciones
+              <ChevronRight className="w-3 h-3" />
+            </Link>
           ) : (
             <motion.button
               whileTap={{ scale: 0.88 }}
