@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect, useRef, useCallback } from 'react'
+import { use, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -342,6 +342,26 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
     return () => window.removeEventListener('resize', checkOverflow)
   }, [loading, product, descExpanded])
 
+  const allImages = useMemo(() => {
+    const base = product?.images ?? []
+    const variantImages = variants.map((v) => v.image).filter(Boolean) as string[]
+    // Preserve order: base images first, then unique variant images
+    const unique = [...base]
+    for (const img of variantImages) {
+      if (!unique.includes(img)) unique.push(img)
+    }
+    return unique
+  }, [product?.images, variants])
+
+  useEffect(() => {
+    if (selectedVariant?.image) {
+      const idx = allImages.indexOf(selectedVariant.image)
+      if (idx !== -1) {
+        setPrimaryIndex(idx)
+      }
+    }
+  }, [selectedVariant, allImages])
+
   if (loading) {
     return (
       <Container className="py-16 flex justify-center">
@@ -362,8 +382,8 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const fav = isFavorite(product.id)
   const activePrice = selectedVariant?.price ?? product.base_price ?? product.price
   const activeComparePrice = selectedVariant?.compare_at_price ?? product.compare_at_price
-  const activeImage = selectedVariant?.image || product.images?.[primaryIndex] || null
-  const allImages = product.images ?? []
+  const activeImage = selectedVariant?.image || allImages[primaryIndex] || null
+
   const discountPercent = activeComparePrice && activeComparePrice > activePrice
     ? Math.round((1 - activePrice / activeComparePrice) * 100) : 0
 
@@ -583,13 +603,25 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
             {allImages.length > 1 && (
               <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-2 pointer-events-none">
                 <button
-                  onClick={() => { setPrimaryIndex((p) => (p - 1 + allImages.length) % allImages.length); setSelectedVariant(null) }}
+                  onClick={() => {
+                    const nextIdx = (primaryIndex - 1 + allImages.length) % allImages.length
+                    setPrimaryIndex(nextIdx)
+                    const v = variants.find(v => v.image === allImages[nextIdx])
+                    if (v) setSelectedVariant(v)
+                    else setSelectedVariant(null)
+                  }}
                   className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm text-white flex items-center justify-center pointer-events-auto"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => { setPrimaryIndex((p) => (p + 1) % allImages.length); setSelectedVariant(null) }}
+                  onClick={() => {
+                    const nextIdx = (primaryIndex + 1) % allImages.length
+                    setPrimaryIndex(nextIdx)
+                    const v = variants.find(v => v.image === allImages[nextIdx])
+                    if (v) setSelectedVariant(v)
+                    else setSelectedVariant(null)
+                  }}
                   className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm text-white flex items-center justify-center pointer-events-auto"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -603,7 +635,12 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 {allImages.map((_, i) => (
                   <button
                     key={i}
-                    onClick={() => { setPrimaryIndex(i); setSelectedVariant(null) }}
+                    onClick={() => {
+                      setPrimaryIndex(i)
+                      const v = variants.find(v => v.image === allImages[i])
+                      if (v) setSelectedVariant(v)
+                      else setSelectedVariant(null)
+                    }}
                     className={cn(
                       'rounded-full transition-all',
                       i === primaryIndex ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50'
@@ -716,13 +753,18 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                     key={v.id}
                     onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
                     className={cn(
-                      'px-2.5 py-1 rounded-lg text-[11px] font-semibold border-2 transition-all',
+                      'flex items-center gap-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold border-2 transition-all',
                       selectedVariant?.id === v.id
                         ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900'
                         : 'border-gray-200 text-gray-600'
                     )}
                   >
-                    {v.name}
+                    {v.image && (
+                      <div className="w-5 h-5 rounded-md overflow-hidden flex-shrink-0 border border-gray-100">
+                        <img src={v.image} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <span>{v.name}</span>
                     {v.price !== (product.base_price ?? product.price) && (
                       <span className="ml-1 text-[10px] text-gray-400">{formatPrice(v.price)}</span>
                     )}
@@ -838,10 +880,24 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
                 {allImages.length > 1 && (
                   <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                    <button onClick={(e) => { e.stopPropagation(); setPrimaryIndex(prev => (prev - 1 + allImages.length) % allImages.length); setSelectedVariant(null) }} className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center pointer-events-auto hover:bg-white">
+                    <button onClick={(e) => {
+                      e.stopPropagation()
+                      const nextIdx = (primaryIndex - 1 + allImages.length) % allImages.length
+                      setPrimaryIndex(nextIdx)
+                      const v = variants.find(v => v.image === allImages[nextIdx])
+                      if (v) setSelectedVariant(v)
+                      else setSelectedVariant(null)
+                    }} className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center pointer-events-auto hover:bg-white">
                       <ChevronLeft className="w-5 h-5" />
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setPrimaryIndex(prev => (prev + 1) % allImages.length); setSelectedVariant(null) }} className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center pointer-events-auto hover:bg-white">
+                    <button onClick={(e) => {
+                      e.stopPropagation()
+                      const nextIdx = (primaryIndex + 1) % allImages.length
+                      setPrimaryIndex(nextIdx)
+                      const v = variants.find(v => v.image === allImages[nextIdx])
+                      if (v) setSelectedVariant(v)
+                      else setSelectedVariant(null)
+                    }} className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md shadow-lg flex items-center justify-center pointer-events-auto hover:bg-white">
                       <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
@@ -851,7 +907,13 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 {allImages.length > 1 && (
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                     {allImages.map((_, i) => (
-                      <button key={i} onClick={(e) => { e.stopPropagation(); setPrimaryIndex(i); setSelectedVariant(null) }}
+                      <button key={i} onClick={(e) => {
+                        e.stopPropagation()
+                        setPrimaryIndex(i)
+                        const v = variants.find(v => v.image === allImages[i])
+                        if (v) setSelectedVariant(v)
+                        else setSelectedVariant(null)
+                      }}
                         className={cn('rounded-full transition-all', i === primaryIndex ? 'w-5 h-2 bg-white shadow' : 'w-2 h-2 bg-white/50 hover:bg-white/80')}
                       />
                     ))}
@@ -873,9 +935,14 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               {allImages.length > 1 && (
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
                   {allImages.map((img, idx) => (
-                    <button key={idx} onClick={() => { setPrimaryIndex(idx); setSelectedVariant(null) }}
+                    <button key={idx} onClick={() => {
+                      setPrimaryIndex(idx)
+                      const v = variants.find(v => v.image === allImages[idx])
+                      if (v) setSelectedVariant(v)
+                      else setSelectedVariant(null)
+                    }}
                       className={cn('relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all',
-                        idx === primaryIndex && !selectedVariant?.image ? 'border-nurei-cta shadow-md scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                        idx === primaryIndex ? 'border-nurei-cta shadow-md scale-105' : 'border-transparent opacity-60 hover:opacity-100'
                       )}>
                       <Image src={img} alt="" width={80} height={80} unoptimized className="w-full h-full object-cover" />
                     </button>
@@ -990,9 +1057,14 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                   <div className="flex flex-wrap gap-2">
                     {variants.filter(v => v.status === 'active').map(v => (
                       <button key={v.id} onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
-                        className={cn('px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-all',
+                        className={cn('flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-all',
                           selectedVariant?.id === v.id ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900 shadow-sm' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
                         )}>
+                        {v.image && (
+                          <div className="w-6 h-6 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
+                            <img src={v.image} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        )}
                         <span className="font-bold">{v.name}</span>
                         {v.price !== (product.base_price ?? product.price) && <span className="ml-2 text-xs text-gray-400">{formatPrice(v.price)}</span>}
                         {v.stock <= 3 && v.stock > 0 && <span className="ml-2 text-[10px] text-orange-500 font-bold">Ultimas {v.stock}</span>}

@@ -358,6 +358,7 @@ export default function ProductForm({
   const [saving, setSaving] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false)
+  const [pickingVariantIdx, setPickingVariantIdx] = useState<number | null>(null)
   const [media, setMedia] = useState<Array<{ id: string; url: string; filename: string; size_bytes: number; created_at?: string }>>([])
   const [mediaSearch, setMediaSearch] = useState('')
   const [mediaTypeFilter, setMediaTypeFilter] = useState('all')
@@ -728,7 +729,7 @@ export default function ProductForm({
           .map((v, i) => ({
             ...(v.id ? { id: v.id } : {}),
             name: v.name.trim(),
-            sku: v.sku.trim() || generateVariantSku(form.sku, i),
+            sku: (v.sku || '').trim() || generateVariantSku(form.sku, i),
             sku_suffix: v.sku_suffix || null,
             price: Math.round(parseFloat(v.price || '0') * 100),
             compare_at_price: v.compare_at_price ? Math.round(parseFloat(v.compare_at_price) * 100) : null,
@@ -1273,16 +1274,53 @@ export default function ProductForm({
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="col-span-2 space-y-1">
-                          <label className="text-[10px] text-gray-400 uppercase font-bold">Nombre *</label>
-                          <Input
-                            value={variant.name}
-                            onChange={(e) => updateVariant(idx, { name: e.target.value })}
-                            placeholder="Ej: Fresa, 500ml, Picante"
-                            className="h-9 text-sm"
-                          />
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        {/* Variant Image */}
+                        <div className="flex-shrink-0 flex flex-col gap-1">
+                          <label className="text-[10px] text-gray-400 uppercase font-bold">Imagen</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPickingVariantIdx(idx)
+                              fetchMedia()
+                              setMediaDialogOpen(true)
+                            }}
+                            className={cn(
+                              'w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all overflow-hidden bg-white',
+                              variant.image ? 'border-primary-cyan shadow-sm' : 'border-gray-200 hover:border-primary-cyan'
+                            )}
+                            title="Asignar imagen a esta variante"
+                          >
+                            {variant.image ? (
+                              <img src={variant.image} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <>
+                                <ImageIcon className="w-5 h-5 text-gray-400" />
+                                <span className="text-[9px] font-bold text-gray-500 uppercase">Asignar</span>
+                              </>
+                            )}
+                          </button>
+                          {variant.image && (
+                            <button
+                              type="button"
+                              onClick={() => updateVariant(idx, { image: '' })}
+                              className="text-[10px] text-gray-400 hover:text-red-500 flex items-center justify-center w-full"
+                            >
+                              Quitar
+                            </button>
+                          )}
                         </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
+                          <div className="col-span-2 space-y-1">
+                            <label className="text-[10px] text-gray-400 uppercase font-bold">Nombre *</label>
+                            <Input
+                              value={variant.name}
+                              onChange={(e) => updateVariant(idx, { name: e.target.value })}
+                              placeholder="Ej: Fresa, 500ml, Picante"
+                              className="h-9 text-sm"
+                            />
+                          </div>
                         <div className="space-y-1">
                           <label className="text-[10px] text-gray-400 uppercase font-bold">Precio</label>
                           <div className="relative">
@@ -1326,6 +1364,7 @@ export default function ProductForm({
                           </div>
                         </div>
                       </div>
+                    </div>
                     </div>
                   ))}
 
@@ -1664,7 +1703,7 @@ export default function ProductForm({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setMediaDialogOpen(false)}
+              onClick={() => { setMediaDialogOpen(false); setPickingVariantIdx(null) }}
             />
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -1679,8 +1718,12 @@ export default function ProductForm({
                     <ImageIcon className="w-5 h-5 text-primary-cyan" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-gray-900 text-lg">Biblioteca Multimedia</h3>
-                    <p className="text-xs text-gray-400 font-medium">Gestiona y selecciona las fotos de tus productos</p>
+                    <h3 className="font-extrabold text-gray-900 text-lg">
+                      {pickingVariantIdx !== null ? `Seleccionar foto para ${variants[pickingVariantIdx]?.name || 'variante'}` : 'Biblioteca Multimedia'}
+                    </h3>
+                    <p className="text-xs text-gray-400 font-medium">
+                      {pickingVariantIdx !== null ? 'Haz clic en una imagen para asignarla' : 'Gestiona y selecciona las fotos de tus productos'}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1688,7 +1731,7 @@ export default function ProductForm({
                     {media.length} archivos
                   </Badge>
                   <button
-                    onClick={() => setMediaDialogOpen(false)}
+                    onClick={() => { setMediaDialogOpen(false); setPickingVariantIdx(null) }}
                     className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-900 transition-colors"
                   >
                     <X className="w-5 h-5" />
@@ -1886,6 +1929,12 @@ export default function ProductForm({
                         >
                           <div
                             onClick={(e) => {
+                              if (pickingVariantIdx !== null) {
+                                updateVariant(pickingVariantIdx, { image: item.url })
+                                setPickingVariantIdx(null)
+                                setMediaDialogOpen(false)
+                                return
+                              }
                               if (e.shiftKey) {
                                 // Multi-selection for management
                                 setMediaSelection(prev => 
