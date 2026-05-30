@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { listVariants, upsertVariants } from '@/lib/supabase/queries/products'
+import { requireAdmin } from '@/lib/server/require-admin'
 
 export async function GET(
   _request: NextRequest,
@@ -19,6 +20,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
   try {
     const { id } = await params
     const { variants } = await request.json()

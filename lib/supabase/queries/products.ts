@@ -260,7 +260,7 @@ export async function upsertVariants(productId: string, variants: Partial<Produc
       .from('product_variants')
       .delete()
       .eq('product_id', productId)
-      .not('id', 'in', `(${existingIds.map((id) => `"${id}"`).join(',')})`)
+      .not('id', 'in', `(${existingIds.join(',')})`)
   } else {
     await supabase
       .from('product_variants')

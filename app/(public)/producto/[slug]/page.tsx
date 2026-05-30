@@ -278,9 +278,10 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
   const [product, setProduct] = useState<Product | null>(null)
   const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [variantsError, setVariantsError] = useState(false)
   const [related, setRelated] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const currentCartQuantity = useCartStore((s) => s.items.find((item) => item.product.id === product?.id)?.quantity ?? 0)
+  const cartItems = useCartStore((s) => s.items)
 
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
   const [primaryIndex, setPrimaryIndex] = useState(0)
@@ -307,9 +308,17 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
         setPrimaryIndex(found.primary_image_index ?? 0)
 
         if (found.has_variants) {
-          const vRes = await fetch(`/api/products/${found.id}/variants`)
-          const vJson = await vRes.json()
-          setVariants(vJson.data ?? [])
+          try {
+            const vRes = await fetch(`/api/products/${found.id}/variants`)
+            const vJson = await vRes.json()
+            if (!vRes.ok || !Array.isArray(vJson.data)) {
+              setVariantsError(true)
+            } else {
+              setVariants(vJson.data)
+            }
+          } catch {
+            setVariantsError(true)
+          }
         }
 
         const relRes = await fetch(`/api/products?category=${found.category}&status=active`)
@@ -387,7 +396,8 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const discountPercent = activeComparePrice && activeComparePrice > activePrice
     ? Math.round((1 - activePrice / activeComparePrice) * 100) : 0
 
-  const needsVariantSelection = product.has_variants && variants.length > 0 && !selectedVariant
+  const activeVariants = variants.filter((v) => v.status === 'active')
+  const needsVariantSelection = product.has_variants && activeVariants.length > 0 && !selectedVariant
   const canAddToCart = !needsVariantSelection && product.stock_status !== 'out_of_stock'
 
   const openLightbox = (i: number) => {
@@ -431,11 +441,18 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
       toast.error('Selecciona una variante primero')
       return
     }
+    // Compute per-variant cart quantity at call time (not stale closure)
+    const currentCartQuantity = cartItems
+      .filter((item) => item.product.id === product.id && (item.variant_id ?? null) === (selectedVariant?.id ?? null))
+      .reduce((sum, item) => sum + item.quantity, 0)
+
     try {
+      const stockBody: Record<string, unknown> = { quantity, currentCartQuantity }
+      if (selectedVariant) stockBody.variant_id = selectedVariant.id
       const response = await fetch(`/api/products/${product.id}/stock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity, currentCartQuantity }),
+        body: JSON.stringify(stockBody),
       })
       const payload = await response.json()
       if (!response.ok || !payload?.can_add) {
@@ -445,12 +462,13 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
         return
       }
       setStockFeedback(null)
-      for (let i = 0; i < quantity; i++) addItem(product, selectedVariant ? {
+      const variantPayload = selectedVariant ? {
         id: selectedVariant.id,
         name: selectedVariant.name,
         image: selectedVariant.image,
         price: selectedVariant.price,
-      } : null)
+      } : null
+      for (let i = 0; i < quantity; i++) addItem(product, variantPayload)
       setAdded(true)
       launchSnackTrail(event.currentTarget)
       toast.success(`${quantity}x ${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`)
@@ -742,40 +760,44 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           )}
 
           {/* Variants */}
-          {product.has_variants && variants.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
-                Opción {needsVariantSelection && <span className="text-red-500">*</span>}
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {variants.filter(v => v.status === 'active').map(v => (
-                  <button
-                    key={v.id}
-                    onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
-                    className={cn(
-                      'flex items-center gap-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold border-2 transition-all',
-                      selectedVariant?.id === v.id
-                        ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900'
-                        : 'border-gray-200 text-gray-600'
-                    )}
-                  >
-                    {v.image && (
-                      <div className="w-5 h-5 rounded-md overflow-hidden flex-shrink-0 border border-gray-100">
-                        <img src={v.image} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <span>{v.name}</span>
-                    {v.price !== (product.base_price ?? product.price) && (
-                      <span className="ml-1 text-[10px] text-gray-400">{formatPrice(v.price)}</span>
-                    )}
-                    {v.stock <= 3 && v.stock > 0 && (
-                      <span className="ml-1 text-[9px] text-orange-500 font-bold">Últimas {v.stock}</span>
-                    )}
-                    {v.stock === 0 && <span className="ml-1 text-[9px] text-red-500 font-bold">Agotado</span>}
-                  </button>
-                ))}
+          {product.has_variants && (
+            variantsError ? (
+              <p className="text-[11px] text-red-500">No se pudieron cargar las opciones. Recarga la página.</p>
+            ) : activeVariants.length > 0 ? (
+              <div className="space-y-1">
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                  Opción {needsVariantSelection && <span className="text-red-500">*</span>}
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {activeVariants.map(v => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
+                      className={cn(
+                        'flex items-center gap-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold border-2 transition-all',
+                        selectedVariant?.id === v.id
+                          ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900'
+                          : 'border-gray-200 text-gray-600'
+                      )}
+                    >
+                      {v.image && (
+                        <div className="w-5 h-5 rounded-md overflow-hidden flex-shrink-0 border border-gray-100">
+                          <img src={v.image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <span>{v.name}</span>
+                      {v.price !== (product.base_price ?? product.price) && (
+                        <span className="ml-1 text-[10px] text-gray-400">{formatPrice(v.price)}</span>
+                      )}
+                      {v.stock <= 3 && v.stock > 0 && (
+                        <span className="ml-1 text-[9px] text-orange-500 font-bold">Últimas {v.stock}</span>
+                      )}
+                      {v.stock === 0 && <span className="ml-1 text-[9px] text-red-500 font-bold">Agotado</span>}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : null
           )}
 
           {/* Stock availability */}
@@ -1049,30 +1071,34 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 )}
               </div>
 
-              {product.has_variants && variants.length > 0 && (
-                <div className="mb-6 space-y-3">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                    Selecciona una opción {needsVariantSelection && <span className="text-red-500">*</span>}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {variants.filter(v => v.status === 'active').map(v => (
-                      <button key={v.id} onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
-                        className={cn('flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-all',
-                          selectedVariant?.id === v.id ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900 shadow-sm' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                        )}>
-                        {v.image && (
-                          <div className="w-6 h-6 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
-                            <img src={v.image} alt="" className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                        <span className="font-bold">{v.name}</span>
-                        {v.price !== (product.base_price ?? product.price) && <span className="ml-2 text-xs text-gray-400">{formatPrice(v.price)}</span>}
-                        {v.stock <= 3 && v.stock > 0 && <span className="ml-2 text-[10px] text-orange-500 font-bold">Ultimas {v.stock}</span>}
-                        {v.stock === 0 && <span className="ml-2 text-[10px] text-red-500 font-bold">Agotado</span>}
-                      </button>
-                    ))}
+              {product.has_variants && (
+                variantsError ? (
+                  <p className="mb-6 text-xs text-red-500">No se pudieron cargar las opciones. Recarga la página.</p>
+                ) : activeVariants.length > 0 ? (
+                  <div className="mb-6 space-y-3">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      Selecciona una opción {needsVariantSelection && <span className="text-red-500">*</span>}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {activeVariants.map(v => (
+                        <button key={v.id} onClick={() => setSelectedVariant(selectedVariant?.id === v.id ? null : v)}
+                          className={cn('flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-all',
+                            selectedVariant?.id === v.id ? 'border-nurei-cta bg-nurei-cta/10 text-gray-900 shadow-sm' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                          )}>
+                          {v.image && (
+                            <div className="w-6 h-6 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
+                              <img src={v.image} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <span className="font-bold">{v.name}</span>
+                          {v.price !== (product.base_price ?? product.price) && <span className="ml-2 text-xs text-gray-400">{formatPrice(v.price)}</span>}
+                          {v.stock <= 3 && v.stock > 0 && <span className="ml-2 text-[10px] text-orange-500 font-bold">Últimas {v.stock}</span>}
+                          {v.stock === 0 && <span className="ml-2 text-[10px] text-red-500 font-bold">Agotado</span>}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : null
               )}
 
               <AddToCartControls className="mb-4" />

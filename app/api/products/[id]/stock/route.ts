@@ -22,6 +22,7 @@ export async function POST(
     const body = await request.json()
     const requestedQuantity = Number(body?.quantity ?? 1)
     const currentCartQuantity = Number(body?.currentCartQuantity ?? 0)
+    const variantId: string | null = body?.variant_id ?? null
     const totalRequested = requestedQuantity + currentCartQuantity
 
     if (
@@ -56,6 +57,44 @@ export async function POST(
         },
         { status: 409 }
       )
+    }
+
+    // When a variant is selected, check that variant's stock instead of the product total
+    if (variantId) {
+      const { data: variant, error: vErr } = await supabase
+        .from('product_variants')
+        .select('id, stock, status')
+        .eq('id', variantId)
+        .eq('product_id', id)
+        .single()
+
+      if (vErr || !variant) {
+        return NextResponse.json({ error: 'Variante no encontrada' }, { status: 404 })
+      }
+      if (variant.status !== 'active') {
+        return NextResponse.json(
+          { can_add: false, stock_status: 'out_of_stock', message: 'Variante no disponible.', available_quantity: 0 },
+          { status: 409 }
+        )
+      }
+      if (product.track_inventory && !product.allow_backorder && variant.stock < totalRequested) {
+        return NextResponse.json(
+          {
+            can_add: false,
+            stock_status: variant.stock <= 0 ? 'out_of_stock' : 'low_stock',
+            message: variant.stock > 0
+              ? `Solo quedan ${variant.stock} unidades de esta variante.`
+              : 'Esta variante está agotada.',
+            available_quantity: variant.stock,
+          },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({
+        can_add: true,
+        stock_status: variant.stock <= 0 ? 'out_of_stock' : variant.stock <= product.low_stock_threshold ? 'low_stock' : 'available',
+        available_quantity: variant.stock,
+      })
     }
 
     const stockStatus = getStockStatus(
