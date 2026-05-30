@@ -94,7 +94,7 @@ export function CategoryFilter({
   const hasDesktopFilter = !!(filters && onApplyFilters)
 
   return (
-    <div className="sticky top-16 z-40 bg-background/80 backdrop-blur-md border-b">
+    <div className="sticky top-14 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* ── Mobile: slide-in search bar (above chips row) ── */}

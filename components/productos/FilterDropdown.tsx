@@ -44,7 +44,10 @@ function RangeSlider({
         <span className="text-gray-900">{formatPrice(valueMin)}</span>
         <span className="text-gray-900">{formatPrice(valueMax)}</span>
       </div>
-      <div className="relative h-12 flex items-center touch-none">
+      <div
+        className="relative h-12 flex items-center touch-none"
+        onPointerDownCapture={(e) => e.stopPropagation()}
+      >
         <div className="absolute inset-x-0 h-1.5 rounded-full bg-gray-200" />
         <div
           className="absolute h-1.5 rounded-full bg-nurei-cta"
@@ -53,13 +56,13 @@ function RangeSlider({
         <input
           type="range" min={min} max={max} value={valueMin}
           onChange={(e) => onChange(Math.min(Number(e.target.value), valueMax - 1), valueMax)}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer touch-none"
+          className="absolute inset-0 w-full opacity-0 cursor-pointer"
           style={{ zIndex: valueMin > max - 100 ? 5 : 3, height: '100%' }}
         />
         <input
           type="range" min={min} max={max} value={valueMax}
           onChange={(e) => onChange(valueMin, Math.max(Number(e.target.value), valueMin + 1))}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer touch-none"
+          className="absolute inset-0 w-full opacity-0 cursor-pointer"
           style={{ zIndex: 4, height: '100%' }}
         />
         <div

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Plus, Heart, Ban, Flame, ChevronRight } from 'lucide-react'
+import { Check, Plus, Heart, Ban, Flame, ChevronRight, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
@@ -54,22 +54,97 @@ function SpiceDots({ level }: { level: number }) {
   )
 }
 
-function ImageCarousel({ images, primaryIndex }: { images: string[]; primaryIndex: number }) {
+interface ImageCarouselProps {
+  images: string[]
+  primaryIndex: number
+  isHovered: boolean
+  onSwipeDetected: () => void
+}
+
+function ImageCarousel({ images, primaryIndex, isHovered, onSwipeDetected }: ImageCarouselProps) {
   const [idx, setIdx] = useState(primaryIndex)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const touchStartX = useRef<number | null>(null)
+  const mouseStartX = useRef<number | null>(null)
+  const didDrag = useRef(false)
 
+  const prev = () => setIdx((i) => (i - 1 + images.length) % images.length)
+  const next = () => setIdx((i) => (i + 1) % images.length)
+
+  // Start auto-advance when card is hovered
   useEffect(() => {
     if (images.length <= 1) return
-    intervalRef.current = setInterval(() => {
-      setIdx((prev) => (prev + 1) % images.length)
-    }, 2500)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+    if (isHovered) {
+      intervalRef.current = setInterval(() => {
+        setIdx((i) => (i + 1) % images.length)
+      }, 1560)
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
     }
-  }, [images.length])
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [isHovered, images.length])
+
+  // Touch swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    didDrag.current = false
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current !== null && Math.abs(e.touches[0].clientX - touchStartX.current) > 8) {
+      didDrag.current = true
+    }
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const delta = e.changedTouches[0].clientX - touchStartX.current
+    if (Math.abs(delta) > 35) {
+      onSwipeDetected()
+      delta < 0 ? next() : prev()
+    }
+    touchStartX.current = null
+  }
+
+  // Mouse drag swipe (desktop)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseStartX.current = e.clientX
+    didDrag.current = false
+  }
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (mouseStartX.current !== null && Math.abs(e.clientX - mouseStartX.current) > 8) {
+      didDrag.current = true
+    }
+  }
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (mouseStartX.current === null) return
+    const delta = e.clientX - mouseStartX.current
+    if (didDrag.current && Math.abs(delta) > 35) {
+      e.preventDefault()
+      onSwipeDetected()
+      delta < 0 ? next() : prev()
+    }
+    mouseStartX.current = null
+    didDrag.current = false
+  }
 
   return (
-    <div className="relative w-full h-full">
+    <div
+      className="relative w-full h-full select-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      style={{ touchAction: 'pan-y' }}
+    >
       <AnimatePresence mode="wait">
         <motion.img
           key={idx}
@@ -78,17 +153,42 @@ function ImageCarousel({ images, primaryIndex }: { images: string[]; primaryInde
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full h-full object-cover"
+          transition={{ duration: 0.3 }}
+          className="w-full h-full object-cover pointer-events-none"
+          draggable={false}
         />
       </AnimatePresence>
+
+      {/* Arrow buttons — visible on hover */}
       {images.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none">
+        <>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev() }}
+            className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm z-10"
+            aria-label="Imagen anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); next() }}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/30 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm z-10"
+            aria-label="Imagen siguiente"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </>
+      )}
+
+      {/* Dot indicators */}
+      {images.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none z-10">
           {images.map((_, i) => (
             <div
               key={i}
               className={`rounded-full transition-all duration-300 ${
-                i === idx ? 'w-3 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50'
+                i === idx ? 'w-3 h-1.5 bg-white shadow-sm' : 'w-1.5 h-1.5 bg-white/60'
               }`}
             />
           ))}
@@ -111,12 +211,13 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
   const { isFavorite, toggleFavorite } = useFavoritesStore()
   const [added, setAdded] = useState(false)
   const [stockFeedback, setStockFeedback] = useState<string | null>(null)
+  const [isCardHovered, setIsCardHovered] = useState(false)
+  const swipedRef = useRef(false)
   const fav = isFavorite(product.id)
 
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    // Products with variants must be configured on the detail page
     if (product.has_variants) return
     try {
       const response = await fetch(`/api/products/${product.id}/stock`, {
@@ -159,15 +260,36 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
   const discountPercent = product.compare_at_price && product.compare_at_price > price
     ? Math.round((1 - price / product.compare_at_price) * 100) : 0
 
-  const hasImages = product.images && product.images.length > 0
-  const primaryImage = hasImages ? product.images[product.primary_image_index] : null
+  // When variants exist use their images for the carousel; fall back to product images
+  const carouselImages: string[] = product.has_variants && product.variant_images && product.variant_images.length > 0
+    ? product.variant_images
+    : (product.images ?? [])
+
+  const hasImages = carouselImages.length > 0
+  const primaryImage = hasImages ? carouselImages[0] : null
+  const hasMultipleImages = carouselImages.length > 1
+
+  // Circular variant thumbnails — same source as carousel
+  const variantThumbs: string[] = product.has_variants
+    ? carouselImages.slice(0, 5)
+    : []
 
   return (
-    <Link href={`/producto/${product.slug}`}>
+    <Link
+      href={`/producto/${product.slug}`}
+      onClick={(e) => {
+        if (swipedRef.current) {
+          e.preventDefault()
+          swipedRef.current = false
+        }
+      }}
+    >
       <motion.div
         layout
         transition={SPRING_SMOOTH}
         whileHover={isOutOfStock ? {} : { y: -3, transition: SPRING_SMOOTH }}
+        onHoverStart={() => setIsCardHovered(true)}
+        onHoverEnd={() => setIsCardHovered(false)}
         className={`card-product group overflow-hidden flex flex-col ${
           isOutOfStock ? 'ring-1 ring-amber-200/80' : ''
         }`}
@@ -175,11 +297,14 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
         {/* ── Image area ── */}
         <div className="relative aspect-square bg-gray-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
           {hasImages && primaryImage ? (
-            product.has_variants && product.images.length > 1 ? (
-              <div className={`w-full h-full transition-transform duration-700 ease-out ${
-                isOutOfStock ? '' : 'group-hover:scale-110'
-              }`}>
-                <ImageCarousel images={product.images} primaryIndex={product.primary_image_index} />
+            hasMultipleImages ? (
+              <div className="w-full h-full">
+                <ImageCarousel
+                  images={carouselImages}
+                  primaryIndex={0}
+                  isHovered={isCardHovered}
+                  onSwipeDetected={() => { swipedRef.current = true }}
+                />
               </div>
             ) : (
               <motion.img
@@ -219,6 +344,29 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
           {/* Badges */}
           {!isOutOfStock && (
             <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+              {/* Circular variant image thumbnails */}
+              {product.has_variants && variantThumbs.length > 0 && (
+                <div className="flex gap-1.5">
+                  {variantThumbs.slice(0, 4).map((img, i) => (
+                    <div
+                      key={i}
+                      className="w-7 h-7 rounded-full overflow-hidden border-2 border-white shadow-md bg-gray-100 shrink-0"
+                    >
+                      <img
+                        src={img}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                      />
+                    </div>
+                  ))}
+                  {variantThumbs.length > 4 && (
+                    <div className="w-7 h-7 rounded-full bg-white/90 border-2 border-white shadow-md flex items-center justify-center shrink-0">
+                      <span className="text-[8px] font-bold text-gray-500">+{variantThumbs.length - 4}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               {product.is_limited && (
                 <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full shadow-lg">
                   🕐 Limitado
@@ -232,11 +380,6 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
               {product.is_featured && (
                 <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-gray-900 rounded-full shadow-lg">
                   🔥 Popular
-                </span>
-              )}
-              {product.has_variants && (
-                <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-blue-500 text-white rounded-full shadow-lg">
-                  Opciones
                 </span>
               )}
             </div>

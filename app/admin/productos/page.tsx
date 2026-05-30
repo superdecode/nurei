@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { formatPrice } from '@/lib/utils/format'
-import type { Product } from '@/types'
+import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
@@ -149,6 +149,11 @@ export default function ProductosAdminPage() {
   const [stockTarget, setStockTarget] = useState<Product | null>(null)
   const [stockAdjustment, setStockAdjustment] = useState('0')
   const [stockNote, setStockNote] = useState('')
+  const [variantStockModalOpen, setVariantStockModalOpen] = useState(false)
+  const [variantStockTarget, setVariantStockTarget] = useState<Product | null>(null)
+  const [variantStockItems, setVariantStockItems] = useState<Array<{ id: string; name: string; image: string | null; currentStock: number; newStock: string }>>([])
+  const [variantStockNote, setVariantStockNote] = useState('')
+  const [variantStockBusy, setVariantStockBusy] = useState(false)
   const [bulkAction, setBulkAction] = useState<'desactivar' | 'activar' | 'descuento' | 'alerta' | 'stock_fijo' | 'ajuste_stock'>('desactivar')
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
   const [bulkValue, setBulkValue] = useState('')
@@ -431,6 +436,56 @@ export default function ProductosAdminPage() {
       toast.error(e instanceof Error ? e.message : 'No se pudo actualizar stock')
     }
   }, [fetchProducts, stockAdjustment, stockNote, stockTarget])
+
+  const openVariantStockModal = useCallback(async (product: Product) => {
+    setVariantStockTarget(product)
+    setVariantStockNote('')
+    setVariantStockBusy(false)
+    try {
+      const res = await fetchWithCredentials(`/api/products/${product.id}/variants`)
+      const json = (await res.json()) as { data?: ProductVariant[] }
+      const variants = json.data ?? []
+      setVariantStockItems(variants.map((v) => ({
+        id: v.id,
+        name: v.name,
+        image: v.image,
+        currentStock: v.stock,
+        newStock: String(v.stock),
+      })))
+      setVariantStockModalOpen(true)
+    } catch {
+      toast.error('No se pudieron cargar las variantes')
+    }
+  }, [])
+
+  const handleVariantStockSave = useCallback(async () => {
+    if (!variantStockTarget) return
+    setVariantStockBusy(true)
+    try {
+      const variants = variantStockItems.map((v) => ({
+        id: v.id,
+        stock: Math.max(0, Math.round(Number(v.newStock) || 0)),
+      }))
+      const res = await fetchWithCredentials('/api/admin/inventory/variants', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: variantStockTarget.id,
+          variants,
+          reason: variantStockNote.trim() || 'Ajuste de stock por variante desde productos',
+        }),
+      })
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(json.error || 'Error al guardar')
+      toast.success('Stock de variantes actualizado')
+      setVariantStockModalOpen(false)
+      fetchProducts()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar stock')
+    } finally {
+      setVariantStockBusy(false)
+    }
+  }, [fetchProducts, variantStockItems, variantStockNote, variantStockTarget])
 
   const handleBulkAction = useCallback(async () => {
     const ids = Array.from(selectedIds)
@@ -946,20 +1001,28 @@ export default function ProductosAdminPage() {
                             </TableCell>
                             <TableCell className="min-w-0 p-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                               <div className="inline-flex items-center justify-center gap-0.5">
-                                <span className={cn('text-sm font-medium tabular-nums',
-                                  (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5) ? 'text-red-500' : 'text-gray-600'
-                                )}>
-                                  {product.stock_quantity ?? 0}
-                                </span>
+                                {product.has_variants ? (
+                                  <span className="text-xs font-medium text-gray-400 italic">Vars.</span>
+                                ) : (
+                                  <span className={cn('text-sm font-medium tabular-nums',
+                                    (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5) ? 'text-red-500' : 'text-gray-600'
+                                  )}>
+                                    {product.stock_quantity ?? 0}
+                                  </span>
+                                )}
                                 <button
                                   type="button"
                                   title="Ajustar inventario"
                                   className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
                                   onClick={() => {
-                                    setStockTarget(product)
-                                    setStockAdjustment('0')
-                                    setStockNote('')
-                                    setStockModalOpen(true)
+                                    if (product.has_variants) {
+                                      openVariantStockModal(product)
+                                    } else {
+                                      setStockTarget(product)
+                                      setStockAdjustment('0')
+                                      setStockNote('')
+                                      setStockModalOpen(true)
+                                    }
                                   }}
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
@@ -1109,7 +1172,9 @@ export default function ProductosAdminPage() {
                               <span className="text-[10px] text-gray-400 line-through ml-1">{formatPrice(product.compare_at_price)}</span>
                             )}
                           </div>
-                          <span className="text-[11px] text-gray-400">{product.stock_quantity ?? 0} stock</span>
+                          <span className="text-[11px] text-gray-400">
+                            {product.has_variants ? 'Variantes' : `${product.stock_quantity ?? 0} stock`}
+                          </span>
                         </div>
                       </div>
                     </motion.div>
@@ -1199,6 +1264,46 @@ export default function ProductosAdminPage() {
             </p>
             <Button onClick={handleQuickStockAdjust} className="w-full">Guardar ajuste</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={variantStockModalOpen} onOpenChange={setVariantStockModalOpen}>
+        <DialogContent size="sm" className="p-6 pr-12 duration-300">
+          <DialogTitle>Stock por variante</DialogTitle>
+          <p className="text-sm text-gray-500 -mt-1">{variantStockTarget?.name}</p>
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {variantStockItems.length === 0 && (
+              <p className="text-sm text-gray-400 py-2">Cargando variantes…</p>
+            )}
+            {variantStockItems.map((v, i) => (
+              <div key={v.id} className="flex items-center gap-2">
+                {v.image && (
+                  <img src={v.image} alt="" className="w-8 h-8 rounded-lg object-cover border border-gray-100 shrink-0" />
+                )}
+                <span className="flex-1 text-sm text-gray-700 truncate min-w-0">{v.name}</span>
+                <span className="text-xs text-gray-400 tabular-nums shrink-0">actual: {v.currentStock}</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={v.newStock}
+                  onChange={(e) =>
+                    setVariantStockItems((prev) =>
+                      prev.map((x, j) => j === i ? { ...x, newStock: e.target.value } : x)
+                    )
+                  }
+                  className="w-20 text-sm shrink-0"
+                />
+              </div>
+            ))}
+          </div>
+          <Input
+            value={variantStockNote}
+            onChange={(e) => setVariantStockNote(e.target.value)}
+            placeholder="Nota del ajuste (opcional)"
+          />
+          <Button onClick={handleVariantStockSave} disabled={variantStockBusy || variantStockItems.length === 0} className="w-full">
+            {variantStockBusy ? 'Guardando…' : 'Guardar stock'}
+          </Button>
         </DialogContent>
       </Dialog>
 

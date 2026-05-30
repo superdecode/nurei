@@ -21,6 +21,12 @@ function coerceWeightG(raw: unknown): number {
 }
 
 function mapRow(row: Record<string, unknown>): Product {
+  const rawVariants = (row.product_variants as Array<{ image: string | null; status: string }> | null) ?? []
+  const variantImages = rawVariants
+    .filter((v) => v.status === 'active' && v.image)
+    .map((v) => v.image as string)
+    .filter((img, i, arr) => arr.indexOf(img) === i)
+
   return {
     ...row,
     price: (row.base_price as number) ?? (row.price as number) ?? 0,
@@ -40,6 +46,7 @@ function mapRow(row: Record<string, unknown>): Product {
     track_inventory: (row.track_inventory as boolean) ?? true,
     allow_backorder: (row.allow_backorder as boolean) ?? false,
     stock_status: getStockStatus(row),
+    variant_images: variantImages.length > 0 ? variantImages : undefined,
   } as Product
 }
 
@@ -55,7 +62,7 @@ interface ListFilters {
 
 export async function listProducts(filters: ListFilters = {}) {
   const supabase = createServiceClient()
-  let query = supabase.from('products').select('*')
+  let query = supabase.from('products').select('*, product_variants(image, status, sort_order)')
   const normalizedSearch = filters.search
     ? filters.search.replace(/[(),]/g, '').replace(/\./g, ' ').trim()
     : undefined

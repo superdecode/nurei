@@ -168,8 +168,9 @@ export interface Product {
   meta_description: string | null
   created_at: string
   updated_at: string
-  // Joined
+  // Joined / computed
   variants?: ProductVariant[]
+  variant_images?: string[]
 }
 
 export interface ProductVariant {
