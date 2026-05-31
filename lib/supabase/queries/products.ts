@@ -21,9 +21,13 @@ function coerceWeightG(raw: unknown): number {
 }
 
 function mapRow(row: Record<string, unknown>): Product {
-  const rawVariants = (row.product_variants as Array<{ image: string | null; status: string }> | null) ?? []
-  const variantImages = rawVariants
-    .filter((v) => v.status === 'active' && v.image)
+  type RawVariant = { id: string; name: string; price: number; image: string | null; status: string; sort_order: number }
+  const rawVariants = (row.product_variants as RawVariant[] | null) ?? []
+  const activeVariants = rawVariants
+    .filter((v) => v.status === 'active')
+    .sort((a, b) => a.sort_order - b.sort_order)
+  const variantImages = activeVariants
+    .filter((v) => v.image)
     .map((v) => v.image as string)
     .filter((img, i, arr) => arr.indexOf(img) === i)
 
@@ -47,6 +51,22 @@ function mapRow(row: Record<string, unknown>): Product {
     allow_backorder: (row.allow_backorder as boolean) ?? false,
     stock_status: getStockStatus(row),
     variant_images: variantImages.length > 0 ? variantImages : undefined,
+    variants: activeVariants.length > 0 ? activeVariants.map((v) => ({
+      id: v.id,
+      product_id: row.id as string,
+      name: v.name,
+      sku: null,
+      sku_suffix: null,
+      price: v.price,
+      compare_at_price: null,
+      stock: 0,
+      attributes: {},
+      image: v.image,
+      status: v.status as 'active' | 'inactive',
+      sort_order: v.sort_order,
+      created_at: '',
+      updated_at: '',
+    })) : undefined,
   } as Product
 }
 
@@ -62,7 +82,7 @@ interface ListFilters {
 
 export async function listProducts(filters: ListFilters = {}) {
   const supabase = createServiceClient()
-  let query = supabase.from('products').select('*, product_variants(image, status, sort_order)')
+  let query = supabase.from('products').select('*, product_variants(id, name, price, image, status, sort_order)')
   const normalizedSearch = filters.search
     ? filters.search.replace(/[(),]/g, '').replace(/\./g, ' ').trim()
     : undefined

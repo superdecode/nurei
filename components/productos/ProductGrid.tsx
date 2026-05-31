@@ -4,11 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ProductCard } from './ProductCard'
 import { MobileProductCard } from './MobileProductCard'
 import type { Product } from '@/types'
+import type { ViewMode } from './ViewToggle'
 
 interface ProductGridProps {
   products: Product[]
   category?: string
   searchQuery?: string
+  viewMode?: ViewMode
 }
 
 const containerVariants = {
@@ -44,7 +46,7 @@ const itemVariants = {
   },
 }
 
-export function ProductGrid({ products, category = 'all', searchQuery = '' }: ProductGridProps) {
+export function ProductGrid({ products, category = 'all', searchQuery = '', viewMode = 'list' }: ProductGridProps) {
   return (
     <AnimatePresence mode="wait">
       {products.length === 0 ? (
@@ -83,46 +85,74 @@ export function ProductGrid({ products, category = 'all', searchQuery = '' }: Pr
         </motion.div>
       ) : (
         <>
-          {/* Mobile list view */}
-          <motion.div
-            key={`list-${category}`}
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="sm:hidden flex flex-col gap-2"
-          >
-            <AnimatePresence>
-              {products.map((product) => (
-                <motion.div
-                  key={product.id}
-                  variants={itemVariants}
-                  layout
-                  exit="exit"
-                >
-                  <MobileProductCard product={product} searchQuery={searchQuery} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          {/* Mobile views — animated switch between list / grid / compact */}
+          <AnimatePresence mode="wait" initial={false}>
+            {viewMode === 'list' ? (
+              <motion.div
+                key={`list-${category}`}
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }}
+                className="sm:hidden flex flex-col gap-2"
+              >
+                {products.map((product) => (
+                  <motion.div key={product.id} variants={itemVariants} layout>
+                    <MobileProductCard product={product} searchQuery={searchQuery} />
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : viewMode === 'grid' ? (
+              <motion.div
+                key={`grid2-${category}`}
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }}
+                className="sm:hidden grid grid-cols-2 gap-3"
+              >
+                {products.map((product) => (
+                  <motion.div key={product.id} variants={itemVariants} layout>
+                    <ProductCard product={product} searchQuery={searchQuery} />
+                  </motion.div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`grid3-${category}`}
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }}
+                className="sm:hidden grid grid-cols-3 gap-2"
+              >
+                {products.map((product) => (
+                  <motion.div key={product.id} variants={itemVariants} layout>
+                    <ProductCard product={product} searchQuery={searchQuery} compact />
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Desktop grid view */}
+          {/* Desktop grid view — columns follow viewMode */}
           <motion.div
-            key={`grid-${category}`}
+            key={`grid-${category}-${viewMode}`}
             variants={containerVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6"
+            className={`hidden sm:grid gap-3 sm:gap-4 lg:gap-6 ${
+              viewMode === 'list'
+                ? 'sm:grid-cols-1 md:grid-cols-2'
+                : viewMode === 'compact'
+                  ? 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+                  : 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+            }`}
           >
             <AnimatePresence>
               {products.map((product) => (
-                <motion.div
-                  key={product.id}
-                  variants={itemVariants}
-                  layout
-                  exit="exit"
-                >
+                <motion.div key={product.id} variants={itemVariants} layout exit="exit">
                   <ProductCard product={product} searchQuery={searchQuery} />
                 </motion.div>
               ))}

@@ -60,11 +60,14 @@ interface MobileProductCardProps {
   searchQuery?: string
 }
 
+const DESC_LIMIT = 300
+
 export function MobileProductCard({ product, searchQuery = '' }: MobileProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const qty = useCartStore((s) => s.items.find((i) => i.product.id === product.id)?.quantity ?? 0)
   const [added, setAdded] = useState(false)
+  const [descExpanded, setDescExpanded] = useState(false)
 
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -163,11 +166,27 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
           }`}>
             <HighlightText text={product.name} query={searchQuery} />
           </p>
-          {product.description && (
-            <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5 leading-tight">
-              {stripHtml(product.description)}
-            </p>
-          )}
+          {product.description && (() => {
+            const clean = stripHtml(product.description)
+            const isLong = clean.length > DESC_LIMIT
+            const visible = isLong && !descExpanded ? clean.slice(0, DESC_LIMIT) + '…' : clean
+            return (
+              <div className="mt-0.5">
+                <p className="text-[11px] text-gray-400 leading-tight">
+                  <HighlightText text={visible} query={searchQuery} />
+                </p>
+                {isLong && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDescExpanded((v) => !v) }}
+                    className="text-[10px] font-bold text-nurei-cta mt-0.5 hover:underline"
+                  >
+                    {descExpanded ? 'Ver menos' : 'Ver más'}
+                  </button>
+                )}
+              </div>
+            )
+          })()}
           {isLowStock && (
             <div className="mt-0.5">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-nurei-promo bg-nurei-promo/10 rounded-full animate-pulse">

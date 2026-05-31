@@ -31,6 +31,7 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 interface ProductCardProps {
   product: Product
   searchQuery?: string
+  compact?: boolean
 }
 
 function getCategoryEmoji(category: string): string {
@@ -201,7 +202,7 @@ function ImageCarousel({ images, primaryIndex, isHovered, onSwipeDetected }: Ima
 const SPRING_SNAP = { type: 'spring', stiffness: 400, damping: 20 } as const
 const SPRING_SMOOTH = { type: 'spring', stiffness: 300, damping: 28 } as const
 
-export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
+export function ProductCard({ product, searchQuery = '', compact = false }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
   const currentCartQuantity = useCartStore((s) =>
     s.items
@@ -212,6 +213,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
   const [added, setAdded] = useState(false)
   const [stockFeedback, setStockFeedback] = useState<string | null>(null)
   const [isCardHovered, setIsCardHovered] = useState(false)
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null)
   const swipedRef = useRef(false)
   const fav = isFavorite(product.id)
 
@@ -254,9 +256,16 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
     })
   }
 
+  // Active variants with images — drives both thumbnails and the clickable selection
+  const clickableVariants = product.has_variants && product.variants
+    ? product.variants.filter((v) => v.status === 'active' && v.image).slice(0, 5)
+    : []
+  const selectedVariant = selectedVariantIdx !== null ? clickableVariants[selectedVariantIdx] ?? null : null
+
   const isOutOfStock = product.stock_status === 'out_of_stock'
   const isLowStock = product.stock_status === 'low_stock'
-  const price = product.base_price ?? product.price
+  const basePrice = product.base_price ?? product.price
+  const price = selectedVariant ? selectedVariant.price : basePrice
   const discountPercent = product.compare_at_price && product.compare_at_price > price
     ? Math.round((1 - price / product.compare_at_price) * 100) : 0
 
@@ -265,14 +274,16 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
     ? product.variant_images
     : (product.images ?? [])
 
-  const hasImages = carouselImages.length > 0
-  const primaryImage = hasImages ? carouselImages[0] : null
-  const hasMultipleImages = carouselImages.length > 1
+  const hasImages = carouselImages.length > 0 || !!selectedVariant?.image
+  const primaryImage = selectedVariant?.image ?? (hasImages ? carouselImages[0] : null)
+  const hasMultipleImages = !selectedVariant && carouselImages.length > 1
 
-  // Circular variant thumbnails — same source as carousel
-  const variantThumbs: string[] = product.has_variants
-    ? carouselImages.slice(0, 5)
-    : []
+  // Circular variant thumbnails — come from clickableVariants when available, else carouselImages
+  const variantThumbs: string[] = clickableVariants.length > 0
+    ? clickableVariants.map((v) => v.image as string)
+    : product.has_variants
+      ? carouselImages.slice(0, 5)
+      : []
 
   return (
     <Link
@@ -297,7 +308,17 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
         {/* ── Image area ── */}
         <div className="relative aspect-square bg-gray-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
           {hasImages && primaryImage ? (
-            hasMultipleImages ? (
+            selectedVariant ? (
+              <motion.img
+                key={selectedVariant.id}
+                src={selectedVariant.image!}
+                alt={selectedVariant.name}
+                className="w-full h-full object-cover"
+                initial={{ opacity: 0, scale: 1.04 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.25 }}
+              />
+            ) : hasMultipleImages ? (
               <div className="w-full h-full">
                 <ImageCarousel
                   images={carouselImages}
@@ -344,13 +365,24 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
           {/* Badges */}
           {!isOutOfStock && (
             <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-              {/* Circular variant image thumbnails */}
+              {/* Circular variant image thumbnails — clickable */}
               {product.has_variants && variantThumbs.length > 0 && (
                 <div className="flex gap-1.5">
                   {variantThumbs.slice(0, 4).map((img, i) => (
-                    <div
+                    <motion.button
                       key={i}
-                      className="w-7 h-7 rounded-full overflow-hidden border-2 border-white shadow-md bg-gray-100 shrink-0"
+                      type="button"
+                      whileTap={{ scale: 0.88 }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setSelectedVariantIdx(selectedVariantIdx === i ? null : i)
+                      }}
+                      className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${
+                        selectedVariantIdx === i
+                          ? 'border-nurei-cta scale-110 shadow-nurei-cta/40'
+                          : 'border-white hover:border-nurei-cta/60'
+                      }`}
                     >
                       <img
                         src={img}
@@ -358,7 +390,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
                         className="w-full h-full object-cover"
                         draggable={false}
                       />
-                    </div>
+                    </motion.button>
                   ))}
                   {variantThumbs.length > 4 && (
                     <div className="w-7 h-7 rounded-full bg-white/90 border-2 border-white shadow-md flex items-center justify-center shrink-0">
@@ -397,6 +429,7 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
             <Heart className="w-4 h-4" fill={fav ? 'currentColor' : 'none'} />
           </motion.button>
 
+
           {/* Bottom row: low stock + country chips */}
           {(isLowStock || product.origin_country || product.origin) && (
             <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between gap-2 pointer-events-none">
@@ -419,21 +452,21 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
         </div>
 
         {/* ── Card body ── */}
-        <div className={`p-4 sm:px-4 sm:py-3.5 flex flex-col flex-1 transition-colors duration-300 ${isOutOfStock ? 'bg-amber-50/40' : ''}`}>
-          <h3 className={`text-[15px] font-bold line-clamp-2 leading-snug transition-colors duration-300 ${
+        <div className={`${compact ? 'p-2' : 'p-4 sm:px-4 sm:py-3.5'} flex flex-col flex-1 transition-colors duration-300 ${isOutOfStock ? 'bg-amber-50/40' : ''}`}>
+          <h3 className={`${compact ? 'text-[11px]' : 'text-[15px]'} font-bold line-clamp-2 leading-snug transition-colors duration-300 ${
             isOutOfStock ? 'text-amber-900/60' : 'text-gray-900 group-hover:text-nurei-cta'
           }`}>
             <HighlightText text={product.name} query={searchQuery} />
           </h3>
 
-          {product.description && (
+          {!compact && product.description && (
             <p className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">
               {stripHtml(product.description)}
             </p>
           )}
 
           {/* Spice + Weight */}
-          {!isOutOfStock && (
+          {!compact && !isOutOfStock && (
             <div className="mt-3 flex items-center gap-3">
               {product.spice_level > 0 && (
                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-nurei-promo/10 rounded-full">
@@ -451,39 +484,58 @@ export function ProductCard({ product, searchQuery = '' }: ProductCardProps) {
           )}
 
           {/* Price + CTA */}
-          <div className="mt-auto pt-4 flex items-end justify-between gap-3">
+          <div className={`mt-auto ${compact ? 'pt-1.5' : 'pt-4'} flex items-end justify-between gap-3`}>
             <div className="flex flex-col">
               {product.compare_at_price && product.compare_at_price > price && !product.has_variants && (
                 <span className="text-[10px] font-bold text-gray-300 line-through tabular-nums">
                   {formatPrice(product.compare_at_price)}
                 </span>
               )}
-              <span className={`text-xl font-black tabular-nums tracking-tight transition-colors duration-300 ${
+              <span className={`${compact ? 'text-sm' : 'text-xl'} font-black tabular-nums tracking-tight transition-colors duration-300 ${
                 isOutOfStock ? 'text-amber-400' : 'text-gray-900'
               }`}>
                 {product.has_variants ? (
-                  <span className="text-base font-bold text-gray-500">Desde{' '}<span className="text-gray-900 font-black">{formatPrice(price)}</span></span>
+                  selectedVariant ? (
+                    <span className="flex flex-col">
+                      <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-gray-400 leading-tight truncate max-w-[100px]`}>{selectedVariant.name}</span>
+                      <span className={`${compact ? 'text-sm' : 'text-xl'} font-black text-gray-900 tabular-nums leading-tight`}>{formatPrice(price)}</span>
+                    </span>
+                  ) : compact
+                    ? <span className="text-[11px] font-bold text-gray-600">{formatPrice(price)}</span>
+                    : <span className="text-base font-bold text-gray-500">Desde{' '}<span className="text-gray-900 font-black">{formatPrice(price)}</span></span>
                 ) : formatPrice(price)}
               </span>
             </div>
 
             {isOutOfStock ? (
-              <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                <Ban className="w-3 h-3 shrink-0" />
-                Sin stock
-              </span>
+              compact ? (
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-50 border border-amber-200">
+                  <Ban className="w-3 h-3 text-amber-500 shrink-0" />
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                  <Ban className="w-3 h-3 shrink-0" />
+                  Sin stock
+                </span>
+              )
             ) : product.has_variants ? (
-              <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-full bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/30">
-                Ver opciones
-                <ChevronRight className="w-3 h-3" />
-              </span>
+              compact ? (
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-nurei-cta text-gray-900 shadow-sm shadow-nurei-cta/30">
+                  <ChevronRight className="w-3 h-3" />
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-full bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/30">
+                  Ver opciones
+                  <ChevronRight className="w-3 h-3" />
+                </span>
+              )
             ) : (
               <motion.button
                 whileTap={{ scale: 0.88 }}
                 whileHover={{ scale: 1.06 }}
                 transition={SPRING_SNAP}
                 onClick={handleAdd}
-                className={`flex items-center justify-center gap-1.5 px-5 py-2.5 text-xs font-bold rounded-full transition-colors duration-300 shadow-lg ${
+                className={`flex items-center justify-center ${compact ? 'w-7 h-7 rounded-full' : 'gap-1.5 px-5 py-2.5 rounded-full'} text-xs font-bold transition-colors duration-300 shadow-lg ${
                   added
                     ? 'bg-nurei-stock text-white shadow-nurei-stock/25'
                     : 'bg-nurei-cta text-gray-900 shadow-nurei-cta/30'

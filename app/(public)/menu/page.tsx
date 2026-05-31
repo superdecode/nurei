@@ -14,6 +14,8 @@ import { formatPrice } from '@/lib/utils/format'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import type { Product } from '@/types'
 import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
+import { ViewToggle } from '@/components/productos/ViewToggle'
+import type { ViewMode } from '@/components/productos/ViewToggle'
 
 // ── Filter helpers ─────────────────────────────────────────────────────────
 
@@ -148,6 +150,15 @@ export default function MenuPage() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
   const debouncedSearch = useDebounce(rawSearch, 300)
+
+  // View mode (mobile only) — persisted in localStorage
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try { return (localStorage.getItem('nurei-view-mode') as ViewMode) || 'list' } catch { return 'list' }
+  })
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode)
+    try { localStorage.setItem('nurei-view-mode', mode) } catch {}
+  }
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 639px)')
@@ -350,6 +361,8 @@ export default function MenuPage() {
         onSearchChange={setRawSearch}
         filterCount={filterCount}
         onOpenFilters={() => setIsFilterSheetOpen(true)}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
         filters={filters}
         onApplyFilters={handleApplyFilters}
         availableCountries={availableCountries}
@@ -393,6 +406,7 @@ export default function MenuPage() {
                     <>{desktopProducts.length} productos</>
                   )}
                 </p>
+                <ViewToggle value={viewMode} onChange={handleViewModeChange} />
               </div>
               <AnimatePresence>
                 {getFilterCount(filters) > 0 && (
@@ -430,7 +444,7 @@ export default function MenuPage() {
                 </button>
               </motion.div>
             ) : (
-              <ProductGrid products={desktopProducts} category={selectedCategory} searchQuery={debouncedSearch} />
+              <ProductGrid products={desktopProducts} category={selectedCategory} searchQuery={debouncedSearch} viewMode={viewMode} />
             )}
           </Container>
         </section>
@@ -464,6 +478,12 @@ export default function MenuPage() {
           )}
         </AnimatePresence>
 
+        {/* Mobile menu title + view toggle */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <h1 className="text-lg font-black text-gray-900 tracking-tight">Menú</h1>
+          <ViewToggle value={viewMode} onChange={handleViewModeChange} />
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-16 px-4">
             <SnackWaitAnimation stage="loading" />
@@ -496,7 +516,7 @@ export default function MenuPage() {
               </motion.div>
             ) : (
               <Container>
-                <ProductGrid products={filteredProducts} category="search" searchQuery={debouncedSearch} />
+                <ProductGrid products={filteredProducts} category="search" searchQuery={debouncedSearch} viewMode={viewMode} />
               </Container>
             )}
           </div>
@@ -526,7 +546,7 @@ export default function MenuPage() {
                       <span className="flex-1 h-px bg-gray-300" />
                     </div>
                     <Container>
-                      <ProductGrid products={grouped[cat]} category={cat} searchQuery={debouncedSearch} />
+                      <ProductGrid products={grouped[cat]} category={cat} searchQuery={debouncedSearch} viewMode={viewMode} />
                     </Container>
                   </div>
                 </div>

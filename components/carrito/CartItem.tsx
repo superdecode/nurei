@@ -106,8 +106,11 @@ export function CartItem({ item, onRemove }: CartItemProps) {
           </p>
 
           <div className="flex items-center justify-between mt-2 sm:mt-1.5">
-            {/* Quantity controls */}
-            <div className="flex items-center gap-1">
+            {/* Quantity controls — stop propagation so drag="x" doesn't steal the tap */}
+            <div
+              className="flex items-center gap-1"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <motion.button
                 whileTap={{ scale: 0.8 }}
                 transition={springConfig}
@@ -143,7 +146,10 @@ export function CartItem({ item, onRemove }: CartItemProps) {
             </div>
 
             {/* Animated price + delete */}
-            <div className="flex items-center gap-2.5">
+            <div
+              className="flex items-center gap-2.5"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <div className="overflow-hidden">
                 <AnimatePresence mode="popLayout">
                   <motion.span

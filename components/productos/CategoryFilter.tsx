@@ -6,6 +6,8 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FilterDropdown } from './FilterDropdown'
 import type { FilterState } from './FilterSheet'
+import { ViewToggle } from './ViewToggle'
+import type { ViewMode } from './ViewToggle'
 
 interface CategoryFilterProps {
   selected: string
@@ -17,6 +19,9 @@ interface CategoryFilterProps {
   // Mobile sheet trigger
   filterCount?: number
   onOpenFilters?: () => void
+  // View mode toggle (mobile only)
+  viewMode?: ViewMode
+  onViewModeChange?: (mode: ViewMode) => void
   // Desktop FilterDropdown (passed through)
   filters?: FilterState
   onApplyFilters?: (f: FilterState) => void
@@ -30,6 +35,7 @@ export function CategoryFilter({
   selected, onChange, categoriesOverride,
   searchQuery = '', onSearchChange,
   filterCount = 0, onOpenFilters,
+  viewMode = 'list', onViewModeChange,
   filters, onApplyFilters,
   availableCountries = [], availableBrands = [],
   absolutePriceMin = 0, absolutePriceMax = 0,
@@ -194,7 +200,7 @@ export function CategoryFilter({
             </motion.button>
           </div>
 
-          {/* Right fade for mobile (covers chips before desktop tools) */}
+          {/* Right fade for mobile */}
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background/90 to-transparent z-10 sm:hidden" />
 
           {/* ── Scrollable category chips ── */}
