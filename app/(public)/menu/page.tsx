@@ -53,6 +53,15 @@ function filterProducts(products: Product[], query: string, filters: FilterState
   })
 }
 
+function sortProductsWithinCategory(items: Product[]) {
+  return [...items].sort((a, b) => {
+    const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER
+    const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER
+    if (orderA !== orderB) return orderA - orderB
+    return (a.created_at ?? '').localeCompare(b.created_at ?? '')
+  })
+}
+
 // ── Active filter chips (desktop + mobile) ────────────────────────────────
 
 function ActiveFilterChips({
@@ -137,11 +146,13 @@ export default function MenuPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [activeDesktopCategory, setActiveDesktopCategory] = useState<string>('all')
   const [activeMobileCategory, setActiveMobileCategory] = useState<string>('all')
   const [categoryOrder, setCategoryOrder] = useState<string[]>([])
   const [categoryMeta, setCategoryMeta] = useState<Record<string, { label: string; emoji: string; color?: string }>>({})
   const [isMobile, setIsMobile] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const desktopSectionRefsMap = useRef<Record<string, HTMLElement | null>>({})
   const sectionRefsMap = useRef<Record<string, HTMLElement | null>>({})
   const visibleHeightsRef = useRef<Record<string, number>>({})
 
@@ -151,9 +162,14 @@ export default function MenuPage() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
   const debouncedSearch = useDebounce(rawSearch, 300)
 
-  // View mode (mobile only) — persisted in localStorage
+  // View mode — persisted in localStorage
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    try { return (localStorage.getItem('nurei-view-mode') as ViewMode) || 'list' } catch { return 'list' }
+    try {
+      const saved = localStorage.getItem('nurei-view-mode')
+      return saved === 'list' || saved === 'grid' || saved === 'compact' ? saved : 'list'
+    } catch {
+      return 'list'
+    }
   })
   const handleViewModeChange = (mode: ViewMode) => {
     setViewMode(mode)
@@ -219,31 +235,53 @@ export default function MenuPage() {
   )
 
   // Group products by category
-  const grouped = products.reduce((acc, p) => {
-    const cat = p.category || 'other'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(p)
-    return acc
-  }, {} as Record<string, Product[]>)
+  const grouped = useMemo(() => {
+    const bucket = products.reduce((acc, p) => {
+      const cat = p.category || 'other'
+      if (!acc[cat]) acc[cat] = []
+      acc[cat].push(p)
+      return acc
+    }, {} as Record<string, Product[]>)
+
+    const result = Object.fromEntries(
+      Object.entries(bucket).map(([cat, items]) => [cat, sortProductsWithinCategory(items)])
+    ) as Record<string, Product[]>
+
+    const favs = products.filter((p) => p.is_favorite === true)
+    if (favs.length > 0) {
+      result['favoritos'] = sortProductsWithinCategory(favs)
+    }
+
+    return result
+  }, [products])
 
   const categories = useMemo(() => {
-    const present = Object.keys(grouped)
+    const present = Object.keys(grouped).filter((s) => s !== 'favoritos')
     const orderedPresent = categoryOrder.filter((slug) => present.includes(slug))
     const missing = present.filter((slug) => !orderedPresent.includes(slug))
-    return [...orderedPresent, ...missing]
+    const base = [...orderedPresent, ...missing]
+    if ((grouped['favoritos']?.length ?? 0) > 0) base.push('favoritos')
+    return base
   }, [grouped, categoryOrder])
+
+  const effectiveMeta = useMemo(
+    () => (grouped['favoritos']?.length ?? 0) > 0
+      ? { ...categoryMeta, favoritos: { label: 'Favoritos', emoji: '⭐' } }
+      : categoryMeta,
+    [categoryMeta, grouped],
+  )
 
   const categoryChips = useMemo(
     () => [
       { value: 'all', label: 'Todo', emoji: '✨', color: undefined as string | undefined },
       ...categories.map((slug) => ({
         value: slug,
-        label: categoryMeta[slug]?.label ?? slug,
-        emoji: categoryMeta[slug]?.emoji ?? '🍜',
-        color: categoryMeta[slug]?.color,
+        label: effectiveMeta[slug]?.label ?? slug,
+        emoji: effectiveMeta[slug]?.emoji ?? '🍜',
+        color: effectiveMeta[slug]?.color,
       })),
     ],
-    [categories, categoryMeta],
+    [categories, effectiveMeta],
   )
 
   // Apply search + filters to products
@@ -257,10 +295,24 @@ export default function MenuPage() {
   const desktopProducts = useMemo(
     () => (isFiltering
       ? filteredProducts
-      : selectedCategory === 'all' ? products : products.filter((p) => p.category === selectedCategory)
+      : selectedCategory === 'all'
+        ? products
+        : selectedCategory === 'favoritos'
+          ? sortProductsWithinCategory(products.filter((p) => p.is_favorite === true))
+          : sortProductsWithinCategory(products.filter((p) => p.category === selectedCategory))
     ),
     [products, filteredProducts, selectedCategory, isFiltering],
   )
+  const desktopSections = useMemo(() => (
+    categories
+      .map((cat) => ({
+        cat,
+        products: cat === 'favoritos'
+          ? sortProductsWithinCategory(desktopProducts.filter((product) => product.is_favorite === true))
+          : sortProductsWithinCategory(desktopProducts.filter((product) => product.category === cat)),
+      }))
+      .filter((section) => section.products.length > 0)
+  ), [categories, desktopProducts])
 
   // Track scroll and update active category (mobile)
   useEffect(() => {
@@ -327,6 +379,58 @@ export default function MenuPage() {
     }
   }
 
+  const scrollToDesktopCategory = (cat: string) => {
+    if (cat === 'all') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      setActiveDesktopCategory('all')
+      return
+    }
+    const section = desktopSectionRefsMap.current[cat]
+    if (section) {
+      const top = section.getBoundingClientRect().top + window.scrollY - 156
+      window.scrollTo({ top, behavior: 'smooth' })
+      setActiveDesktopCategory(cat)
+    }
+  }
+
+  useEffect(() => {
+    if (isMobile || isFiltering || selectedCategory !== 'all' || desktopSections.length === 0) return
+
+    const activationOffset = 180
+
+    const syncActiveDesktopCategory = () => {
+      if (window.scrollY <= 120) {
+        setActiveDesktopCategory((prev) => (prev === 'all' ? prev : 'all'))
+        return
+      }
+
+      const pivot = window.scrollY + activationOffset
+      let nextCategory = desktopSections[0]?.cat ?? 'all'
+
+      for (const { cat } of desktopSections) {
+        const section = desktopSectionRefsMap.current[cat]
+        if (!section) continue
+        const sectionTop = section.offsetTop
+        if (sectionTop <= pivot) {
+          nextCategory = cat
+          continue
+        }
+        break
+      }
+
+      setActiveDesktopCategory((prev) => (prev === nextCategory ? prev : nextCategory))
+    }
+
+    syncActiveDesktopCategory()
+    window.addEventListener('scroll', syncActiveDesktopCategory, { passive: true })
+    window.addEventListener('resize', syncActiveDesktopCategory)
+
+    return () => {
+      window.removeEventListener('scroll', syncActiveDesktopCategory)
+      window.removeEventListener('resize', syncActiveDesktopCategory)
+    }
+  }, [desktopSections, isFiltering, isMobile, selectedCategory])
+
   const filterCount = getFilterCount(filters)
 
   const handleApplyFilters = (newFilters: FilterState) => setFilters(newFilters)
@@ -347,12 +451,16 @@ export default function MenuPage() {
   return (
     <PageTransition>
       <CategoryFilter
-        selected={isMobile ? activeMobileCategory : selectedCategory}
+        selected={isMobile ? activeMobileCategory : (!isFiltering && selectedCategory === 'all' ? activeDesktopCategory : selectedCategory)}
         categoriesOverride={categoryChips}
         onChange={(cat) => {
           if (isMobile) {
             setSelectedCategory('all')
             scrollToCategory(cat)
+            return
+          }
+          if (!isFiltering && selectedCategory === 'all') {
+            scrollToDesktopCategory(cat)
             return
           }
           setSelectedCategory(cat)
@@ -424,7 +532,7 @@ export default function MenuPage() {
 
             {loading ? (
               <div className="flex justify-center py-16 px-4">
-                <SnackWaitAnimation stage="loading" />
+                <SnackWaitAnimation stage="menu" />
               </div>
             ) : desktopProducts.length === 0 && isFiltering ? (
               <motion.div
@@ -443,6 +551,27 @@ export default function MenuPage() {
                   Limpiar búsqueda
                 </button>
               </motion.div>
+            ) : !isFiltering && selectedCategory === 'all' ? (
+              <div className="space-y-10">
+                {desktopSections.map(({ cat, products: sectionProducts }) => (
+                  <section
+                    key={cat}
+                    ref={(el) => { desktopSectionRefsMap.current[cat] = el }}
+                    data-desktop-category={cat}
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+                        <span>{effectiveMeta[cat]?.emoji ?? '🍜'}</span>
+                        <span>{effectiveMeta[cat]?.label ?? cat}</span>
+                      </h2>
+                      <span className="text-xs font-semibold text-gray-400">
+                        {sectionProducts.length} producto{sectionProducts.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <ProductGrid products={sectionProducts} category={cat} searchQuery={debouncedSearch} viewMode={viewMode} />
+                  </section>
+                ))}
+              </div>
             ) : (
               <ProductGrid products={desktopProducts} category={selectedCategory} searchQuery={debouncedSearch} viewMode={viewMode} />
             )}
@@ -486,7 +615,7 @@ export default function MenuPage() {
 
         {loading ? (
           <div className="flex justify-center py-16 px-4">
-            <SnackWaitAnimation stage="loading" />
+            <SnackWaitAnimation stage="menu" />
           </div>
         ) : isFiltering ? (
           // Search/filter mode on mobile: flat list
@@ -525,7 +654,7 @@ export default function MenuPage() {
           <div>
             {categories.map((cat) => {
               const title =
-                (categoryMeta[cat]?.label ?? cat)
+                (effectiveMeta[cat]?.label ?? cat)
                   .replace(/-/g, ' ')
                   .toUpperCase()
               return (

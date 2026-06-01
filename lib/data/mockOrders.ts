@@ -16,7 +16,7 @@ export const MOCK_USER_ORDERS: Order[] = [
     delivered_at: '2026-04-13T16:45:00Z', cancelled_at: null,
     stripe_payment_intent_id: 'pi_mock_001', stripe_checkout_session_id: null,
     paid_at: '2026-04-10T13:55:00Z', cancellation_reason: null, failure_reason: null,
-    operator_notes: null, source: 'web',
+    operator_notes: null, tracking_number: null, carrier: null, source: 'web',
     created_at: '2026-04-10T13:50:00Z', updated_at: '2026-04-13T16:45:00Z',
   },
   {
@@ -35,7 +35,7 @@ export const MOCK_USER_ORDERS: Order[] = [
     delivered_at: null, cancelled_at: null,
     stripe_payment_intent_id: 'pi_mock_002', stripe_checkout_session_id: null,
     paid_at: '2026-04-12T09:45:00Z', cancellation_reason: null, failure_reason: null,
-    operator_notes: 'Paquete enviado por Estafeta, guía 7823459012', source: 'web',
+    operator_notes: 'Paquete enviado por Estafeta, guía 7823459012', tracking_number: '7823459012', carrier: 'Estafeta', source: 'web',
     created_at: '2026-04-12T09:40:00Z', updated_at: '2026-04-13T08:30:00Z',
   },
   {
@@ -52,7 +52,7 @@ export const MOCK_USER_ORDERS: Order[] = [
     delivered_at: null, cancelled_at: null,
     stripe_payment_intent_id: 'pi_mock_003', stripe_checkout_session_id: null,
     paid_at: '2026-04-14T08:15:00Z', cancellation_reason: null, failure_reason: null,
-    operator_notes: null, source: 'web',
+    operator_notes: null, tracking_number: null, carrier: null, source: 'web',
     created_at: '2026-04-14T08:10:00Z', updated_at: '2026-04-14T08:20:00Z',
   },
   {
@@ -69,7 +69,7 @@ export const MOCK_USER_ORDERS: Order[] = [
     delivered_at: null, cancelled_at: '2026-04-05T14:00:00Z',
     stripe_payment_intent_id: null, stripe_checkout_session_id: null,
     paid_at: '2026-04-05T10:00:00Z', cancellation_reason: 'Producto sin stock al confirmar', failure_reason: null,
-    operator_notes: null, source: 'web',
+    operator_notes: null, tracking_number: null, carrier: null, source: 'web',
     created_at: '2026-04-05T09:55:00Z', updated_at: '2026-04-05T14:00:00Z',
   },
 ]

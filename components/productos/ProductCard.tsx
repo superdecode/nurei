@@ -204,11 +204,6 @@ const SPRING_SMOOTH = { type: 'spring', stiffness: 300, damping: 28 } as const
 
 export function ProductCard({ product, searchQuery = '', compact = false }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
-  const currentCartQuantity = useCartStore((s) =>
-    s.items
-      .filter((item) => item.product.id === product.id && !item.variant_id)
-      .reduce((sum, item) => sum + item.quantity, 0)
-  )
   const { isFavorite, toggleFavorite } = useFavoritesStore()
   const [added, setAdded] = useState(false)
   const [stockFeedback, setStockFeedback] = useState<string | null>(null)
@@ -220,12 +215,19 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (product.has_variants) return
+    if (product.has_variants && !selectedVariant) {
+      const message = 'Escoge una variante primero'
+      setStockFeedback(message)
+      toast.error(message)
+      return
+    }
     try {
+      const stockBody: Record<string, unknown> = { quantity: 1, currentCartQuantity }
+      if (selectedVariant) stockBody.variant_id = selectedVariant.id
       const response = await fetch(`/api/products/${product.id}/stock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity: 1, currentCartQuantity }),
+        body: JSON.stringify(stockBody),
       })
       const payload = await response.json()
       if (!response.ok || !payload?.can_add) {
@@ -235,9 +237,14 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
         return
       }
       setStockFeedback(null)
-      addItem(product)
+      addItem(product, selectedVariant ? {
+        id: selectedVariant.id,
+        name: selectedVariant.name,
+        image: selectedVariant.image,
+        price: selectedVariant.price,
+      } : null)
       setAdded(true)
-      toast.success(`${product.name} agregado`, { icon: '🍘', duration: 2000 })
+      toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍘', duration: 2000 })
       setTimeout(() => setAdded(false), 1400)
     } catch {
       const message = 'No se pudo validar inventario en este momento.'
@@ -257,10 +264,19 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
   }
 
   // Active variants with images — drives both thumbnails and the clickable selection
-  const clickableVariants = product.has_variants && product.variants
-    ? product.variants.filter((v) => v.status === 'active' && v.image).slice(0, 5)
+  const activeVariants = product.has_variants && product.variants
+    ? product.variants.filter((v) => v.status === 'active')
     : []
-  const selectedVariant = selectedVariantIdx !== null ? clickableVariants[selectedVariantIdx] ?? null : null
+  const clickableVariants = activeVariants.length > 0
+    ? activeVariants.filter((v) => v.image).slice(0, 5)
+    : []
+  const selectableVariants = clickableVariants.length > 0 ? clickableVariants : activeVariants.slice(0, 5)
+  const selectedVariant = selectedVariantIdx !== null ? selectableVariants[selectedVariantIdx] ?? null : null
+  const currentCartQuantity = useCartStore((s) =>
+    s.items
+      .filter((item) => item.product.id === product.id && (item.variant_id ?? null) === (selectedVariant?.id ?? null))
+      .reduce((sum, item) => sum + item.quantity, 0)
+  )
 
   const isOutOfStock = product.stock_status === 'out_of_stock'
   const isLowStock = product.stock_status === 'low_stock'
@@ -284,6 +300,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
     : product.has_variants
       ? carouselImages.slice(0, 5)
       : []
+  const needsVariantSelection = product.has_variants && selectableVariants.length > 0 && !selectedVariant
 
   return (
     <Link
@@ -414,6 +431,11 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                   🔥 Popular
                 </span>
               )}
+              {needsVariantSelection && stockFeedback && (
+                <span className="px-2.5 py-1 text-[10px] font-black uppercase bg-red-500 text-white rounded-full shadow-lg">
+                  Elige variante
+                </span>
+              )}
             </div>
           )}
 
@@ -519,16 +541,23 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                 </span>
               )
             ) : product.has_variants ? (
-              compact ? (
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-nurei-cta text-gray-900 shadow-sm shadow-nurei-cta/30">
-                  <ChevronRight className="w-3 h-3" />
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-full bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/30">
-                  Ver opciones
-                  <ChevronRight className="w-3 h-3" />
-                </span>
-              )
+              <motion.button
+                whileTap={{ scale: 0.88 }}
+                whileHover={{ scale: 1.06 }}
+                transition={SPRING_SNAP}
+                onClick={handleAdd}
+                className={`flex items-center justify-center ${compact ? 'w-7 h-7 rounded-full' : 'gap-1.5 px-4 py-2.5 rounded-full'} text-xs font-bold transition-colors duration-300 shadow-lg ${
+                  added
+                    ? 'bg-nurei-stock text-white shadow-nurei-stock/25'
+                    : needsVariantSelection && stockFeedback
+                      ? 'bg-red-500 text-white shadow-red-500/20'
+                      : 'bg-nurei-cta text-gray-900 shadow-nurei-cta/30'
+                }`}
+                aria-label={needsVariantSelection ? 'Escoge una variante primero' : 'Agregar al carrito'}
+              >
+                {added ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                {!compact && <span>{selectedVariant ? 'Agregar' : 'Elegir'}</span>}
+              </motion.button>
             ) : (
               <motion.button
                 whileTap={{ scale: 0.88 }}

@@ -85,7 +85,7 @@ export function ProductGrid({ products, category = 'all', searchQuery = '', view
         </motion.div>
       ) : (
         <>
-          {/* Mobile views — animated switch between list / grid / compact */}
+          {/* Mobile views — list, normal cards, compact grid */}
           <AnimatePresence mode="wait" initial={false}>
             {viewMode === 'list' ? (
               <motion.div
@@ -104,7 +104,7 @@ export function ProductGrid({ products, category = 'all', searchQuery = '', view
               </motion.div>
             ) : viewMode === 'grid' ? (
               <motion.div
-                key={`grid2-${category}`}
+                key={`grid-${category}`}
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -119,7 +119,7 @@ export function ProductGrid({ products, category = 'all', searchQuery = '', view
               </motion.div>
             ) : (
               <motion.div
-                key={`grid3-${category}`}
+                key={`compact-${category}`}
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -135,29 +135,58 @@ export function ProductGrid({ products, category = 'all', searchQuery = '', view
             )}
           </AnimatePresence>
 
-          {/* Desktop grid view — columns follow viewMode */}
-          <motion.div
-            key={`grid-${category}-${viewMode}`}
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className={`hidden sm:grid gap-3 sm:gap-4 lg:gap-6 ${
-              viewMode === 'list'
-                ? 'sm:grid-cols-1 md:grid-cols-2'
-                : viewMode === 'compact'
-                  ? 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
-                  : 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-            }`}
-          >
-            <AnimatePresence>
-              {products.map((product) => (
-                <motion.div key={product.id} variants={itemVariants} layout exit="exit">
-                  <ProductCard product={product} searchQuery={searchQuery} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          {viewMode === 'list' ? (
+            <motion.div
+              key={`desktop-list-${category}`}
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="hidden sm:flex flex-col gap-3"
+            >
+              <AnimatePresence>
+                {products.map((product) => (
+                  <motion.div key={product.id} variants={itemVariants} layout exit="exit">
+                    <MobileProductCard product={product} searchQuery={searchQuery} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          ) : viewMode === 'grid' ? (
+            <motion.div
+              key={`desktop-grid-${category}`}
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="hidden sm:grid gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            >
+              <AnimatePresence>
+                {products.map((product) => (
+                  <motion.div key={product.id} variants={itemVariants} layout exit="exit">
+                    <ProductCard product={product} searchQuery={searchQuery} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`desktop-compact-${category}`}
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="hidden sm:grid gap-3 sm:gap-4 lg:gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+            >
+              <AnimatePresence>
+                {products.map((product) => (
+                  <motion.div key={product.id} variants={itemVariants} layout exit="exit">
+                    <ProductCard product={product} searchQuery={searchQuery} compact />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
         </>
       )}
     </AnimatePresence>

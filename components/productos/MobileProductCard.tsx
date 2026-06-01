@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Ban, Flame } from 'lucide-react'
+import { AlertCircle, Ban, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
+import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
-import { SPICE_LABELS } from '@/lib/utils/constants'
-import { countryToFlag } from '@/lib/utils/country-flag'
 import type { Product } from '@/types'
 
 function getCategoryEmoji(category: string): string {
@@ -60,32 +59,53 @@ interface MobileProductCardProps {
   searchQuery?: string
 }
 
-const DESC_LIMIT = 300
-
 export function MobileProductCard({ product, searchQuery = '' }: MobileProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
-  const qty = useCartStore((s) => s.items.find((i) => i.product.id === product.id)?.quantity ?? 0)
+  const { isFavorite, toggleFavorite } = useFavoritesStore()
+  const fav = isFavorite(product.id)
   const [added, setAdded] = useState(false)
-  const [descExpanded, setDescExpanded] = useState(false)
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null)
+  const [variantError, setVariantError] = useState(false)
+
+  const activeVariants = product.has_variants && product.variants
+    ? product.variants.filter((v) => v.status === 'active')
+    : []
+  const selectedVariant = selectedVariantIdx !== null ? activeVariants[selectedVariantIdx] ?? null : null
+  const qty = useCartStore((s) =>
+    s.items.find((i) => i.product.id === product.id && (i.variant_id ?? null) === (selectedVariant?.id ?? null))?.quantity ?? 0
+  )
 
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (product.has_variants && activeVariants.length > 0 && !selectedVariant) {
+      setVariantError(true)
+      toast.error('Escoge una variante primero')
+      return
+    }
     try {
+      const stockBody: Record<string, unknown> = { quantity: 1, currentCartQuantity: qty }
+      if (selectedVariant) stockBody.variant_id = selectedVariant.id
       const res = await fetch(`/api/products/${product.id}/stock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity: 1, currentCartQuantity: qty }),
+        body: JSON.stringify(stockBody),
       })
       const payload = await res.json()
       if (!res.ok || !payload?.can_add) {
         toast.error(payload?.message ?? 'No hay stock suficiente.')
         return
       }
-      addItem(product)
+      addItem(product, selectedVariant ? {
+        id: selectedVariant.id,
+        name: selectedVariant.name,
+        image: selectedVariant.image,
+        price: selectedVariant.price,
+      } : null)
       setAdded(true)
-      toast.success(`${product.name} agregado`, { icon: '🍘', duration: 1500 })
+      setVariantError(false)
+      toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍘', duration: 1500 })
       setTimeout(() => setAdded(false), 1200)
     } catch {
       toast.error('No se pudo validar inventario.')
@@ -95,12 +115,13 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
   const handleMinus = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    updateQuantity(product.id, qty - 1)
+    updateQuantity(product.id, qty - 1, selectedVariant?.id ?? null)
   }
 
   const isOutOfStock = product.stock_status === 'out_of_stock'
   const isLowStock = product.stock_status === 'low_stock'
-  const price = product.base_price ?? product.price
+  const price = selectedVariant?.price ?? product.base_price ?? product.price
+  const shortDescription = product.description ? stripHtml(product.description).trim() : ''
   const hasDiscount = !!product.compare_at_price && product.compare_at_price > price
   const discountPercent = hasDiscount
     ? Math.round((1 - price / product.compare_at_price!) * 100)
@@ -157,53 +178,43 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
             </span>
           )}
 
+          {/* Favorite button */}
+          <motion.button
+            whileTap={{ scale: 0.8 }}
+            transition={SPRING_SNAP}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              toggleFavorite(product.id)
+              toast.success(fav ? 'Eliminado de favoritos' : 'Agregado a favoritos', {
+                icon: fav ? '💔' : '❤️',
+                duration: 1500,
+              })
+            }}
+            className={`absolute bottom-1 right-1 p-1.5 rounded-full shadow-sm transition-colors duration-200 ${
+              fav ? 'bg-red-500 text-white' : 'bg-white/80 text-gray-400'
+            }`}
+          >
+            <Heart className="w-3 h-3" fill={fav ? 'currentColor' : 'none'} />
+          </motion.button>
+
         </div>
 
         {/* Info */}
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-bold line-clamp-1 leading-tight transition-colors duration-300 ${
-            isOutOfStock ? 'text-amber-900/60' : 'text-gray-900'
-          }`}>
-            <HighlightText text={product.name} query={searchQuery} />
-          </p>
-          {product.description && (() => {
-            const clean = stripHtml(product.description)
-            const isLong = clean.length > DESC_LIMIT
-            const visible = isLong && !descExpanded ? clean.slice(0, DESC_LIMIT) + '…' : clean
-            return (
-              <div className="mt-0.5">
-                <p className="text-[11px] text-gray-400 leading-tight">
-                  <HighlightText text={visible} query={searchQuery} />
+        <div className="flex-1 min-w-0 self-stretch flex flex-col justify-center pr-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className={`text-sm font-bold line-clamp-1 leading-tight transition-colors duration-300 ${
+                isOutOfStock ? 'text-amber-900/60' : 'text-gray-900'
+              }`}>
+                <HighlightText text={product.name} query={searchQuery} />
+              </p>
+              {shortDescription && (
+                <p className="mt-0.5 text-[11px] text-gray-400 line-clamp-1 leading-tight">
+                  <HighlightText text={shortDescription} query={searchQuery} />
                 </p>
-                {isLong && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDescExpanded((v) => !v) }}
-                    className="text-[10px] font-bold text-nurei-cta mt-0.5 hover:underline"
-                  >
-                    {descExpanded ? 'Ver menos' : 'Ver más'}
-                  </button>
-                )}
-              </div>
-            )
-          })()}
-          {isLowStock && (
-            <div className="mt-0.5">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-nurei-promo bg-nurei-promo/10 rounded-full animate-pulse">
-                ¡Últimas unidades!
-              </span>
-            </div>
-          )}
-          {product.spice_level > 0 && !isOutOfStock && (
-            <div className="mt-1 flex items-center gap-1 px-2 py-0.5 bg-nurei-promo/10 rounded-full w-fit">
-              <Flame className="w-2.5 h-2.5 text-nurei-promo flex-shrink-0" />
-              <span className="text-[9px] text-nurei-promo font-bold italic">
-                {SPICE_LABELS[product.spice_level]}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center justify-between gap-2 mt-1 flex-wrap">
-            <div className="flex items-center gap-1.5">
+              )}
+              <div className="mt-1 flex items-center gap-1.5">
               {hasDiscount && (
                 <span className="text-[11px] text-gray-300 line-through font-medium tabular-nums">
                   {formatPrice(product.compare_at_price!)}
@@ -215,12 +226,49 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                 {formatPrice(price)}
               </span>
             </div>
-            {(product.origin_country || product.origin) && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-500 leading-none">
-                {countryToFlag(product.origin_country ?? product.origin ?? '') || ''} {product.origin_country ?? product.origin}
-              </span>
+              {selectedVariant && (
+                <p className="mt-0.5 text-[10px] font-bold text-nurei-cta line-clamp-1">{selectedVariant.name}</p>
+              )}
+            </div>
+            {activeVariants.length > 0 && (
+              <div className="flex shrink-0 gap-1">
+                {activeVariants.slice(0, 4).map((variant, idx) => (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setSelectedVariantIdx(selectedVariantIdx === idx ? null : idx)
+                      setVariantError(false)
+                    }}
+                    className={`h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${
+                      selectedVariant?.id === variant.id
+                        ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm'
+                        : variantError
+                          ? 'border-red-300 bg-red-50 text-red-600'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
+                    }`}
+                    aria-label={`Seleccionar ${variant.name}`}
+                  >
+                    {variant.image ? (
+                      <img src={variant.image} alt="" className="mx-auto h-4 w-4 rounded-full object-cover" />
+                    ) : (
+                      <span className="block truncate">{variant.name}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
+          {variantError && (
+            <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-red-500">
+              <AlertCircle className="h-3 w-3" /> Escoge variante
+            </p>
+          )}
+          {isLowStock && !variantError && (
+            <p className="mt-1 text-[10px] font-bold text-nurei-promo">Últimas unidades</p>
+          )}
         </div>
 
         {/* Qty controls */}

@@ -125,6 +125,7 @@ export interface AffiliateDashboardStats {
 
 export interface Product {
   id: string
+  display_order?: number | null
   name: string
   slug: string
   description: string | null
@@ -146,6 +147,7 @@ export interface Product {
   availability_score: number
   is_active: boolean
   is_featured: boolean
+  is_favorite?: boolean
   is_limited: boolean
   has_variants: boolean
   requires_spice_level: boolean
@@ -246,6 +248,8 @@ export interface Order {
   cancellation_reason: string | null
   failure_reason: string | null
   operator_notes: string | null
+  tracking_number: string | null
+  carrier: string | null
   source: string
   created_at: string
   updated_at: string

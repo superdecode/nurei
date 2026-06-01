@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { use, useState, useEffect, useCallback, useMemo } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
-import { formatPrice } from '@/lib/utils/format'
+import { formatPrice, stripHtml } from '@/lib/utils/format'
 import { SPICE_LABELS } from '@/lib/utils/constants'
 import { Container } from '@/components/layout/Container'
 import { ProductCard } from '@/components/productos/ProductCard'
@@ -22,11 +22,10 @@ import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { countryToFlag } from '@/lib/utils/country-flag'
-import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-const DESKTOP_DESCRIPTION_COLLAPSED_HEIGHT = 72
+const DESCRIPTION_PREVIEW_CHARS = 300
 
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
@@ -289,11 +288,9 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const [quantity, setQuantity] = useState(1)
   const [stockFeedback, setStockFeedback] = useState<string | null>(null)
   const [descExpanded, setDescExpanded] = useState(false)
-  const [descHasOverflow, setDescHasOverflow] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [flyingSnacks, setFlyingSnacks] = useState<FlyingSnack[]>([])
-  const desktopDescRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -333,24 +330,6 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
     load()
   }, [slug])
 
-  useEffect(() => {
-    if (loading || !product) {
-      setDescHasOverflow(false)
-      return
-    }
-    const el = desktopDescRef.current
-    if (!el) {
-      setDescHasOverflow(false)
-      return
-    }
-    const checkOverflow = () => {
-      setDescHasOverflow(el.scrollHeight > DESKTOP_DESCRIPTION_COLLAPSED_HEIGHT + 1)
-    }
-    checkOverflow()
-    window.addEventListener('resize', checkOverflow)
-    return () => window.removeEventListener('resize', checkOverflow)
-  }, [loading, product, descExpanded])
-
   const allImages = useMemo(() => {
     const base = product?.images ?? []
     const variantImages = variants.map((v) => v.image).filter(Boolean) as string[]
@@ -373,8 +352,25 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
   if (loading) {
     return (
-      <Container className="py-16 flex justify-center">
-        <SnackWaitAnimation stage="loading" />
+      <Container className="py-8 sm:py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8 animate-pulse">
+          <div className="aspect-square rounded-3xl bg-gray-100" />
+          <div className="flex flex-col gap-3 pt-2">
+            <div className="h-4 w-24 rounded-full bg-gray-100" />
+            <div className="h-8 w-3/4 rounded-2xl bg-gray-100" />
+            <div className="space-y-2">
+              <div className="h-3 w-full rounded-full bg-gray-100" />
+              <div className="h-3 w-11/12 rounded-full bg-gray-100" />
+              <div className="h-3 w-8/12 rounded-full bg-gray-100" />
+            </div>
+            <div className="h-10 w-40 rounded-2xl bg-gray-100" />
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="h-16 rounded-2xl bg-gray-100" />
+              <div className="h-16 rounded-2xl bg-gray-100" />
+            </div>
+            <div className="h-14 w-full rounded-2xl bg-gray-100" />
+          </div>
+        </div>
       </Container>
     )
   }
@@ -399,6 +395,11 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const activeVariants = variants.filter((v) => v.status === 'active')
   const needsVariantSelection = product.has_variants && activeVariants.length > 0 && !selectedVariant
   const canAddToCart = !needsVariantSelection && product.stock_status !== 'out_of_stock'
+  const cleanDescription = product.description ? stripHtml(product.description).trim() : ''
+  const isLongDescription = cleanDescription.length > DESCRIPTION_PREVIEW_CHARS
+  const visibleDescription = !isLongDescription || descExpanded
+    ? cleanDescription
+    : `${cleanDescription.slice(0, DESCRIPTION_PREVIEW_CHARS).trim()}...`
 
   const openLightbox = (i: number) => {
     if (allImages.length === 0) return
@@ -711,21 +712,25 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           {/* Title — compact, try to fit one line */}
           <h1 className="text-sm font-black text-gray-900 leading-tight tracking-tight line-clamp-2">{product.name}</h1>
 
+          {cleanDescription && (
+            <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Descripción</p>
-              {/* Description — gradient fade collapse, no explicit button */}
-          {product.description && (
-            <div
-              className="relative cursor-pointer"
-              onClick={() => descHasOverflow && setDescExpanded(!descExpanded)}
-            >
-              <div
-                className="text-[11px] text-gray-500 leading-relaxed overflow-hidden transition-all duration-300 prose prose-xs max-w-none [&_p]:mb-1 [&_ul]:pl-4 [&_ol]:pl-4 [&_strong]:font-bold [&_em]:italic"
-                style={!descExpanded && descHasOverflow ? { maxHeight: '54px' } : undefined}
-                dangerouslySetInnerHTML={{ __html: product.description }}
-              />
-              {!descExpanded && descHasOverflow && (
-                <div className="absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-white via-white/70 to-transparent pointer-events-none" />
-              )}
+              <motion.p
+                layout
+                transition={{ duration: 0.24, ease: 'easeInOut' }}
+                className="mt-1 text-[11px] text-gray-500 leading-relaxed"
+              >
+                {visibleDescription}
+                {isLongDescription && (
+                  <button
+                    type="button"
+                    onClick={() => setDescExpanded((v) => !v)}
+                    className="ml-1 inline-flex align-baseline text-[11px] font-bold text-primary-cyan"
+                  >
+                    {descExpanded ? 'Ver menos' : 'Ver más'}
+                  </button>
+                )}
+              </motion.p>
             </div>
           )}
 
@@ -1012,24 +1017,24 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 </div>
               )}
 
-              {product.description && (
+              {cleanDescription && (
                 <div className="mb-2.5">
-                  <div className="relative">
-                    <div
-                      ref={desktopDescRef}
-                      className="text-[13px] text-gray-500 leading-relaxed prose prose-xs max-w-none [&_p]:mb-1 [&_ul]:pl-4 [&_ol]:pl-4 [&_strong]:font-bold [&_em]:italic"
-                      style={!descExpanded ? { maxHeight: `${DESKTOP_DESCRIPTION_COLLAPSED_HEIGHT}px`, overflow: 'hidden' } : undefined}
-                      dangerouslySetInnerHTML={{ __html: product.description }}
-                    />
-                    {!descExpanded && descHasOverflow && (
-                      <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
+                  <motion.p
+                    layout
+                    transition={{ duration: 0.24, ease: 'easeInOut' }}
+                    className="text-[13px] text-gray-500 leading-relaxed"
+                  >
+                    {visibleDescription}
+                    {isLongDescription && (
+                      <button
+                        type="button"
+                        onClick={() => setDescExpanded((v) => !v)}
+                        className="ml-1 inline-flex items-center gap-1 align-baseline text-[11px] font-semibold text-primary-cyan"
+                      >
+                        {descExpanded ? <><ChevronUp className="w-3 h-3" /> Ver menos</> : <><ChevronDown className="w-3 h-3" /> Ver más</>}
+                      </button>
                     )}
-                  </div>
-                  {descHasOverflow && (
-                    <button type="button" onClick={() => setDescExpanded((v) => !v)} className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-primary-cyan">
-                      {descExpanded ? <><ChevronUp className="w-3 h-3" /> Ver menos</> : <><ChevronDown className="w-3 h-3" /> Ver más</>}
-                    </button>
-                  )}
+                  </motion.p>
                 </div>
               )}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
@@ -12,8 +12,8 @@ import {
   CreditCard,
   Loader2,
   Minus,
-  Package,
   Plus,
+  ShoppingBag,
   Tag,
   Trash2,
   UserRound,
@@ -205,17 +205,6 @@ function isExpired(expiry: string) {
   return false
 }
 
-function simulatedViewers(productId: string, viewsCount: number) {
-  const seed = new Date().toISOString().slice(0, 10).replaceAll('-', '')
-  const chars = `${productId}${seed}`
-  let hash = 0
-  for (let i = 0; i < chars.length; i += 1) {
-    hash = (hash * 31 + chars.charCodeAt(i)) % 1000
-  }
-
-  const base = viewsCount > 0 ? Math.min(32, Math.max(3, Math.round(viewsCount / 9))) : 5
-  return base + (hash % 9)
-}
 
 export default function CheckoutPage() {
   const items = useCartStore((state) => state.items)
@@ -224,6 +213,10 @@ export default function CheckoutPage() {
   const getSubtotal = useCartStore((state) => state.getSubtotal)
   const clearCart = useCartStore((state) => state.clearCart)
   const getItemCount = useCartStore((state) => state.getItemCount)
+
+  const [viewerCounts, setViewerCounts] = useState<Record<string, number>>({})
+  const [hiddenViewerKeys, setHiddenViewerKeys] = useState<Set<string>>(new Set())
+  const viewerInitRef = useRef(false)
 
   const [mounted, setMounted] = useState(false)
   const [activeStep, setActiveStep] = useState<CheckoutStep>(1)
@@ -285,9 +278,49 @@ export default function CheckoutPage() {
   const authLogin = useAuthStore((s) => s.login)
   const authLoginWithGoogle = useAuthStore((s) => s.loginWithGoogle)
   const refreshUser = useAuthStore((s) => s.refreshUser)
+  const loadAddresses = useAuthStore((s) => s.loadAddresses)
+  const savedAddresses = useAuthStore((s) => s.addresses)
 
   useEffect(() => {
     setMounted(true)
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.pointerEvents = ''
+    }
+  }, [])
+
+  useEffect(() => {
+    if (viewerInitRef.current || items.length === 0) return
+    viewerInitRef.current = true
+
+    const initial: Record<string, number> = {}
+    for (const item of items) {
+      const key = `${item.product.id}:${item.variant_id ?? ''}`
+      initial[key] = Math.floor(Math.random() * 12) + 2
+    }
+    setViewerCounts(initial)
+
+    if (items.length > 3) {
+      const skipCount = Math.random() < 0.5 ? 1 : 2
+      const shuffled = [...items].sort(() => Math.random() - 0.5)
+      setHiddenViewerKeys(
+        new Set(shuffled.slice(0, skipCount).map((i) => `${i.product.id}:${i.variant_id ?? ''}`))
+      )
+    }
+  }, [items])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setViewerCounts((prev) => {
+        const next = { ...prev }
+        for (const key of Object.keys(next)) {
+          const delta = (Math.random() < 0.5 ? 1 : 2) * (Math.random() < 0.5 ? 1 : -1)
+          next[key] = Math.min(15, Math.max(1, (next[key] ?? 5) + delta))
+        }
+        return next
+      })
+    }, 30_000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -316,7 +349,7 @@ export default function CheckoutPage() {
   }, [mounted, shippingForm])
 
   useEffect(() => {
-    void refreshUser()
+    void refreshUser().then(() => { void loadAddresses() })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- session sync once on checkout mount
   }, [])
 
@@ -333,6 +366,29 @@ export default function CheckoutPage() {
       phone: prev.phone.trim() ? prev.phone : authUser.phone ?? '',
     }))
   }, [authOk, authUser, authEmail])
+
+  useEffect(() => {
+    if (!authOk || savedAddresses.length === 0) return
+    const def = savedAddresses.find((a) => a.is_default) ?? savedAddresses[0]
+    if (!def) return
+    setShippingForm((prev) => {
+      if (prev.address.trim()) return prev
+      const nameParts = def.recipient_name.trim().split(/\s+/)
+      const addrLine = [def.street, def.exterior_number, def.interior_number ? `Int. ${def.interior_number}` : '']
+        .filter(Boolean).join(' ')
+      return {
+        ...prev,
+        firstName: prev.firstName.trim() ? prev.firstName : (nameParts[0] ?? ''),
+        lastName: prev.lastName.trim() ? prev.lastName : (nameParts.slice(1).join(' ')),
+        phone: prev.phone.trim() ? prev.phone : def.phone,
+        address: addrLine,
+        neighborhood: def.colonia,
+        city: def.city,
+        state: def.state,
+        zipCode: def.zip_code,
+      }
+    })
+  }, [authOk, savedAddresses])
 
   useEffect(() => {
     const methods = storeBootstrap?.payment_methods ?? []
@@ -843,24 +899,8 @@ export default function CheckoutPage() {
 
   if (!mounted) {
     return (
-      <section className="py-8 bg-gray-50 min-h-screen">
-        <Container className="max-w-6xl">
-          <div className="h-6 w-40 rounded bg-gray-200 animate-pulse mb-4" />
-          <div className="h-3 w-full rounded bg-gray-200 animate-pulse mb-6" />
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3 bg-white rounded-2xl p-6 space-y-4">
-              <div className="h-16 rounded-xl bg-gray-100 animate-pulse" />
-              <div className="h-16 rounded-xl bg-gray-100 animate-pulse" />
-              <div className="h-16 rounded-xl bg-gray-100 animate-pulse" />
-            </div>
-            <div className="lg:col-span-2 bg-white rounded-2xl p-6 space-y-3">
-              <div className="h-5 w-32 rounded bg-gray-100 animate-pulse" />
-              <div className="h-4 w-full rounded bg-gray-100 animate-pulse" />
-              <div className="h-4 w-3/4 rounded bg-gray-100 animate-pulse" />
-              <div className="h-10 rounded-xl bg-gray-100 animate-pulse" />
-            </div>
-          </div>
-        </Container>
+      <section className="py-16 bg-gray-50 min-h-screen flex items-center justify-center px-4">
+        <SnackWaitAnimation stage="checkout" />
       </section>
     )
   }
@@ -869,7 +909,9 @@ export default function CheckoutPage() {
     return (
       <section className="py-20 bg-gray-50 min-h-screen">
         <Container className="max-w-4xl text-center">
-          <p className="text-6xl mb-4">🛒</p>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-primary-cyan shadow-sm">
+            <ShoppingBag className="h-8 w-8" />
+          </div>
           <h1 className="text-3xl font-bold text-primary-dark">Tu carrito está vacío</h1>
           <p className="text-gray-500 mt-2">Agrega productos para iniciar el checkout.</p>
           <Link href="/menu" className="inline-flex mt-6">
@@ -1004,20 +1046,56 @@ export default function CheckoutPage() {
                   <div className="space-y-3 lg:space-y-2">
                     {items.map((item, idx) => {
                       const lowStock = item.product.stock_quantity <= item.product.low_stock_threshold + 2
-                      const productSubtotal = item.product.price * item.quantity
-                      const viewers = simulatedViewers(item.product.id, item.product.views_count)
+                      const unitPrice = item.variant_price ?? item.product.base_price ?? item.product.price
+                      const productSubtotal = unitPrice * item.quantity
+                      const itemKey = `${item.product.id}:${item.variant_id ?? ''}`
+                      const viewerCount = viewerCounts[itemKey]
+                      const showViewers = viewerCount !== undefined && !hiddenViewerKeys.has(itemKey)
+                      const imageUrl = item.variant_image ?? item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url
 
                       return (
                         <div
-                          key={item.product.id}
-                          className="rounded-2xl border border-gray-200 p-4 lg:p-3 checkout-stagger-in"
+                          key={itemKey}
+                          className="relative rounded-2xl border border-gray-200 p-3 sm:p-4 lg:p-3 checkout-stagger-in"
                           style={{ animationDelay: `${idx * 80}ms` }}
                         >
-                          <div className="flex gap-3 lg:gap-2.5">
+                          {deleteCandidate === itemKey ? (
+                            <div className="absolute right-3 top-3 z-10 inline-flex items-center gap-2 rounded-full bg-white/95 px-2 py-1 text-xs shadow-sm border border-red-100">
+                              <span className="text-gray-500">¿Eliminar?</span>
+                              <button
+                                type="button"
+                                className="font-bold text-red-600"
+                                onClick={() => {
+                                  removeItem(item.product.id, item.variant_id)
+                                  setDeleteCandidate(null)
+                                }}
+                              >
+                                Sí
+                              </button>
+                              <button
+                                type="button"
+                                className="text-gray-500"
+                                onClick={() => setDeleteCandidate(null)}
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                              onClick={() => setDeleteCandidate(itemKey)}
+                              aria-label="Eliminar producto"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+
+                          <div className="flex items-center gap-3 lg:gap-2.5 pr-9">
                             <div className="w-16 h-16 lg:w-[52px] lg:h-[52px] shrink-0 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-2xl lg:text-xl">
-                              {(item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url) ? (
+                              {imageUrl ? (
                                 <Image
-                                  src={item.product.images?.[item.product.primary_image_index] ?? item.product.image_thumbnail_url!}
+                                  src={imageUrl}
                                   alt={item.product.name}
                                   width={64}
                                   height={64}
@@ -1030,73 +1108,54 @@ export default function CheckoutPage() {
                             </div>
 
                             <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 lg:gap-1.5">
-                                <p className="font-semibold text-primary-dark truncate text-[15px] lg:text-sm leading-tight">{item.product.name}</p>
+                              <div className="min-w-0">
+                                <p className="font-bold text-primary-dark truncate text-[15px] lg:text-sm leading-tight pr-1">{item.product.name}</p>
+                                {item.variant_label && (
+                                  <p className="mt-0.5 text-[11px] font-semibold text-primary-cyan truncate">{item.variant_label}</p>
+                                )}
+                                <p className="mt-1 text-base sm:text-sm font-black text-primary-dark tabular-nums">
+                                  {formatPrice(productSubtotal)}
+                                  {item.quantity > 1 && (
+                                    <span className="ml-1 text-[11px] font-semibold text-gray-400">
+                                      {formatPrice(unitPrice)} c/u
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                 {lowStock && (
                                   <span className="text-[10px] uppercase tracking-wide font-bold rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-red-600">
                                     Últimas unidades
                                   </span>
                                 )}
-                                <span className="text-[10px] uppercase tracking-wide font-semibold rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
-                                  {viewers} viendo ahora
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1 lg:mt-0.5 leading-snug">
-                                {formatPrice(item.product.price)} c/u · Subtotal {formatPrice(productSubtotal)}
-                              </p>
-
-                              <div className="flex items-center justify-between mt-3 lg:mt-2">
-                                <div className="inline-flex items-center gap-1 rounded-xl border border-gray-200 p-0.5 lg:p-0.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                                    className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
-                                    aria-label="Restar"
-                                  >
-                                    <Minus className="w-4 h-4" />
-                                  </button>
-                                  <span className="w-8 lg:w-7 text-center font-semibold text-sm lg:text-xs">{item.quantity}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                                    className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
-                                    aria-label="Sumar"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </button>
-                                </div>
-
-                                {deleteCandidate === item.product.id ? (
-                                  <div className="inline-flex items-center gap-2 text-xs">
-                                    <span className="text-gray-500">¿Eliminar?</span>
-                                    <button
-                                      type="button"
-                                      className="text-red-600 font-semibold"
-                                      onClick={() => {
-                                        removeItem(item.product.id)
-                                        setDeleteCandidate(null)
-                                      }}
-                                    >
-                                      Sí
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="text-gray-500"
-                                      onClick={() => setDeleteCandidate(null)}
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 transition-colors"
-                                    onClick={() => setDeleteCandidate(item.product.id)}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Eliminar
-                                  </button>
+                                {showViewers && (
+                                  <span className="text-[10px] uppercase tracking-wide font-semibold rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+                                    {viewerCount} viendo ahora
+                                  </span>
                                 )}
+                              </div>
+                            </div>
+
+                            <div className="shrink-0 self-center">
+                              <div className="inline-flex items-center gap-1 rounded-full bg-gray-50 p-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.variant_id)}
+                                  className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-full bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                                  aria-label="Restar"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <span className="w-7 text-center font-black text-sm lg:text-xs tabular-nums">{item.quantity}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.variant_id)}
+                                  className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover transition-colors"
+                                  aria-label="Sumar"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1574,6 +1633,10 @@ export default function CheckoutPage() {
                       </div>
                     )}
 
+                    <p className="mt-3 text-xs text-gray-400 leading-relaxed">
+                      El número de guía estará disponible en los detalles de tu pedido una vez que sea enviado. Puedes consultarlo en tu cuenta → Mis pedidos.
+                    </p>
+
                     <div className="mt-4 space-y-2">
                       <Link href={`/pedido/${orderConfirmation.id}`} className="block">
                         <Button type="button" className="w-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover">
@@ -1653,21 +1716,23 @@ export default function CheckoutPage() {
             <aside className="lg:col-span-2 hidden lg:block">
               <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-5 lg:p-4">
                 <p className="text-sm font-semibold text-primary-dark mb-2 lg:mb-2 inline-flex items-center gap-2">
-                  <Package className="w-4 h-4 text-primary-cyan" />
+                  <ShoppingBag className="w-4 h-4 text-primary-cyan" />
                   Resumen del pedido
                 </p>
 
                 <div className="space-y-1 max-h-52 lg:max-h-64 overflow-auto pr-1">
                   {items.map((item) => {
-                    const unit = item.product.base_price ?? item.product.price
+                    const unit = item.variant_price ?? item.product.base_price ?? item.product.price
                     const lineTotal = unit * item.quantity
                     return (
                       <div
-                        key={item.product.id}
+                        key={`${item.product.id}:${item.variant_id ?? ''}`}
                         className="flex items-baseline gap-2 text-[11px] lg:text-[12px] leading-snug"
                       >
                         <span className="tabular-nums text-gray-500 shrink-0">{item.quantity}×</span>
-                        <span className="flex-1 min-w-0 text-gray-700 truncate">{item.product.name}</span>
+                        <span className="flex-1 min-w-0 text-gray-700 truncate">
+                          {item.product.name}{item.variant_label ? ` · ${item.variant_label}` : ''}
+                        </span>
                         <span className="font-semibold text-primary-dark tabular-nums shrink-0">
                           {formatPrice(lineTotal)}
                         </span>
@@ -1773,12 +1838,14 @@ export default function CheckoutPage() {
                   <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3">
                     <div className="space-y-1 max-h-44 overflow-auto pr-0.5">
                       {items.map((item) => {
-                        const unit = item.product.base_price ?? item.product.price
+                        const unit = item.variant_price ?? item.product.base_price ?? item.product.price
                         const lineTotal = unit * item.quantity
                         return (
-                          <div key={item.product.id} className="flex gap-2 text-[11px] leading-snug">
+                          <div key={`${item.product.id}:${item.variant_id ?? ''}`} className="flex gap-2 text-[11px] leading-snug">
                             <span className="tabular-nums text-gray-500 shrink-0">{item.quantity}×</span>
-                            <span className="flex-1 min-w-0 text-gray-700 truncate">{item.product.name}</span>
+                            <span className="flex-1 min-w-0 text-gray-700 truncate">
+                              {item.product.name}{item.variant_label ? ` · ${item.variant_label}` : ''}
+                            </span>
                             <span className="font-semibold text-primary-dark tabular-nums shrink-0">
                               {formatPrice(lineTotal)}
                             </span>
@@ -1906,28 +1973,6 @@ export default function CheckoutPage() {
           </DialogContent>
         </Dialog>
 
-        {activeStep === 1 && items.length > 0 && (
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-md px-4 py-2.5 flex items-center justify-between gap-3 text-sm shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <div className="min-w-0">
-              <p className="text-[11px] text-gray-500">
-                {getItemCount()} {getItemCount() === 1 ? 'producto' : 'productos'}
-              </p>
-              <p className="font-bold text-primary-dark tabular-nums">{formatPrice(subtotal)}</p>
-            </div>
-            {typeof freeShipMin === 'number' && freeShipMin > 0 ? (
-              subtotal < freeShipMin ? (
-                <p className="text-[10px] text-gray-500 text-right leading-snug flex-1">
-                  Te faltan <span className="font-semibold text-primary-dark">{formatPrice(freeShipMin - subtotal)}</span>{' '}
-                  para envío gratis
-                </p>
-              ) : (
-                <span className="text-[10px] text-emerald-600 font-semibold shrink-0 text-right">
-                  ¡Calificas a envío gratis!
-                </span>
-              )
-            ) : null}
-          </div>
-        )}
       </Container>
     </section>
   )

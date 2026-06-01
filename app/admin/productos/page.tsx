@@ -1,14 +1,21 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plus, Search, LayoutGrid, List, Trash2,
+  DndContext, DragOverlay, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
+  Plus, Search, LayoutGrid, List, Table2, Trash2,
   ChevronUp, ChevronDown, Check, X, Package,
   ArrowUpDown, CheckSquare, Filter,
-  Copy, Layers, Pencil,
+  Copy, Layers, Pencil, GripVertical, Star,
   Upload, Download,
 } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
@@ -44,9 +51,9 @@ const STATUS_FILTERS = [
 ] as const
 
 type StatusFilter = typeof STATUS_FILTERS[number]['value']
-type SortField = 'name' | 'category' | 'country' | 'price' | 'status' | 'created_at'
+type SortField = 'display_order' | 'name' | 'category' | 'country' | 'price' | 'status' | 'created_at'
 type SortDirection = 'asc' | 'desc'
-type ViewMode = 'table' | 'grid'
+type ViewMode = 'table' | 'list' | 'kanban'
 type CategoryOption = { slug: string; name: string; emoji?: string | null }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -119,6 +126,98 @@ const cardVariants = {
   exit: { opacity: 0, scale: 0.95, transition: { duration: 0.15 } },
 }
 
+const MAX_ORDER = Number.MAX_SAFE_INTEGER
+
+function compareManualOrder(a: Product, b: Product) {
+  const orderDiff = (a.display_order ?? MAX_ORDER) - (b.display_order ?? MAX_ORDER)
+  if (orderDiff !== 0) return orderDiff
+  return (a.created_at ?? '').localeCompare(b.created_at ?? '')
+}
+
+function mergeVisibleProductOrder(categoryProducts: Product[], visibleIds: string[], reorderedVisibleIds: string[]) {
+  const visibleSet = new Set(visibleIds)
+  const productsById = new Map(categoryProducts.map((product) => [product.id, product]))
+  const reorderedVisible = reorderedVisibleIds
+    .map((id) => productsById.get(id))
+    .filter((product): product is Product => Boolean(product))
+
+  let visibleIndex = 0
+  return categoryProducts
+    .map((product) => (visibleSet.has(product.id) ? reorderedVisible[visibleIndex++] : product))
+    .map((product, index) => ({ ...product, display_order: index }))
+}
+
+function SortableProductTableRow({
+  product,
+  disabled,
+  className,
+  onClick,
+  children,
+}: {
+  product: Product
+  disabled: boolean
+  className?: string
+  onClick?: () => void
+  children: (drag: {
+    listeners: ReturnType<typeof useSortable>['listeners']
+    attributes: ReturnType<typeof useSortable>['attributes']
+    isDragging: boolean
+  }) => ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: product.id,
+    disabled,
+  })
+
+  return (
+    <motion.tr
+      ref={setNodeRef}
+      layout
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(className, isDragging && 'opacity-55')}
+      onClick={onClick}
+    >
+      {children({ attributes, listeners, isDragging })}
+    </motion.tr>
+  )
+}
+
+function SortableProductGridCard({
+  product,
+  disabled,
+  children,
+}: {
+  product: Product
+  disabled: boolean
+  children: (drag: {
+    listeners: ReturnType<typeof useSortable>['listeners']
+    attributes: ReturnType<typeof useSortable>['attributes']
+    isDragging: boolean
+  }) => ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: product.id,
+    disabled,
+  })
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      layout
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(isDragging && 'opacity-55')}
+    >
+      {children({ attributes, listeners, isDragging })}
+    </motion.div>
+  )
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────
 
 export default function ProductosAdminPage() {
@@ -136,9 +235,11 @@ export default function ProductosAdminPage() {
   const [hasDiscountFilter, setHasDiscountFilter] = useState(false)
   const [stockFilterProd, setStockFilterProd] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('table')
-  const [sortField, setSortField] = useState<SortField>('created_at')
-  const [sortDir, setSortDir] = useState<SortDirection>('desc')
+  const [sortField, setSortField] = useState<SortField>('display_order')
+  const [sortDir, setSortDir] = useState<SortDirection>('asc')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [reordering, setReordering] = useState(false)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -221,6 +322,11 @@ export default function ProductosAdminPage() {
     fetchProducts()
     fetchCategories()
   }, [fetchProducts, fetchCategories])
+  const categoryRank = useMemo(() => {
+    const rank = new Map<string, number>()
+    categories.forEach((category, index) => rank.set(category.value, index))
+    return rank
+  }, [categories])
 
   useEffect(() => {
     if (searchParams.get('import') === '1') {
@@ -259,6 +365,11 @@ export default function ProductosAdminPage() {
     result.sort((a, b) => {
       let cmp = 0
       switch (sortField) {
+        case 'display_order': {
+          const categoryDiff = (categoryRank.get(a.category) ?? MAX_ORDER) - (categoryRank.get(b.category) ?? MAX_ORDER)
+          cmp = categoryDiff !== 0 ? categoryDiff : compareManualOrder(a, b)
+          break
+        }
         case 'name': cmp = a.name.localeCompare(b.name, 'es'); break
         case 'category': cmp = a.category.localeCompare(b.category, 'es'); break
         case 'country': cmp = (a.origin_country ?? a.origin ?? '').localeCompare(b.origin_country ?? b.origin ?? '', 'es'); break
@@ -269,12 +380,18 @@ export default function ProductosAdminPage() {
       return sortDir === 'asc' ? cmp : -cmp
     })
     return result
-  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter])
+  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter, categoryRank])
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize
     return filteredProducts.slice(start, start + pageSize)
   }, [filteredProducts, page, pageSize])
+  const reorderEnabled = viewMode !== 'table' && categoryFilter !== 'all' && sortField === 'display_order' && sortDir === 'asc'
+  const visibleReorderProducts = viewMode === 'list' ? paginatedProducts : filteredProducts
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   // ─── Derived ──────────────────────────────────────────────────
 
@@ -346,6 +463,72 @@ export default function ProductosAdminPage() {
       setSortDir('asc')
     }
   }, [sortField])
+
+  const persistProductOrder = useCallback(async (nextProducts: Product[], previousProducts: Product[], persistedIds: string[]) => {
+    setProducts(nextProducts)
+    setReordering(true)
+    try {
+      const res = await fetch('/api/admin/products/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: persistedIds }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Orden actualizado', { icon: <Check className="h-4 w-4" /> })
+    } catch {
+      setProducts(previousProducts)
+      toast.error('No se pudo actualizar el orden')
+    } finally {
+      setReordering(false)
+    }
+  }, [])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setDraggingId(null)
+    if (!reorderEnabled || reordering) return
+
+    const activeId = String(event.active.id)
+    const overId = event.over?.id ? String(event.over.id) : null
+    if (!overId || activeId === overId) return
+
+    const visibleIds = visibleReorderProducts.map((product) => product.id)
+    const oldIndex = visibleIds.indexOf(activeId)
+    const newIndex = visibleIds.indexOf(overId)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const previousProducts = [...products]
+    const categoryProducts = previousProducts
+      .filter((product) => product.category === categoryFilter)
+      .sort(compareManualOrder)
+    const reorderedVisibleIds = arrayMove(visibleIds, oldIndex, newIndex)
+    const nextCategoryProducts = mergeVisibleProductOrder(categoryProducts, visibleIds, reorderedVisibleIds)
+    const nextProducts = previousProducts.map((product) => (
+      product.category === categoryFilter
+        ? nextCategoryProducts.find((candidate) => candidate.id === product.id) ?? product
+        : product
+    ))
+    void persistProductOrder(nextProducts, previousProducts, nextCategoryProducts.map((product) => product.id))
+  }, [categoryFilter, persistProductOrder, products, reorderEnabled, reordering, visibleReorderProducts])
+
+  const toggleFavorite = useCallback(async (product: Product) => {
+    const nextFavorite = product.is_favorite !== true
+    const previousProducts = products
+    setProducts((prev) => prev.map((item) => (
+      item.id === product.id ? { ...item, is_favorite: nextFavorite } : item
+    )))
+    try {
+      const res = await fetchWithCredentials(`/api/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_favorite: nextFavorite }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(nextFavorite ? 'Marcado como favorito' : 'Quitado de favoritos')
+    } catch {
+      setProducts(previousProducts)
+      toast.error('No se pudo actualizar favorito')
+    }
+  }, [products])
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -828,13 +1011,20 @@ export default function ProductosAdminPage() {
         {/* View toggle */}
         <div className="flex gap-1 bg-white rounded-xl p-1 border border-gray-200 shadow-sm shrink-0">
           <button onClick={() => setViewMode('table')} className={cn('p-1.5 rounded-lg transition-all', viewMode === 'table' ? 'bg-primary-dark text-white shadow-sm' : 'text-gray-400 hover:text-gray-600')}>
+            <Table2 className="w-4 h-4" />
+          </button>
+          <button onClick={() => setViewMode('list')} className={cn('p-1.5 rounded-lg transition-all', viewMode === 'list' ? 'bg-primary-dark text-white shadow-sm' : 'text-gray-400 hover:text-gray-600')}>
             <List className="w-4 h-4" />
           </button>
-          <button onClick={() => setViewMode('grid')} className={cn('p-1.5 rounded-lg transition-all', viewMode === 'grid' ? 'bg-primary-dark text-white shadow-sm' : 'text-gray-400 hover:text-gray-600')}>
+          <button onClick={() => setViewMode('kanban')} className={cn('p-1.5 rounded-lg transition-all', viewMode === 'kanban' ? 'bg-primary-dark text-white shadow-sm' : 'text-gray-400 hover:text-gray-600')}>
             <LayoutGrid className="w-4 h-4" />
           </button>
         </div>
       </div>
+
+      <p className="text-[11px] text-gray-400">
+        El orden del menú respeta primero la categoría y luego el orden manual del producto. La vista tabla es informativa; para reordenar, usa lista o kanban, filtra una categoría y arrastra desde el handle.
+      </p>
 
       {/* Bulk actions */}
       <AnimatePresence>
@@ -864,208 +1054,398 @@ export default function ProductosAdminPage() {
 
       {/* Content */}
       {loading ? (
-        viewMode === 'table' ? (
-          <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        viewMode === 'kanban' ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : (
+          <div className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <Table className="table-fixed">
               <TableBody>
                 {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
               </TableBody>
             </Table>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
-          </div>
         )
-      ) : (
-        <AnimatePresence mode="wait">
-          {viewMode === 'table' ? (
-            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-w-0">
-              <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                <Table className="table-fixed">
-                  <TableHeader>
-                    <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                      <TableHead className="w-[4%] min-w-0 py-2 pl-6 pr-2">
-                        <button
-                          onClick={toggleSelectAll}
-                          className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
-                            allVisibleSelected ? 'bg-nurei-cta border-nurei-cta' : 'border-gray-300 hover:border-gray-400'
-                          )}
-                        >
-                          {allVisibleSelected && <Check className="w-3 h-3 text-gray-900" />}
-                        </button>
-                      </TableHead>
-                      <TableHead className="w-[6%] min-w-0 py-2 pl-2 pr-4" />
-                      <TableHead className="w-[26%] min-w-0 whitespace-normal p-1.5 text-[10px]">
-                        <SortHeader field="name">Nombre</SortHeader>
-                      </TableHead>
-                      <TableHead className="w-[13%] min-w-0 whitespace-normal p-1.5 text-[10px]">
-                        <SortHeader field="category">Categoria</SortHeader>
-                      </TableHead>
-                      <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-[10px]">
-                        <SortHeader field="country">País</SortHeader>
-                      </TableHead>
-                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-[10px]">
-                        <SortHeader field="price">Precio</SortHeader>
-                      </TableHead>
-                      <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-[10px]">
-                        <SortHeader field="status">Estado</SortHeader>
-                      </TableHead>
-                      <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">Stock</TableHead>
-                      <TableHead className="w-[19%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <AnimatePresence mode="popLayout">
-                      {paginatedProducts.map((product, idx) => {
-                        const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦', color: undefined }
-                        const price = product.base_price ?? product.price
-                        return (
-                          <motion.tr
-                            key={product.id}
-                            custom={idx}
-                            variants={rowVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            layout
-                            className={cn('border-b transition-colors group cursor-pointer',
-                              selectedIds.has(product.id) ? 'bg-primary-cyan/5' : 'hover:bg-gray-50/80'
+      ) : viewMode === 'table' ? (
+        <motion.div key="table-static" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-w-0">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow className="bg-gray-50 hover:bg-gray-50">
+                  <TableHead className="w-[4%] min-w-0 py-2 pl-6 pr-2">
+                    <button
+                      onClick={toggleSelectAll}
+                      className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+                        allVisibleSelected ? 'bg-nurei-cta border-nurei-cta' : 'border-gray-300 hover:border-gray-400'
+                      )}
+                    >
+                      {allVisibleSelected && <Check className="w-3 h-3 text-gray-900" />}
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[6%] min-w-0 py-2 pl-2 pr-4" />
+                  <TableHead className="w-[27%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                    <SortHeader field="name">Nombre</SortHeader>
+                  </TableHead>
+                  <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                    <SortHeader field="category">Categoria</SortHeader>
+                  </TableHead>
+                  <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                    <SortHeader field="country">País</SortHeader>
+                  </TableHead>
+                  <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                    <SortHeader field="price">Precio</SortHeader>
+                  </TableHead>
+                  <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                    <SortHeader field="status">Estado</SortHeader>
+                  </TableHead>
+                  <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">Stock</TableHead>
+                  <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">Favorito</TableHead>
+                  <TableHead className="w-[15%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <AnimatePresence mode="popLayout">
+                  {paginatedProducts.map((product) => {
+                    const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦', color: undefined }
+                    const price = product.base_price ?? product.price
+                    return (
+                      <motion.tr
+                        key={product.id}
+                        layout
+                        className={cn('border-b transition-colors group cursor-pointer last:border-0',
+                          selectedIds.has(product.id) ? 'bg-primary-cyan/5' : 'hover:bg-gray-50'
+                        )}
+                        onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
+                      >
+                        <TableCell className="min-w-0 py-2 pl-6 pr-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => toggleSelect(product.id)}
+                            className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+                              selectedIds.has(product.id) ? 'bg-primary-cyan border-primary-cyan' : 'border-gray-300 hover:border-gray-400'
                             )}
-                            onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
                           >
-                            <TableCell className="min-w-0 py-2 pl-6 pr-2" onClick={(e) => e.stopPropagation()}>
+                            {selectedIds.has(product.id) && <Check className="w-3 h-3 text-primary-dark" />}
+                          </button>
+                        </TableCell>
+                        <TableCell className="min-w-0 py-2 pl-2 pr-4">
+                          <div className="mx-auto h-11 w-11 max-w-full rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
+                            {product.images?.[product.primary_image_index ?? 0] ? (
+                              <img src={product.images[product.primary_image_index ?? 0]} alt={product.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-xl opacity-30">{catInfo.emoji}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-0 p-1.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900">{product.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-[11px] text-gray-400">{product.sku}</p>
+                              {product.compare_at_price && product.compare_at_price > price && (
+                                <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+                                  -{Math.round((1 - price / product.compare_at_price) * 100)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-0 p-1.5">
+                          <span
+                            className="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium"
+                            style={catInfo.color
+                              ? { backgroundColor: `${catInfo.color}18`, borderColor: `${catInfo.color}55`, color: catInfo.color, border: '1px solid' }
+                              : { backgroundColor: '#f3f4f6', color: '#4b5563' }}
+                          >
+                            {catInfo.label}
+                          </span>
+                        </TableCell>
+                        <TableCell className="min-w-0 p-1.5">
+                          <span className="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-100">
+                            {product.origin_country ?? product.origin ?? 'Sin país'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="min-w-0 p-1.5">
+                          <div className="min-w-0">
+                            <span className="font-semibold text-sm text-primary-dark">{formatPrice(price)}</span>
+                            {product.compare_at_price && product.compare_at_price > price && (
+                              <span className="text-[10px] text-gray-400 line-through ml-1">{formatPrice(product.compare_at_price)}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-0 p-1.5">
+                          <span className={cn('inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium', STATUS_COLORS[product.status ?? 'draft'])}>
+                            {STATUS_LABELS[product.status ?? 'draft']}
+                          </span>
+                        </TableCell>
+                        <TableCell className="min-w-0 p-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="inline-flex items-center justify-center gap-0.5">
+                            {product.has_variants ? (
+                              <span className="text-xs font-medium text-gray-400 italic">Vars.</span>
+                            ) : (
+                              <span className={cn('text-sm font-medium tabular-nums',
+                                (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5) ? 'text-red-500' : 'text-gray-600'
+                              )}>
+                                {product.stock_quantity ?? 0}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-0 p-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            title={product.is_favorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                            onClick={() => toggleFavorite(product)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-amber-50"
+                          >
+                            <Star className={cn('h-4 w-4', product.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-gray-300')} />
+                          </button>
+                        </TableCell>
+                        <TableCell className="min-w-0 max-w-full p-1 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5">
+                            <button
+                              type="button"
+                              title="Editar"
+                              onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
+                              className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Duplicar"
+                              onClick={() => {
+                                setDuplicatingProduct(product)
+                                setDuplicateConfirmOpen(true)
+                              }}
+                              className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Eliminar"
+                              onClick={() => { setDeletingProduct(product); setDeleteDialogOpen(true) }}
+                              className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-red-50 hover:text-red-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    )
+                  })}
+                </AnimatePresence>
+              </TableBody>
+            </Table>
+            {filteredProducts.length === 0 && (
+              <div className="py-16 text-center">
+                <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500 font-medium">No se encontraron productos</p>
+                <p className="text-xs text-gray-400 mt-1">Intenta cambiar los filtros</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-gray-500">Página {page} de {totalPages}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => {
+                    const next = Number(value)
+                    if (!Number.isFinite(next)) return
+                    setPageSize(next)
+                    setPage(1)
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[104px] rounded-full border-gray-200 bg-white text-xs font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+                <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Siguiente</Button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={(event) => setDraggingId(String(event.active.id))}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setDraggingId(null)}
+        >
+        <AnimatePresence mode="wait">
+          {viewMode === 'list' ? (
+            <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-w-0">
+              <SortableContext items={paginatedProducts.map((product) => product.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="inline-flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-800"
+                    >
+                      <span className={cn('flex h-4 w-4 items-center justify-center rounded border-2',
+                        allVisibleSelected ? 'bg-nurei-cta border-nurei-cta' : 'border-gray-300'
+                      )}>
+                        {allVisibleSelected && <Check className="h-3 w-3 text-gray-900" />}
+                      </span>
+                      Seleccionar visibles
+                    </button>
+                    <span className="text-[11px] font-semibold text-gray-400">
+                      {reorderEnabled ? 'Arrastra desde el handle' : 'Filtra una categoría para ordenar'}
+                    </span>
+                  </div>
+                  <AnimatePresence mode="popLayout">
+                    {paginatedProducts.map((product, idx) => {
+                      const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦', color: undefined }
+                      const price = product.base_price ?? product.price
+                      return (
+                        <SortableProductGridCard key={product.id} product={product} disabled={!reorderEnabled}>
+                          {({ attributes, listeners, isDragging }) => (
+                            <motion.div
+                              custom={idx}
+                              variants={rowVariants}
+                              initial="hidden"
+                              animate="visible"
+                              exit="exit"
+                              className={cn(
+                                'group grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border bg-white p-3 shadow-sm transition-all hover:border-gray-300 hover:shadow-md xl:grid-cols-[auto_auto_minmax(0,1.5fr)_minmax(15rem,1fr)_auto]',
+                                selectedIds.has(product.id) ? 'border-primary-cyan/40 ring-2 ring-primary-cyan/10' : 'border-gray-200',
+                                isDragging && 'opacity-60',
+                              )}
+                              onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
+                            >
                               <button
-                                onClick={() => toggleSelect(product.id)}
-                                className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+                                type="button"
+                                {...attributes}
+                                {...listeners}
+                                disabled={!reorderEnabled}
+                                onClick={(e) => e.stopPropagation()}
+                                className={cn(
+                                  'flex h-11 w-11 items-center justify-center rounded-lg transition-colors',
+                                  reorderEnabled ? 'cursor-grab text-gray-300 hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing' : 'cursor-not-allowed text-gray-200',
+                                )}
+                                aria-label="Reordenar producto"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); toggleSelect(product.id) }}
+                                className={cn('flex h-5 w-5 items-center justify-center rounded border-2 transition-colors',
                                   selectedIds.has(product.id) ? 'bg-primary-cyan border-primary-cyan' : 'border-gray-300 hover:border-gray-400'
                                 )}
+                                aria-label="Seleccionar producto"
                               >
-                                {selectedIds.has(product.id) && <Check className="w-3 h-3 text-primary-dark" />}
+                                {selectedIds.has(product.id) && <Check className="h-3 w-3 text-primary-dark" />}
                               </button>
-                            </TableCell>
-                            <TableCell className="min-w-0 py-2 pl-2 pr-4">
-                              <div className="mx-auto h-11 w-11 max-w-full rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden">
-                                {product.images?.[product.primary_image_index ?? 0] ? (
-                                  <img src={product.images[product.primary_image_index ?? 0]} alt={product.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <span className="text-xl opacity-30">{catInfo.emoji}</span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="min-w-0 p-1.5">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-primary-dark">{product.name}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <p className="text-[11px] text-gray-400">{product.sku}</p>
-                                  {product.has_variants && (
-                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-0.5">
-                                      <Layers className="w-2.5 h-2.5" /> Variantes
-                                    </Badge>
-                                  )}
-                                  {product.compare_at_price && product.compare_at_price > price && (
-                                    <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
-                                      -{Math.round((1 - price / product.compare_at_price) * 100)}%
-                                    </span>
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+                                  {product.images?.[product.primary_image_index ?? 0] ? (
+                                    <img src={product.images[product.primary_image_index ?? 0]} alt={product.name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-2xl opacity-30">{catInfo.emoji}</div>
                                   )}
                                 </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-gray-950">{product.name}</p>
+                                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                                    {product.sku && <span className="truncate text-[11px] font-medium text-gray-400">{product.sku}</span>}
+                                    {product.has_variants && (
+                                      <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
+                                        <Layers className="h-3 w-3" /> Variantes
+                                      </Badge>
+                                    )}
+                                    {product.compare_at_price && product.compare_at_price > price && (
+                                      <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-500">
+                                        -{Math.round((1 - price / product.compare_at_price) * 100)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </TableCell>
-                            <TableCell className="min-w-0 p-1.5">
-                              <span
-                                className="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium"
-                                style={catInfo.color
-                                  ? { backgroundColor: `${catInfo.color}18`, borderColor: `${catInfo.color}55`, color: catInfo.color, border: '1px solid' }
-                                  : { backgroundColor: '#f3f4f6', color: '#4b5563' }}
-                              >
-                                {catInfo.label}
-                              </span>
-                            </TableCell>
-                            <TableCell className="min-w-0 p-1.5">
-                              <span className="inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700 border border-sky-100">
-                                {product.origin_country ?? product.origin ?? 'Sin país'}
-                              </span>
-                            </TableCell>
-                            <TableCell className="min-w-0 p-1.5">
-                              <div className="min-w-0">
-                                <span className="font-semibold text-sm text-primary-dark">{formatPrice(price)}</span>
-                                {product.compare_at_price && product.compare_at_price > price && (
-                                  <span className="text-[10px] text-gray-400 line-through ml-1">{formatPrice(product.compare_at_price)}</span>
-                                )}
+                              <div className="col-span-3 grid min-w-0 grid-cols-2 items-center gap-2 text-xs sm:grid-cols-4 xl:col-span-1">
+                                <span
+                                  className="truncate rounded-full px-2 py-1 font-semibold"
+                                  style={catInfo.color
+                                    ? { backgroundColor: `${catInfo.color}18`, color: catInfo.color }
+                                    : { backgroundColor: '#f3f4f6', color: '#4b5563' }}
+                                >
+                                  {catInfo.label}
+                                </span>
+                                <span className="truncate rounded-full bg-sky-50 px-2 py-1 font-semibold text-sky-700">
+                                  {product.origin_country ?? product.origin ?? 'Sin país'}
+                                </span>
+                                <span className="font-bold text-gray-950">
+                                  {formatPrice(price)}
+                                </span>
+                                <span className={cn('truncate rounded-full px-2 py-1 text-center font-semibold', STATUS_COLORS[product.status ?? 'draft'])}>
+                                  {STATUS_LABELS[product.status ?? 'draft']}
+                                </span>
                               </div>
-                            </TableCell>
-                            <TableCell className="min-w-0 p-1.5">
-                              <span className={cn('inline-block max-w-full truncate px-2 py-0.5 rounded-full text-[11px] font-medium', STATUS_COLORS[product.status ?? 'draft'])}>
-                                {STATUS_LABELS[product.status ?? 'draft']}
-                              </span>
-                            </TableCell>
-                            <TableCell className="min-w-0 p-1.5 text-center" onClick={(e) => e.stopPropagation()}>
-                              <div className="inline-flex items-center justify-center gap-0.5">
-                                {product.has_variants ? (
-                                  <span className="text-xs font-medium text-gray-400 italic">Vars.</span>
-                                ) : (
-                                  <span className={cn('text-sm font-medium tabular-nums',
-                                    (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5) ? 'text-red-500' : 'text-gray-600'
-                                  )}>
-                                    {product.stock_quantity ?? 0}
-                                  </span>
-                                )}
+                              <div className="col-span-3 flex items-center justify-end gap-1 xl:col-span-1" onClick={(e) => e.stopPropagation()}>
+                                <span className={cn('mr-1 rounded-full px-2 py-1 text-xs font-semibold',
+                                  product.has_variants
+                                    ? 'bg-gray-100 text-gray-500'
+                                    : (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5)
+                                      ? 'bg-red-50 text-red-600'
+                                      : 'bg-emerald-50 text-emerald-700',
+                                )}>
+                                  {product.has_variants ? 'Vars.' : `${product.stock_quantity ?? 0} stock`}
+                                </span>
                                 <button
                                   type="button"
-                                  title="Ajustar inventario"
-                                  className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
-                                  onClick={() => {
-                                    if (product.has_variants) {
-                                      openVariantStockModal(product)
-                                    } else {
-                                      setStockTarget(product)
-                                      setStockAdjustment('0')
-                                      setStockNote('')
-                                      setStockModalOpen(true)
-                                    }
-                                  }}
+                                  title={product.is_favorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                                  onClick={() => toggleFavorite(product)}
+                                  className="rounded-lg p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-500"
                                 >
-                                  <Pencil className="h-3.5 w-3.5" />
+                                  <Star className={cn('h-4 w-4', product.is_favorite && 'fill-amber-400 text-amber-400')} />
                                 </button>
-                              </div>
-                            </TableCell>
-                            <TableCell className="min-w-0 max-w-full p-1 text-right" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5">
                                 <button
                                   type="button"
                                   title="Editar"
                                   onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
-                                  className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                                  className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
                                 >
-                                  <Pencil className="h-3.5 w-3.5" />
+                                  <Pencil className="h-4 w-4" />
                                 </button>
                                 <button
                                   type="button"
                                   title="Duplicar"
-                                  onClick={() => {
-                                    setDuplicatingProduct(product)
-                                    setDuplicateConfirmOpen(true)
-                                  }}
-                                  className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                                  onClick={() => { setDuplicatingProduct(product); setDuplicateConfirmOpen(true) }}
+                                  className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-primary-dark"
                                 >
-                                  <Copy className="h-3.5 w-3.5" />
+                                  <Copy className="h-4 w-4" />
                                 </button>
                                 <button
                                   type="button"
                                   title="Eliminar"
                                   onClick={() => { setDeletingProduct(product); setDeleteDialogOpen(true) }}
-                                  className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-red-50 hover:text-red-500"
+                                  className="rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-500"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
-                            </TableCell>
-                          </motion.tr>
-                        )
-                      })}
-                    </AnimatePresence>
-                  </TableBody>
-                </Table>
+                            </motion.div>
+                          )}
+                        </SortableProductGridCard>
+                      )
+                    })}
+                  </AnimatePresence>
+                </div>
+              </SortableContext>
                 {filteredProducts.length === 0 && (
                   <div className="py-16 text-center">
                     <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -1073,7 +1453,6 @@ export default function ProductosAdminPage() {
                     <p className="text-xs text-gray-400 mt-1">Intenta cambiar los filtros</p>
                   </div>
                 )}
-              </div>
               <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-gray-500">Página {page} de {totalPages}</p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1106,28 +1485,35 @@ export default function ProductosAdminPage() {
               </div>
             </motion.div>
           ) : (
-            /* Grid View */
+            /* Kanban View */
             <motion.div
-              key="grid"
+              key="kanban"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4"
             >
+              <SortableContext items={filteredProducts.map((product) => product.id)} strategy={rectSortingStrategy}>
               <AnimatePresence mode="popLayout">
                 {filteredProducts.map((product, idx) => {
                   const catInfo = categories.find(c => c.value === product.category) ?? { value: product.category, label: product.category, emoji: '📦', color: undefined }
                   const price = product.base_price ?? product.price
                   return (
-                    <motion.div
+                    <SortableProductGridCard
                       key={product.id}
+                      product={product}
+                      disabled={!reorderEnabled}
+                    >
+                      {({ attributes, listeners, isDragging }) => (
+                    <motion.div
                       custom={idx}
                       variants={cardVariants}
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      layout
-                      className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:border-gray-200 transition-all group cursor-pointer"
+                      className={cn('bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:border-gray-200 transition-all group cursor-pointer',
+                        isDragging && 'opacity-70'
+                      )}
                       onClick={() => router.push(`/admin/productos/${product.id}/edit`)}
                     >
                       <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 h-28 sm:h-36 flex items-center justify-center overflow-hidden">
@@ -1154,6 +1540,20 @@ export default function ProductosAdminPage() {
                             -{Math.round((1 - price / product.compare_at_price) * 100)}%
                           </div>
                         )}
+                        <button
+                          type="button"
+                          {...attributes}
+                          {...listeners}
+                          disabled={!reorderEnabled}
+                          onClick={(e) => e.stopPropagation()}
+                          className={cn(
+                            'absolute bottom-2 right-2 flex h-11 w-11 items-center justify-center rounded-xl bg-white/88 backdrop-blur-sm transition-colors',
+                            reorderEnabled ? 'cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing' : 'cursor-not-allowed text-gray-200',
+                          )}
+                          aria-label="Reordenar producto"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </button>
                       </div>
                       <div className="p-3 sm:p-4">
                         <span
@@ -1178,9 +1578,12 @@ export default function ProductosAdminPage() {
                         </div>
                       </div>
                     </motion.div>
+                      )}
+                    </SortableProductGridCard>
                   )
                 })}
               </AnimatePresence>
+              </SortableContext>
               {filteredProducts.length === 0 && (
                 <div className="col-span-full py-16 text-center">
                   <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -1190,6 +1593,16 @@ export default function ProductosAdminPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        <DragOverlay>
+          {draggingId ? (
+            <div className="rounded-2xl border border-primary-cyan/20 bg-white/95 px-4 py-3 shadow-2xl">
+              <p className="text-sm font-semibold text-primary-dark">
+                {products.find((product) => product.id === draggingId)?.name ?? 'Producto'}
+              </p>
+            </div>
+          ) : null}
+        </DragOverlay>
+        </DndContext>
       )}
 
       {/* Delete Dialog */}

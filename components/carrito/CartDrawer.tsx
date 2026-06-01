@@ -180,6 +180,19 @@ export function CartDrawer() {
     }
   }, [isCartOpen, closeCart])
 
+  // Restore body overflow when cart closes (Radix Sheet sets overflow:hidden on open)
+  useEffect(() => {
+    if (!isCartOpen) {
+      document.body.style.overflow = ''
+    }
+  }, [isCartOpen])
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
   const { bootstrap, loading: checkoutLoading } = useStoreCheckout()
 
   const minOrder = bootstrap?.checkout.min_order_cents ?? 0

@@ -41,8 +41,20 @@ export async function PATCH(
   if (guard.error) return guard.error
   try {
     const { id } = await params
-    const body = (await req.json()) as { status?: string; note?: string }
+    const body = (await req.json()) as { status?: string; note?: string; tracking_number?: string | null; carrier?: string | null }
     const newStatus = body.status as OrderStatus | undefined
+
+    // Tracking-only update path — no status transition needed
+    if (!newStatus && (body.tracking_number !== undefined || body.carrier !== undefined)) {
+      const supabase = createServiceClient()
+      const { error } = await supabase
+        .from('orders')
+        .update({ tracking_number: body.tracking_number ?? null, carrier: body.carrier ?? null })
+        .eq('id', id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      const order = await getOrderDetail(supabase, id)
+      return NextResponse.json({ data: { order } })
+    }
 
     if (!newStatus) {
       return NextResponse.json({ error: 'Estatus requerido' }, { status: 400 })

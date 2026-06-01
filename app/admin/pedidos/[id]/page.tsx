@@ -7,7 +7,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Package,
   Phone, Mail, MapPin, Copy, Send, Printer, Loader2,
   Clock, CreditCard, Truck, CheckCircle2, XCircle, AlertTriangle,
-  RotateCcw, Ban, MessageSquare,
+  RotateCcw, Ban, MessageSquare, ExternalLink,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -129,6 +129,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [cancelReason, setCancelReason] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
 
+  const [trackingNumber, setTrackingNumber] = useState('')
+  const [trackingCarrier, setTrackingCarrier] = useState('')
+  const [trackingLoading, setTrackingLoading] = useState(false)
+
   const [orderCopied, setOrderCopied] = useState(false)
   const orderCopyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -140,6 +144,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       if (!res.ok || !json.data) { toast.error(json.error ?? 'Pedido no encontrado'); return }
       setOrder(json.data.order)
       setAdjacent(json.data.adjacent)
+      setTrackingNumber(json.data.order.tracking_number ?? '')
+      setTrackingCarrier(json.data.order.carrier ?? '')
     } catch { toast.error('Error de conexión') }
     finally { setLoading(false) }
   }, [id])
@@ -210,6 +216,43 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       fetchOrder()
     } catch { toast.error('Error') }
     finally { setNoteLoading(false) }
+  }
+
+  const saveTracking = async () => {
+    if (!order) return
+    setTrackingLoading(true)
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracking_number: trackingNumber.trim() || null, carrier: trackingCarrier || null }),
+      })
+      const json = await res.json() as { error?: string; data?: { order: Order } }
+      if (!res.ok) { toast.error(json.error ?? 'Error'); return }
+      toast.success('Guia guardada')
+      if (json.data?.order) setOrder(json.data.order)
+    } catch { toast.error('Error') }
+    finally { setTrackingLoading(false) }
+  }
+
+  const openTrackingUrl = () => {
+    const n = (order?.tracking_number ?? trackingNumber).trim()
+    if (!n) return
+    const carrier = order?.carrier ?? trackingCarrier
+    const urls: Record<string, string> = {
+      DHL: `https://www.dhl.com/mx-es/home/rastreo.html?tracking-id=${n}`,
+      FedEx: `https://www.fedex.com/fedextrack/?trknbr=${n}`,
+      Estafeta: `https://www.estafeta.com/herramientas/rastreo?wayBillType=0&wayBill=${n}`,
+      'J&T': `https://www.jtexpress.mx/index/query/gzquery.html?bills=${n}`,
+      '99Minutos': `https://99minutos.com/track/${n}`,
+    }
+    const url = urls[carrier ?? '']
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else {
+      void navigator.clipboard.writeText(n)
+      toast.success('Número copiado al portapapeles')
+    }
   }
 
   const copyAddress = () => {
@@ -537,6 +580,50 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     )
                   })}
                 </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tracking */}
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-3">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Numero de guia</p>
+            <div className="flex gap-2">
+              <select
+                value={trackingCarrier}
+                onChange={(e) => setTrackingCarrier(e.target.value)}
+                className="h-9 rounded-xl border border-gray-200 bg-white text-sm px-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-cyan/30"
+              >
+                <option value="">Paqueteria</option>
+                <option value="DHL">DHL</option>
+                <option value="FedEx">FedEx</option>
+                <option value="Estafeta">Estafeta</option>
+                <option value="J&T">J&T Express</option>
+                <option value="99Minutos">99Minutos</option>
+                <option value="Otro">Otro</option>
+              </select>
+              <Input
+                className="flex-1 h-9 text-sm rounded-xl border-gray-200 font-mono"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+                placeholder="Número de guia…"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => { void saveTracking() }}
+                disabled={trackingLoading}
+                className="h-9 rounded-xl text-sm px-4"
+              >
+                {trackingLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar guia'}
+              </Button>
+              {(order?.tracking_number || trackingNumber.trim()) && (
+                <Button
+                  variant="outline"
+                  onClick={openTrackingUrl}
+                  className="h-9 rounded-xl text-sm px-4 gap-1.5"
+                >
+                  Rastrear <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
               )}
             </div>
           </div>

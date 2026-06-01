@@ -17,6 +17,7 @@ import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice, formatDate } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
+import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 import type { Order, OrderStatus, OrderUpdate, Address, UserCoupon } from '@/types'
 
 const STATUS_ICON_MAP: Partial<Record<OrderStatus, React.ElementType>> = {
@@ -306,6 +307,49 @@ function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) 
               )}
             </div>
           </div>
+        </div>
+
+        {/* Shipping tracking */}
+        <div>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Información de envío</h3>
+          {order.tracking_number ? (
+            <div className="flex items-start gap-2.5 rounded-xl border border-blue-100 bg-blue-50 p-3">
+              <Truck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                {order.carrier && (
+                  <p className="text-xs text-blue-700 font-semibold">{order.carrier}</p>
+                )}
+                <p className="text-sm font-mono text-blue-900 mt-0.5 break-all">{order.tracking_number}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const n = order.tracking_number!
+                    const urls: Record<string, string> = {
+                      DHL: `https://www.dhl.com/mx-es/home/rastreo.html?tracking-id=${n}`,
+                      FedEx: `https://www.fedex.com/fedextrack/?trknbr=${n}`,
+                      Estafeta: `https://www.estafeta.com/herramientas/rastreo?wayBillType=0&wayBill=${n}`,
+                      'J&T': `https://www.jtexpress.mx/index/query/gzquery.html?bills=${n}`,
+                      '99Minutos': `https://99minutos.com/track/${n}`,
+                    }
+                    const url = urls[order.carrier ?? '']
+                    if (url) {
+                      window.open(url, '_blank', 'noopener,noreferrer')
+                    } else {
+                      void navigator.clipboard.writeText(n)
+                      toast.success('Número copiado')
+                    }
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  Rastrear envío <ExternalLink className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 leading-relaxed">
+              Una vez que tu pedido sea enviado, podrás consultar el número de guía aquí mismo.
+            </p>
+          )}
         </div>
 
         {/* Cancellation info */}
@@ -1272,7 +1316,13 @@ function PerfilPageContent() {
     })
   }, [mounted, isAuthenticated, isLoading, router, refreshUser, loadAddresses, loadOrders])
 
-  if (!mounted || isLoading || !isAuthenticated || !user) return null
+  if (!mounted || isLoading || !isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-16">
+        <SnackWaitAnimation stage="profile" />
+      </div>
+    )
+  }
 
   const pendingOrders = activeOrderCount
 

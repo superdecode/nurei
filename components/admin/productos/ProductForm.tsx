@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Save, Plus, X, ChevronDown, ChevronUp, Package, ImageIcon,
-  Layers, Settings2, Flame, Trash2,
+  Layers, Settings2, Flame, Trash2, Star,
   ArrowLeft, ChevronLeft, ChevronRight, Loader2, GripVertical, Check, Sparkles, Search,
   SortDesc, Trash, UploadCloud, CheckCircle2, Settings,
 } from 'lucide-react'
@@ -57,6 +57,7 @@ interface ProductFormData {
   allow_backorder: boolean
   is_featured: boolean
   is_limited: boolean
+  is_favorite: boolean
   inventory_note: string
   brand_id: string | null
 }
@@ -147,7 +148,7 @@ const emptyForm: ProductFormData = {
   status: 'active', campaign: '', tags: [], images: [], primary_image_index: 0,
   has_variants: false, dimensions_cm: { length: '', width: '', height: '' },
   stock_quantity: '', low_stock_threshold: '5', track_inventory: true,
-  allow_backorder: false, is_featured: false, is_limited: false,
+  allow_backorder: false, is_featured: false, is_limited: false, is_favorite: false,
   inventory_note: '',
 }
 
@@ -183,6 +184,7 @@ function productToForm(p: Product): ProductFormData {
     allow_backorder: p.allow_backorder ?? false,
     is_featured: p.is_featured ?? false,
     is_limited: p.is_limited ?? false,
+    is_favorite: p.is_favorite ?? false,
     inventory_note: '',
   }
 }
@@ -696,6 +698,7 @@ export default function ProductForm({
         allow_backorder: form.allow_backorder,
         is_featured: form.is_featured,
         is_limited: form.is_limited,
+        is_favorite: form.is_favorite,
         availability_score: 100,
         inventory_note: form.inventory_note.trim() || undefined,
       }
@@ -1453,6 +1456,46 @@ export default function ProductForm({
               <div className="sm:col-span-2 flex flex-col sm:flex-row flex-wrap gap-4 sm:gap-8 rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50/80 to-white p-4">
                 <Toggle value={form.is_featured} onChange={(v) => update({ is_featured: v })} label="Destacado (Popular)" />
                 <Toggle value={form.is_limited} onChange={(v) => update({ is_limited: v })} label="Edición limitada" />
+                {/* is_favorite — Nurei team curated favorite, separate from customer favorites */}
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => update({ is_favorite: !form.is_favorite })}
+                    className={cn(
+                      'relative w-10 h-5.5 rounded-full transition-colors duration-200 flex-shrink-0',
+                      form.is_favorite ? 'bg-amber-400' : 'bg-gray-300'
+                    )}
+                  >
+                    <span className={cn(
+                      'absolute top-0.5 left-0.5 w-4.5 h-4.5 bg-white rounded-full shadow-sm transition-transform duration-200',
+                      form.is_favorite ? 'translate-x-[18px]' : 'translate-x-0'
+                    )} />
+                  </button>
+                  <span className="text-sm text-gray-700 flex items-center gap-1.5">
+                    <Star className={cn('w-3.5 h-3.5', form.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-gray-300')} />
+                    Favorito
+                  </span>
+                </label>
+                {/* Spicy toggle — inline next to other toggles */}
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => update({ requires_spice_level: !form.requires_spice_level, spice_level: !form.requires_spice_level ? 1 : 0 })}
+                    className={cn(
+                      'relative w-10 h-5.5 rounded-full transition-colors duration-200 flex-shrink-0',
+                      form.requires_spice_level ? 'bg-red-500' : 'bg-gray-300'
+                    )}
+                  >
+                    <span className={cn(
+                      'absolute top-0.5 left-0.5 w-4.5 h-4.5 bg-white rounded-full shadow-sm transition-transform duration-200',
+                      form.requires_spice_level ? 'translate-x-[18px]' : 'translate-x-0'
+                    )} />
+                  </button>
+                  <span className="text-sm text-gray-700 flex items-center gap-1.5">
+                    <Flame className={cn('w-3.5 h-3.5', form.requires_spice_level ? 'text-red-500' : 'text-gray-300')} />
+                    Opcion picante
+                  </span>
+                </label>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-500">Peso para envío (g) (opcional)</label>
@@ -1463,27 +1506,6 @@ export default function ProductForm({
                   placeholder="0"
                   className="h-10"
                 />
-              </div>
-
-              {/* Spice level — toggle manual */}
-              <div className="sm:col-span-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => update({ requires_spice_level: !form.requires_spice_level, spice_level: !form.requires_spice_level ? 1 : 0 })}
-                  className={cn(
-                    'relative w-10 h-5 rounded-full transition-colors flex-shrink-0',
-                    form.requires_spice_level ? 'bg-red-500' : 'bg-gray-200'
-                  )}
-                >
-                  <span className={cn(
-                    'absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform',
-                    form.requires_spice_level ? 'translate-x-5' : 'translate-x-0'
-                  )} />
-                </button>
-                <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5 cursor-pointer select-none" onClick={() => update({ requires_spice_level: !form.requires_spice_level, spice_level: !form.requires_spice_level ? 1 : 0 })}>
-                  <Flame className={cn('w-3.5 h-3.5', form.requires_spice_level ? 'text-red-500' : 'text-gray-300')} />
-                  Opcion picante
-                </label>
               </div>
 
               {form.requires_spice_level && (

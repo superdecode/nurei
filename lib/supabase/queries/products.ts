@@ -103,7 +103,9 @@ export async function listProducts(filters: ListFilters = {}) {
     query = query.or(`name.ilike.%${normalizedSearch}%,slug.ilike.%${normalizedSearch}%,sku.ilike.%${normalizedSearch}%`)
   }
 
-  query = query.order('created_at', { ascending: false })
+  query = query
+    .order('display_order', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
 
   const { data, error } = await query
   if (error) throw error
@@ -141,11 +143,20 @@ export async function getProductBySlug(slug: string) {
 export async function createProduct(product: Partial<Product>) {
   const supabase = createServiceClient()
   const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+  const categoryForOrder = product.category ?? 'crunchy'
+  const { data: lastOrdered } = await supabase
+    .from('products')
+    .select('display_order')
+    .eq('category', categoryForOrder)
+    .order('display_order', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+  const nextDisplayOrder = typeof lastOrdered?.display_order === 'number' ? lastOrdered.display_order + 1 : 0
   const row = {
     name: product.name ?? 'Borrador sin nombre',
     slug: product.slug ?? `borrador-${uniqueSuffix}`,
     description: product.description ?? null,
-    category: product.category ?? 'crunchy',
+    category: categoryForOrder,
     subcategory: product.subcategory ?? null,
     sku: product.sku ?? `SKU-${uniqueSuffix.toUpperCase().replace(/[^A-Z0-9-]/g, '')}`,
     brand_id: product.brand_id ?? null,
@@ -163,6 +174,7 @@ export async function createProduct(product: Partial<Product>) {
     availability_score: product.availability_score ?? 100,
     is_active: product.status !== 'archived' && (product.status ?? 'active') === 'active',
     is_featured: product.is_featured ?? false,
+    is_favorite: product.is_favorite ?? false,
     is_limited: product.is_limited ?? false,
     has_variants: product.has_variants ?? false,
     requires_spice_level: product.requires_spice_level ?? false,
@@ -176,6 +188,7 @@ export async function createProduct(product: Partial<Product>) {
     low_stock_threshold: product.low_stock_threshold ?? 5,
     track_inventory: product.track_inventory ?? true,
     allow_backorder: product.allow_backorder ?? false,
+    display_order: product.display_order ?? nextDisplayOrder,
   }
 
   const { data, error } = await supabase
@@ -198,10 +211,10 @@ export async function updateProduct(id: string, updates: Partial<Product>) {
     'name', 'slug', 'description', 'category', 'subcategory', 'sku',
     'brand_id', 'brand', 'origin', 'origin_country', 'unit_of_measure', 'spice_level',
     'weight_g', 'shipping_weight_g', 'compare_at_price', 'cost_estimate', 'availability_score',
-    'is_featured', 'is_limited', 'has_variants', 'requires_spice_level',
+    'is_featured', 'is_favorite', 'is_limited', 'has_variants', 'requires_spice_level',
     'status', 'campaign', 'images', 'primary_image_index', 'tags',
     'dimensions_cm', 'stock_quantity', 'low_stock_threshold',
-    'track_inventory', 'allow_backorder',
+    'track_inventory', 'allow_backorder', 'display_order',
   ]
 
   for (const f of fields) {
@@ -241,6 +254,19 @@ export async function deleteProduct(id: string) {
     .eq('id', id)
 
   if (error) throw error
+}
+
+export async function reorderProducts(ids: string[]) {
+  const supabase = createServiceClient()
+  const tasks = ids.map((id, index) =>
+    supabase
+      .from('products')
+      .update({ display_order: index })
+      .eq('id', id)
+  )
+  const results = await Promise.all(tasks)
+  const failed = results.find((result) => result.error)
+  if (failed?.error) throw failed.error
 }
 
 // ─── Duplicate product ──────────────────────────────────────────────────

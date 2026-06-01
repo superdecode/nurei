@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import { Toaster } from '@/components/ui/sonner'
 import { createServiceClient } from '@/lib/supabase/server'
+import { ServiceWorkerCleanup } from './ServiceWorkerCleanup'
 import './globals.css'
 
 const inter = Inter({
@@ -15,6 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-mono',
   subsets: ['latin'],
   display: 'swap',
+  preload: false,
 })
 
 export const viewport: Viewport = {
@@ -85,11 +87,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
+    <html lang="es" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`} data-scroll-behavior="smooth" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col font-sans bg-background text-foreground" suppressHydrationWarning>
         {children}
         <Toaster position="top-center" richColors theme="light" />
-        <Analytics />
+        <Analytics debug={false} />
+        <ServiceWorkerCleanup />
       </body>
     </html>
   )

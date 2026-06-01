@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { Sparkles } from 'lucide-react'
 
-type SnackWaitStage = 'creating' | 'paying' | 'confirming' | 'loading'
+type SnackWaitStage = 'creating' | 'paying' | 'confirming' | 'loading' | 'menu' | 'profile' | 'checkout'
 
 const STAGE_COPY: Record<SnackWaitStage, { title: string; subtitle: string }> = {
   creating: {
@@ -19,8 +19,20 @@ const STAGE_COPY: Record<SnackWaitStage, { title: string; subtitle: string }> = 
     subtitle: 'Estamos actualizando tu orden para que quede lista.',
   },
   loading: {
-    title: 'Cargando pedido',
-    subtitle: 'Dame un momento mientras revisamos tu información.',
+    title: 'Cargando Nurei',
+    subtitle: 'Preparando una experiencia más sabrosa.',
+  },
+  menu: {
+    title: 'Preparando el menú',
+    subtitle: 'Buscando productos, sabores y antojos.',
+  },
+  profile: {
+    title: 'Cargando tu cuenta',
+    subtitle: 'Revisando pedidos, cupones y favoritos.',
+  },
+  checkout: {
+    title: 'Preparando tu pedido',
+    subtitle: 'Ordenando carrito, envío y pago.',
   },
 }
 
