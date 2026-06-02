@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { saveCheckoutOrder } from '@/lib/server/checkout-session-store'
+import { createPublicOrderAccessToken } from '@/lib/server/order-access'
 import { createInventoryMovement } from '@/lib/supabase/queries/inventory'
 import {
   createOrderPayloadSchema,
@@ -177,6 +178,7 @@ export async function POST(request: NextRequest) {
 
     let createdOrderId: string | null = null
     let shortId = ''
+    const publicAccessToken = createPublicOrderAccessToken()
 
     const insertPayloadBase = {
       user_id: user?.id ?? null,
@@ -203,6 +205,7 @@ export async function POST(request: NextRequest) {
       source: 'web-checkout',
       payment_method: payload.payment_method,
       referral_link_id: referralLinkId ?? null,
+      public_access_token: publicAccessToken,
     }
 
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -309,6 +312,7 @@ export async function POST(request: NextRequest) {
       data: {
         order_id: createdOrderId,
         short_id: shortId,
+        public_access_token: publicAccessToken,
         subtotal,
         shipping_fee: payload.shipping.fee,
         coupon_discount: couponDiscount,

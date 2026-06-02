@@ -4,6 +4,7 @@ import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/
 import { getUserOrders } from '@/lib/supabase/queries/userOrders'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
+import { createPublicOrderAccessToken } from '@/lib/server/order-access'
 import {
   computeStandardShippingFeeCents,
   normalizeShippingFromConfig,
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
 
     // Generate short ID
     const shortId = `NUR-${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`
+    const publicAccessToken = createPublicOrderAccessToken()
 
     // Try Supabase insert; fall back to mock if not configured
     try {
@@ -140,6 +142,7 @@ export async function POST(request: NextRequest) {
           payment_status: 'pending',
           source: 'web',
           shipping_method: 'standard',
+          public_access_token: publicAccessToken,
         })
         .select()
         .single()
@@ -169,6 +172,7 @@ export async function POST(request: NextRequest) {
           data: {
             order_id: order.id,
             short_id: order.short_id,
+            public_access_token: publicAccessToken,
             subtotal,
             shipping_fee: shippingFee,
             coupon_discount: couponDiscount,

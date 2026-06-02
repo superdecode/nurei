@@ -218,6 +218,7 @@ export interface OrderItem {
 export interface Order {
   id: string
   short_id: string
+  public_access_token?: string
   user_id: string | null
   customer_name: string | null
   customer_phone: string

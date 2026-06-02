@@ -237,6 +237,7 @@ export default function TrackingPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const isSuccess = searchParams.get('success') === 'true'
+  const accessToken = searchParams.get('token')
   const [order, setOrder] = useState<Order | null>(null)
   const [storeInfo, setStoreInfo] = useState<StoreInfoResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -250,7 +251,8 @@ export default function TrackingPage() {
       const maxAttempts = isSuccess ? 6 : 3
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-          const res = await fetch(`/api/orders/${params.id}`, { cache: 'no-store' })
+          const qs = accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''
+          const res = await fetch(`/api/orders/${params.id}${qs}`, { cache: 'no-store' })
           if (res.ok) {
             const { data } = await res.json()
             const nextOrder = data.order ?? data

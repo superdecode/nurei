@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
 import { getCheckoutOrder } from '@/lib/server/checkout-session-store'
-import { getOrderById } from '@/lib/supabase/queries/userOrders'
+import { getAccessibleOrder } from '@/lib/server/order-access'
 
 export async function GET(
-  _: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
 
     try {
-      const supabase = createServiceClient()
-      const dbOrder = await getOrderById(supabase, id)
+      const publicToken = request.nextUrl.searchParams.get('token')
+      const dbOrder = await getAccessibleOrder(id, publicToken)
+      if (!dbOrder) throw new Error('Pedido no encontrado')
 
       return NextResponse.json({
         data: {
           id: dbOrder.id,
+          public_access_token: dbOrder.public_access_token,
           order_number: dbOrder.short_id,
           created_at: dbOrder.created_at,
           estimated_delivery: dbOrder.delivered_at ?? null,
@@ -45,6 +46,7 @@ export async function GET(
     return NextResponse.json({
       data: {
         id: cached.id,
+        public_access_token: null,
         order_number: cached.shortId,
         created_at: cached.createdAt,
         estimated_delivery: cached.shippingMethod.estimatedDate,

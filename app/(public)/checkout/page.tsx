@@ -74,6 +74,7 @@ type CouponState = {
 
 type OrderConfirmation = {
   id: string
+  public_access_token: string | null
   order_number: string
   created_at: string
   estimated_delivery: string | null
@@ -763,6 +764,7 @@ export default function CheckoutPage() {
       }
 
       const nextOrderId = createPayload.data.order_id as string
+      const publicAccessToken = (createPayload.data.public_access_token as string | undefined) ?? null
       setOrderId(nextOrderId)
 
       setProcessingStage('paying')
@@ -770,7 +772,7 @@ export default function CheckoutPage() {
         const paymentResponse = await fetch('/api/payment/create-checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order_id: nextOrderId }),
+          body: JSON.stringify({ order_id: nextOrderId, public_access_token: publicAccessToken }),
         })
         const paymentPayload = await paymentResponse.json()
 
@@ -827,7 +829,8 @@ export default function CheckoutPage() {
       for (let attempt = 0; attempt < 4; attempt++) {
         if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt))
         try {
-          const res = await fetch(`/api/orders/${nextOrderId}/confirm`)
+          const qs = publicAccessToken ? `?token=${encodeURIComponent(publicAccessToken)}` : ''
+          const res = await fetch(`/api/orders/${nextOrderId}/confirm${qs}`)
           confirmationPayload = await res.json()
           if (res.ok) { confirmOk = true; break }
         } catch { /* retry */ }
@@ -1638,7 +1641,10 @@ export default function CheckoutPage() {
                     </p>
 
                     <div className="mt-4 space-y-2">
-                      <Link href={`/pedido/${orderConfirmation.id}`} className="block">
+                      <Link
+                        href={`/pedido/${orderConfirmation.id}${orderConfirmation.public_access_token ? `?token=${encodeURIComponent(orderConfirmation.public_access_token)}` : ''}`}
+                        className="block"
+                      >
                         <Button type="button" className="w-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover">
                           Ver mi pedido
                         </Button>

@@ -27,6 +27,7 @@ export type OrderEmailOptions = {
 
 type NormalizedPayload = {
   shortId: string
+  publicAccessToken: string | null
   customerName: string
   customerEmail: string
   customerPhone: string
@@ -80,7 +81,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
       const { data, error } = await supabase
         .from('orders')
         .select(
-          'short_id, customer_email, customer_name, customer_phone, delivery_address, subtotal, shipping_fee, coupon_discount, coupon_code, total, items'
+          'short_id, public_access_token, customer_email, customer_name, customer_phone, delivery_address, subtotal, shipping_fee, coupon_discount, coupon_code, total, items'
         )
         .eq('id', orderId)
         .maybeSingle()
@@ -89,6 +90,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
         const raw = (data.items ?? []) as OrderItem[]
         return {
           shortId: data.short_id,
+          publicAccessToken: data.public_access_token ?? null,
           customerName: data.customer_name?.trim() || 'Cliente',
           customerEmail: data.customer_email,
           customerPhone: data.customer_phone ?? '',
@@ -127,6 +129,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
 
   return {
     shortId: cached.shortId,
+    publicAccessToken: null,
     customerName: cached.customerName,
     customerEmail: email,
     customerPhone: cached.customerPhone,
@@ -166,7 +169,7 @@ export async function sendOrderConfirmationEmails(
 
   const brandName = process.env.NEXT_PUBLIC_APP_NAME ?? 'nurei'
   const baseUrl = resolvePublicUrl()
-  const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}`)
+  const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}${payload.publicAccessToken ? `?token=${encodeURIComponent(payload.publicAccessToken)}` : ''}`)
   const adminBase = process.env.ADMIN_APP_URL ?? baseUrl
   const adminOrderUrl = safeAttrUrl(`${adminBase.replace(/\/$/, '')}/admin/pedidos/${orderId}`)
 
@@ -246,7 +249,7 @@ export async function sendOrderStatusEmail(
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('orders')
-    .select('short_id, customer_email, customer_name, delivery_address')
+    .select('short_id, public_access_token, customer_email, customer_name, delivery_address')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -254,7 +257,7 @@ export async function sendOrderStatusEmail(
 
   const brandName = process.env.NEXT_PUBLIC_APP_NAME ?? 'nurei'
   const baseUrl = resolvePublicUrl()
-  const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}`)
+  const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}${data.public_access_token ? `?token=${encodeURIComponent(data.public_access_token)}` : ''}`)
   const from = process.env.EMAIL_FROM ?? `${brandName} <onboarding@resend.dev>`
 
   const resend = new Resend(apiKey)

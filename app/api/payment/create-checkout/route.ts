@@ -1,27 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripeServer } from '@/lib/stripe/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getAccessibleOrder } from '@/lib/server/order-access'
 
 export async function POST(request: NextRequest) {
   try {
-    const { order_id } = await request.json()
+    const { order_id, public_access_token } = await request.json()
 
     if (!order_id) {
       return NextResponse.json({ error: 'order_id requerido' }, { status: 400 })
     }
 
-    const supabase = createServiceClient()
-
-    // Fetch the order from the database
-    const { data: order, error: fetchError } = await supabase
-      .from('orders')
-      .select('id, short_id, total, payment_status, items, customer_name, customer_email, coupon_discount')
-      .eq('id', order_id)
-      .single()
-
-    if (fetchError || !order) {
+    const order = await getAccessibleOrder(order_id, public_access_token)
+    if (!order) {
       return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
     }
+
+    const supabase = createServiceClient()
 
     if (order.payment_status === 'paid') {
       return NextResponse.json({ error: 'Pedido ya pagado' }, { status: 400 })
@@ -92,7 +87,7 @@ export async function POST(request: NextRequest) {
             ],
           }
         : {}),
-      success_url: `${appUrl}/pedido/${order.id}?success=true`,
+      success_url: `${appUrl}/pedido/${order.id}?success=true&token=${order.public_access_token}`,
       cancel_url: `${appUrl}/checkout?step=3`,
       metadata: {
         order_id: order.id,
