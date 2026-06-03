@@ -519,7 +519,7 @@ export default function MenuPage() {
                     <>{desktopProducts.length} productos</>
                   )}
                 </p>
-                <ViewToggle value={viewMode} onChange={handleViewModeChange} />
+                <ViewToggle value={viewMode} onChange={handleViewModeChange} layoutId="nurei-view-toggle-pill-desktop" />
               </div>
               <AnimatePresence>
                 {getFilterCount(filters) > 0 && (
@@ -615,7 +615,7 @@ export default function MenuPage() {
         {/* Mobile menu title + view toggle */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
           <h1 className="text-lg font-black text-gray-900 tracking-tight">Menú</h1>
-          <ViewToggle value={viewMode} onChange={handleViewModeChange} />
+          <ViewToggle value={viewMode} onChange={handleViewModeChange} layoutId="nurei-view-toggle-pill-mobile" />
         </div>
 
         {loading ? (

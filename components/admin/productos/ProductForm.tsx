@@ -76,6 +76,7 @@ interface VariantFormData {
   sku_suffix: string
   price: string
   compare_at_price: string
+  cost_estimate: string
   stock: string
   attributes: Record<string, string>
   image: string
@@ -203,6 +204,7 @@ function variantToForm(v: ProductVariant): VariantFormData {
     sku_suffix: v.sku_suffix ?? '',
     price: (v.price / 100).toFixed(2),
     compare_at_price: v.compare_at_price ? (v.compare_at_price / 100).toFixed(2) : '',
+    cost_estimate: v.cost_estimate ? (v.cost_estimate / 100).toFixed(2) : '',
     stock: v.stock.toString(), attributes: v.attributes,
     image: v.image ?? '', status: v.status,
   }
@@ -338,9 +340,10 @@ interface SortableVariantRowProps {
   onUpdate: (idx: number, updates: Partial<VariantFormData>) => void
   onRemove: (idx: number) => void
   onPickImage: (idx: number) => void
+  trackInventory: boolean
 }
 
-function SortableVariantRow({ id, variant, idx, onUpdate, onRemove, onPickImage }: SortableVariantRowProps) {
+function SortableVariantRow({ id, variant, idx, onUpdate, onRemove, onPickImage, trackInventory }: SortableVariantRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -414,7 +417,7 @@ function SortableVariantRow({ id, variant, idx, onUpdate, onRemove, onPickImage 
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] text-gray-400 uppercase font-bold">Precio</label>
+            <label className="text-[10px] text-gray-400 uppercase font-bold">Precio venta</label>
             <div className="relative">
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
               <Input
@@ -424,24 +427,6 @@ function SortableVariantRow({ id, variant, idx, onUpdate, onRemove, onPickImage 
                 className="h-9 pl-6 text-sm"
               />
             </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] text-gray-400 uppercase font-bold">Stock</label>
-            <Input
-              type="number"
-              value={variant.stock}
-              onChange={(e) => onUpdate(idx, { stock: e.target.value })}
-              className="h-9 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] text-gray-400 uppercase font-bold">SKU</label>
-            <Input
-              value={variant.sku}
-              onChange={(e) => onUpdate(idx, { sku: e.target.value })}
-              placeholder="Auto-generado si vacío"
-              className="h-9 text-sm font-mono"
-            />
           </div>
           <div className="space-y-1">
             <label className="text-[10px] text-gray-400 uppercase font-bold">Precio original</label>
@@ -454,6 +439,39 @@ function SortableVariantRow({ id, variant, idx, onUpdate, onRemove, onPickImage 
                 className="h-9 pl-6 text-sm"
               />
             </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase font-bold">Costo</label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+              <Input
+                type="number" step="0.01"
+                value={variant.cost_estimate}
+                onChange={(e) => onUpdate(idx, { cost_estimate: e.target.value })}
+                className="h-9 pl-6 text-sm"
+                placeholder="Opcional"
+              />
+            </div>
+          </div>
+          {trackInventory && (
+            <div className="space-y-1">
+              <label className="text-[10px] text-gray-400 uppercase font-bold">Stock</label>
+              <Input
+                type="number"
+                value={variant.stock}
+                onChange={(e) => onUpdate(idx, { stock: e.target.value })}
+                className="h-9 text-sm"
+              />
+            </div>
+          )}
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase font-bold">SKU</label>
+            <Input
+              value={variant.sku}
+              onChange={(e) => onUpdate(idx, { sku: e.target.value })}
+              placeholder="Auto-generado si vacío"
+              className="h-9 text-sm font-mono"
+            />
           </div>
         </div>
       </div>
@@ -500,8 +518,11 @@ export default function ProductForm({
     return Array.from({ length: count }, () => Math.random().toString(36).slice(2))
   })())
 
-  // Sync to sessionStorage
+  const skipDraftWriteRef = useRef(false)
+
+  // Sync to sessionStorage — blocked after save to prevent stale re-write
   useEffect(() => {
+    if (skipDraftWriteRef.current) return
     writeDraftSnapshot(storageKey, { form, variants })
   }, [form, storageKey, variants])
   const [saving, setSaving] = useState(false)
@@ -685,13 +706,13 @@ export default function ProductForm({
       const res = await fetchWithCredentials('/api/admin/media/from-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: url.trim(), convertToWebp: mediaConvertToWebp }),
       })
       const json = await res.json()
       if (json.data) {
         setMedia(prev => [json.data, ...prev])
         setMediaUrlInput('')
-        toast.success('Imagen importada como WebP')
+        toast.success(mediaConvertToWebp ? 'Imagen importada como WebP' : 'Imagen importada')
       } else {
         toast.error(json.error ?? 'Error al importar imagen')
       }
@@ -700,7 +721,7 @@ export default function ProductForm({
     } finally {
       setMediaUrlImporting(false)
     }
-  }, [])
+  }, [mediaConvertToWebp])
 
   const handleMediaDelete = useCallback(async (items: Array<{ id: string; url: string }>) => {
     if (!items.length) return
@@ -734,6 +755,7 @@ export default function ProductForm({
   // ─── Save ───────────────────────────────────────────────────────
 
   const closeCurrentTabAndReturn = useCallback(() => {
+    skipDraftWriteRef.current = true
     clearDraftSnapshot(storageKey)
     closeTab(currentTabHref)
     router.replace('/admin/productos')
@@ -746,12 +768,13 @@ export default function ProductForm({
     // Validation for publish flow only.
     const errors: string[] = []
     const nextFieldErrors: Record<string, string> = {}
+    const hasActiveVariantsForValidation = form.has_variants && variants.some(v => v.name.trim().length > 0)
     if (!saveAsDraft) {
       if (!form.name.trim()) errors.push('Nombre del producto')
       if (!form.category) errors.push('Categoría')
       if (!form.base_price || parseFloat(form.base_price) <= 0) errors.push('Precio válido (mayor a $0)')
       if (!form.images.length) errors.push('Al menos una imagen')
-      if (form.track_inventory) {
+      if (form.track_inventory && !hasActiveVariantsForValidation) {
         const stockRaw = form.stock_quantity.trim()
         if (!stockRaw) {
           errors.push('Stock')
@@ -883,6 +906,7 @@ export default function ProductForm({
             sku_suffix: v.sku_suffix || null,
             price: Math.round(parseFloat(v.price || '0') * 100),
             compare_at_price: v.compare_at_price ? Math.round(parseFloat(v.compare_at_price) * 100) : null,
+            cost_estimate: v.cost_estimate ? Math.round(parseFloat(v.cost_estimate) * 100) : null,
             stock: parseInt(v.stock, 10) || 0,
             attributes: v.attributes,
             image: v.image || null,
@@ -915,10 +939,12 @@ export default function ProductForm({
       else if (!effectiveHasVariants) update({ has_variants: false })
 
       if (addAnother) {
+        skipDraftWriteRef.current = true
+        clearDraftSnapshot(storageKey)
+        skipDraftWriteRef.current = false
         setForm(emptyForm)
         setFieldErrors({})
         setVariants([])
-        clearDraftSnapshot(storageKey)
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } else {
         closeCurrentTabAndReturn()
@@ -936,7 +962,8 @@ export default function ProductForm({
     if (!form.category) return false
     if (!form.base_price || parseFloat(form.base_price) <= 0) return false
     if (!form.images.length) return false
-    if (form.track_inventory) {
+    const hasActiveVariantsForSave = form.has_variants && variants.some(v => v.name.trim().length > 0)
+    if (form.track_inventory && !hasActiveVariantsForSave) {
       const stockRaw = form.stock_quantity.trim()
       if (!stockRaw) return false
       const n = parseInt(stockRaw, 10)
@@ -945,7 +972,7 @@ export default function ProductForm({
     if (!isEdit && !form.unit_of_measure) return false
     if (!isEdit && !form.weight_g.trim()) return false
     return true
-  }, [form, isEdit])
+  }, [form, isEdit, variants])
 
   useEffect(() => {
     smartSaveRef.current = async () => {
@@ -971,9 +998,12 @@ export default function ProductForm({
   const addVariant = () => {
     const nextIndex = variants.length
     variantKeys.current = [...variantKeys.current, Math.random().toString(36).slice(2)]
+    const template = variants.length > 0 ? variants[0] : null
     setVariants(prev => [...prev, {
       name: '', sku: generateVariantSku(form.sku, nextIndex), sku_suffix: '',
-      price: form.base_price, compare_at_price: '',
+      price: template?.price ?? form.base_price,
+      compare_at_price: template?.compare_at_price ?? form.compare_at_price,
+      cost_estimate: template?.cost_estimate ?? form.cost_estimate,
       stock: '0', attributes: {}, image: '', status: 'active',
     }])
   }
@@ -1424,7 +1454,56 @@ export default function ProductForm({
             </div>
           </Section>
 
-          {/* 2. Variantes — justo después de información básica */}
+          {/* 2. Inventario */}
+          <Section title="Inventario" icon={Package} defaultOpen>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {form.track_inventory && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-500">{isEdit ? 'Stock actual' : 'Stock inicial'} {form.track_inventory ? '*' : ''}</label>
+                  <Input
+                    type="number" min="0"
+                    value={form.stock_quantity}
+                    onChange={(e) => update({ stock_quantity: e.target.value })}
+                    placeholder={form.track_inventory ? 'Obligatorio' : ''}
+                    className="h-10"
+                    disabled={form.has_variants}
+                  />
+                  {form.has_variants && (
+                    <p className="text-[10px] text-gray-400">Stock manejado por variantes ({totalVariantStock} total)</p>
+                  )}
+                  {form.track_inventory && fieldErrors.stock_quantity && (
+                    <p className="text-[11px] font-medium text-red-500">{fieldErrors.stock_quantity}</p>
+                  )}
+                </div>
+                )}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-500">Alerta stock bajo</label>
+                  <Input
+                    type="number" min="0"
+                    value={form.low_stock_threshold}
+                    onChange={(e) => update({ low_stock_threshold: e.target.value })}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <Toggle value={form.track_inventory} onChange={(v) => update({ track_inventory: v })} label="Control de inventario" />
+                <Toggle value={form.allow_backorder} onChange={(v) => update({ allow_backorder: v })} label="Permitir backorder" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Nota de ajuste (trazabilidad)</label>
+                <Input
+                  value={form.inventory_note}
+                  onChange={(e) => update({ inventory_note: e.target.value })}
+                  placeholder="Ej: Conteo físico, recepción de proveedor, merma..."
+                  className="h-10"
+                />
+              </div>
+            </div>
+          </Section>
+
+          {/* 3. Variantes */}
           <Section title="Variantes" icon={Layers} defaultOpen>
             <div className="space-y-4">
               <Toggle
@@ -1466,6 +1545,7 @@ export default function ProductForm({
                                 fetchMedia()
                                 setMediaDialogOpen(true)
                               }}
+                              trackInventory={form.track_inventory}
                             />
                           </motion.div>
                         ))}
@@ -1486,7 +1566,7 @@ export default function ProductForm({
             </div>
           </Section>
 
-          {/* 3. Images */}
+          {/* 4. Images */}
           <Section title="Galería de imágenes" icon={ImageIcon} titleClassName="text-nurei-cta" defaultOpen>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1680,54 +1760,6 @@ export default function ProductForm({
             </div>
           </Section>
 
-          {/* Inventario */}
-          <Section title="Inventario" icon={Package} defaultOpen>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {form.track_inventory && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">{isEdit ? 'Stock actual' : 'Stock inicial'} {form.track_inventory ? '*' : ''}</label>
-                  <Input
-                    type="number" min="0"
-                    value={form.stock_quantity}
-                    onChange={(e) => update({ stock_quantity: e.target.value })}
-                    placeholder={form.track_inventory ? 'Obligatorio' : ''}
-                    className="h-10"
-                    disabled={form.has_variants}
-                  />
-                  {form.has_variants && (
-                    <p className="text-[10px] text-gray-400">Stock manejado por variantes ({totalVariantStock} total)</p>
-                  )}
-                  {form.track_inventory && fieldErrors.stock_quantity && (
-                    <p className="text-[11px] font-medium text-red-500">{fieldErrors.stock_quantity}</p>
-                  )}
-                </div>
-                )}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-500">Alerta stock bajo</label>
-                  <Input
-                    type="number" min="0"
-                    value={form.low_stock_threshold}
-                    onChange={(e) => update({ low_stock_threshold: e.target.value })}
-                    className="h-10"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <Toggle value={form.track_inventory} onChange={(v) => update({ track_inventory: v })} label="Control de inventario" />
-                <Toggle value={form.allow_backorder} onChange={(v) => update({ allow_backorder: v })} label="Permitir backorder" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-500">Nota de ajuste (trazabilidad)</label>
-                <Input
-                  value={form.inventory_note}
-                  onChange={(e) => update({ inventory_note: e.target.value })}
-                  placeholder="Ej: Conteo físico, recepción de proveedor, merma..."
-                  className="h-10"
-                />
-              </div>
-            </div>
-          </Section>
         </div>
 
         {/* Right column — sticky panel */}

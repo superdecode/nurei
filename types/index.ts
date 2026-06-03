@@ -183,6 +183,7 @@ export interface ProductVariant {
   sku_suffix: string | null
   price: number
   compare_at_price: number | null
+  cost_estimate: number | null
   stock: number
   attributes: Record<string, string>
   image: string | null

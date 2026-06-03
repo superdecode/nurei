@@ -14,9 +14,10 @@ export type ViewMode = 'list' | 'grid' | 'compact'
 interface ViewToggleProps {
   value: ViewMode
   onChange: (mode: ViewMode) => void
+  layoutId?: string
 }
 
-export function ViewToggle({ value, onChange }: ViewToggleProps) {
+export function ViewToggle({ value, onChange, layoutId = 'nurei-view-toggle-pill' }: ViewToggleProps) {
   return (
     <div className="relative flex items-center gap-0.5 rounded-full bg-gray-100/90 p-[3px] shadow-inner shrink-0">
       {VIEWS.map(({ id, label, icon: Icon }) => (
@@ -32,8 +33,8 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
         >
           {value === id && (
             <motion.span
-              layoutId="nurei-view-toggle-pill"
-              className="absolute inset-0 rounded-full bg-white shadow-[0_10px_24px_-2px_rgba(15,23,42,0.65),0_2px_8px_-1px_rgba(15,23,42,0.35)]"
+              layoutId={layoutId}
+              className="absolute inset-0 rounded-full bg-white shadow-[0_6px_16px_-8px_rgba(15,23,42,0.45)]"
               transition={{ type: 'spring', stiffness: 380, damping: 34 }}
             />
           )}

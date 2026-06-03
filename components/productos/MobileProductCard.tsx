@@ -241,10 +241,13 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                         key={variant.id}
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === idx ? null : idx); setVariantError(false) }}
-                        className={`h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
+                        className={variant.image
+                          ? `w-6 h-6 rounded-full overflow-hidden border-2 shadow-sm bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariant?.id === variant.id ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : variantError ? 'border-red-300' : 'border-white hover:border-nurei-cta/60'}`
+                          : `h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`
+                        }
                         aria-label={`Seleccionar ${variant.name}`}
                       >
-                        {variant.image ? <img src={variant.image} alt="" className="mx-auto h-4 w-4 rounded-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
+                        {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
                       </button>
                     ))}
                   </div>
@@ -276,10 +279,13 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                         key={variant.id}
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === globalIdx ? null : globalIdx); setVariantError(false) }}
-                        className={`h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
+                        className={variant.image
+                          ? `w-6 h-6 rounded-full overflow-hidden border-2 shadow-sm bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariant?.id === variant.id ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : variantError ? 'border-red-300' : 'border-white hover:border-nurei-cta/60'}`
+                          : `h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`
+                        }
                         aria-label={`Seleccionar ${variant.name}`}
                       >
-                        {variant.image ? <img src={variant.image} alt="" className="mx-auto h-4 w-4 rounded-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
+                        {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
                       </button>
                     )
                   })}

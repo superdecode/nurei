@@ -329,6 +329,7 @@ export async function upsertVariants(productId: string, variants: Partial<Produc
     sku_suffix: v.sku_suffix ?? null,
     price: v.price ?? 0,
     compare_at_price: v.compare_at_price ?? null,
+    cost_estimate: v.cost_estimate ?? null,
     stock: v.stock ?? 0,
     attributes: v.attributes ?? {},
     image: v.image ?? null,
