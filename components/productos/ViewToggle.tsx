@@ -33,7 +33,7 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
           {value === id && (
             <motion.span
               layoutId="nurei-view-toggle-pill"
-              className="absolute inset-0 rounded-full bg-white shadow-[0_6px_16px_-8px_rgba(15,23,42,0.45)]"
+              className="absolute inset-0 rounded-full bg-white shadow-[0_10px_24px_-2px_rgba(15,23,42,0.65),0_2px_8px_-1px_rgba(15,23,42,0.35)]"
               transition={{ type: 'spring', stiffness: 380, damping: 34 }}
             />
           )}
