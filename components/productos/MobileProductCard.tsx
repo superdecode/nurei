@@ -140,9 +140,9 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
       >
         {/* Image */}
         <div className="relative w-[76px] h-[76px] flex-shrink-0 rounded-xl overflow-hidden bg-gray-50">
-          {(product.images?.[product.primary_image_index] ?? product.image_thumbnail_url) ? (
+          {(selectedVariant?.image ?? product.images?.[product.primary_image_index] ?? product.image_thumbnail_url) ? (
             <img
-              src={product.images?.[product.primary_image_index] ?? product.image_thumbnail_url!}
+              src={selectedVariant?.image ?? product.images?.[product.primary_image_index] ?? product.image_thumbnail_url!}
               alt={product.name}
               className="w-full h-full object-cover"
             />
@@ -264,11 +264,9 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                       className="h-6 w-3 rounded-r-full border border-gray-200 bg-gray-50 overflow-hidden shrink-0 opacity-60"
                       aria-label="Anterior"
                     >
-                      <div className="w-6 h-6 -translate-x-3 flex items-center justify-center text-[8px] font-black text-gray-400">
-                        {activeVariants[variantOffset - 1].image
-                          ? <img src={activeVariants[variantOffset - 1].image!} alt="" className="h-4 w-4 rounded-full object-cover" />
-                          : <span className="block truncate">{activeVariants[variantOffset - 1].name}</span>}
-                      </div>
+                      {activeVariants[variantOffset - 1].image
+                        ? <img src={activeVariants[variantOffset - 1].image!} alt="" className="w-full h-full object-cover" />
+                        : <span className="block w-full h-full flex items-center justify-center text-[7px] font-black text-gray-400 truncate px-0.5">{activeVariants[variantOffset - 1].name.charAt(0)}</span>}
                     </button>
                   )}
                   {visible.map((variant, i) => {

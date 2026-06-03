@@ -423,7 +423,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVariantOffset(v => v - 1) }}
                         className="w-3.5 h-7 rounded-r-full overflow-hidden border-2 border-white shadow-md bg-gray-100 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
                       >
-                        <img src={variantThumbs[variantOffset - 1]} alt="" className="w-7 h-7 object-cover -translate-x-3.5" draggable={false} />
+                        <img src={variantThumbs[variantOffset - 1]} alt="" className="w-full h-full object-cover" draggable={false} />
                       </button>
                     )}
                     {fullThumbs.map((img, i) => {

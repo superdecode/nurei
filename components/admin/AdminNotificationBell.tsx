@@ -113,6 +113,7 @@ export function AdminNotificationBell() {
   const baseTitleRef = useRef<string | null>(null)
   const prevItemIdsRef = useRef<Set<string>>(new Set())
   const initialLoadDoneRef = useRef(false)
+  const supabaseRef = useRef(createClient())
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS)
   const [titleAttention, setTitleAttention] = useState(false)
 
@@ -316,7 +317,7 @@ export function AdminNotificationBell() {
   }, [titleAttention])
 
   useEffect(() => {
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const channel = supabase
       .channel('admin-orders-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
@@ -325,7 +326,7 @@ export function AdminNotificationBell() {
       .subscribe()
 
     return () => {
-      void supabase.removeChannel(channel)
+      void channel.unsubscribe()
     }
   }, [load])
 
