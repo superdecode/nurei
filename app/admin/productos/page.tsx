@@ -364,7 +364,10 @@ export default function ProductosAdminPage() {
     }
     result.sort((a, b) => {
       let cmp = 0
-      switch (sortField) {
+      const effectiveField = viewMode === 'table' ? 'created_at' : sortField
+      const effectiveDir = viewMode === 'table' ? 'desc' : sortDir
+
+      switch (effectiveField) {
         case 'display_order': {
           const categoryDiff = (categoryRank.get(a.category) ?? MAX_ORDER) - (categoryRank.get(b.category) ?? MAX_ORDER)
           cmp = categoryDiff !== 0 ? categoryDiff : compareManualOrder(a, b)
@@ -377,10 +380,10 @@ export default function ProductosAdminPage() {
         case 'status': cmp = (a.status ?? '').localeCompare(b.status ?? ''); break
         case 'created_at': cmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break
       }
-      return sortDir === 'asc' ? cmp : -cmp
+      return effectiveDir === 'asc' ? cmp : -cmp
     })
     return result
-  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter, categoryRank])
+  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter, categoryRank, viewMode])
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize

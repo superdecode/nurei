@@ -303,6 +303,8 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
 
         setProduct(found)
         setPrimaryIndex(found.primary_image_index ?? 0)
+        // Seed from embedded list immediately so UI shows variants without waiting
+        if (found.variants && found.variants.length > 0) setVariants(found.variants)
 
         if (found.has_variants) {
           try {
@@ -395,11 +397,23 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
   const activeVariants = variants.filter((v) => v.status === 'active')
   const needsVariantSelection = product.has_variants && activeVariants.length > 0 && !selectedVariant
   const canAddToCart = !needsVariantSelection && product.stock_status !== 'out_of_stock'
+
+  // Effective stock display — variant stock takes priority when variants are active
+  const effectiveStockInfo = (() => {
+    if (!product.track_inventory) return { status: 'available' as const, qty: null, show: false }
+    if (product.has_variants && activeVariants.length > 0) {
+      if (!selectedVariant) return { status: null, qty: null, show: false }
+      const threshold = product.low_stock_threshold ?? 5
+      const qty = selectedVariant.stock
+      const status = qty <= 0 ? 'out_of_stock' as const
+        : qty <= threshold ? 'low_stock' as const
+        : 'available' as const
+      return { status, qty, show: true }
+    }
+    return { status: product.stock_status ?? 'available', qty: product.stock_quantity, show: true }
+  })()
   const cleanDescription = product.description ? stripHtml(product.description).trim() : ''
   const isLongDescription = cleanDescription.length > DESCRIPTION_PREVIEW_CHARS
-  const visibleDescription = !isLongDescription || descExpanded
-    ? cleanDescription
-    : `${cleanDescription.slice(0, DESCRIPTION_PREVIEW_CHARS).trim()}...`
 
   const openLightbox = (i: number) => {
     if (allImages.length === 0) return
@@ -712,25 +726,30 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           {/* Title — compact, try to fit one line */}
           <h1 className="text-sm font-black text-gray-900 leading-tight tracking-tight line-clamp-2">{product.name}</h1>
 
-          {cleanDescription && (
+          {product.description && (
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Descripción</p>
-              <motion.p
-                layout
-                transition={{ duration: 0.24, ease: 'easeInOut' }}
-                className="mt-1 text-[11px] text-gray-500 leading-relaxed"
-              >
-                {visibleDescription}
-                {isLongDescription && (
-                  <button
-                    type="button"
-                    onClick={() => setDescExpanded((v) => !v)}
-                    className="ml-1 inline-flex align-baseline text-[11px] font-bold text-primary-cyan"
-                  >
-                    {descExpanded ? 'Ver menos' : 'Ver más'}
-                  </button>
+              <div className="relative mt-1">
+                <div
+                  className={cn(
+                    'rich-content text-[11px] text-gray-500 leading-relaxed overflow-hidden transition-all duration-300',
+                    !descExpanded && isLongDescription ? 'max-h-[72px]' : 'max-h-none',
+                  )}
+                  dangerouslySetInnerHTML={{ __html: product.description }}
+                />
+                {!descExpanded && isLongDescription && (
+                  <div className="absolute bottom-0 left-0 right-0 h-5 bg-gradient-to-t from-white pointer-events-none" />
                 )}
-              </motion.p>
+              </div>
+              {isLongDescription && (
+                <button
+                  type="button"
+                  onClick={() => setDescExpanded((v) => !v)}
+                  className="mt-1 text-[11px] font-bold text-primary-cyan"
+                >
+                  {descExpanded ? 'Ver menos' : 'Ver más'}
+                </button>
+              )}
             </div>
           )}
 
@@ -808,20 +827,22 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
           )}
 
           {/* Stock availability */}
-          <div className="flex items-center gap-1.5">
-            <span className={cn(
-              'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
-              product.stock_status === 'out_of_stock' ? 'bg-red-500' :
-              product.stock_status === 'low_stock' ? 'bg-orange-400' : 'bg-emerald-500'
-            )} />
-            <span className="text-[11px] font-semibold text-gray-500">
-              {product.stock_status === 'out_of_stock'
-                ? 'Sin stock'
-                : product.stock_status === 'low_stock'
-                ? <span className="text-orange-500 font-bold">¡Últimas unidades!</span>
-                : 'Disponible'}
-            </span>
-          </div>
+          {effectiveStockInfo.show && (
+            <div className="flex items-center gap-1.5">
+              <span className={cn(
+                'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
+                effectiveStockInfo.status === 'out_of_stock' ? 'bg-red-500' :
+                effectiveStockInfo.status === 'low_stock' ? 'bg-orange-400' : 'bg-emerald-500'
+              )} />
+              <span className="text-[11px] font-semibold text-gray-500">
+                {effectiveStockInfo.status === 'out_of_stock'
+                  ? 'Sin stock'
+                  : effectiveStockInfo.status === 'low_stock'
+                  ? <span className="text-orange-500 font-bold">¡Últimas {effectiveStockInfo.qty} uds!</span>
+                  : 'Disponible'}
+              </span>
+            </div>
+          )}
 
           {stockFeedback && <p className="text-[11px] text-red-600">{stockFeedback}</p>}
         </div>
@@ -1017,24 +1038,29 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
                 </div>
               )}
 
-              {cleanDescription && (
+              {product.description && (
                 <div className="mb-2.5">
-                  <motion.p
-                    layout
-                    transition={{ duration: 0.24, ease: 'easeInOut' }}
-                    className="text-[13px] text-gray-500 leading-relaxed"
-                  >
-                    {visibleDescription}
-                    {isLongDescription && (
-                      <button
-                        type="button"
-                        onClick={() => setDescExpanded((v) => !v)}
-                        className="ml-1 inline-flex items-center gap-1 align-baseline text-[11px] font-semibold text-primary-cyan"
-                      >
-                        {descExpanded ? <><ChevronUp className="w-3 h-3" /> Ver menos</> : <><ChevronDown className="w-3 h-3" /> Ver más</>}
-                      </button>
+                  <div className="relative">
+                    <div
+                      className={cn(
+                        'rich-content text-[13px] text-gray-500 leading-relaxed overflow-hidden transition-all duration-300',
+                        !descExpanded && isLongDescription ? 'max-h-[96px]' : 'max-h-none',
+                      )}
+                      dangerouslySetInnerHTML={{ __html: product.description }}
+                    />
+                    {!descExpanded && isLongDescription && (
+                      <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white pointer-events-none" />
                     )}
-                  </motion.p>
+                  </div>
+                  {isLongDescription && (
+                    <button
+                      type="button"
+                      onClick={() => setDescExpanded((v) => !v)}
+                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-cyan"
+                    >
+                      {descExpanded ? <><ChevronUp className="w-3 h-3" /> Ver menos</> : <><ChevronDown className="w-3 h-3" /> Ver más</>}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1083,19 +1109,21 @@ export default function ProductoPage({ params }: { params: Promise<{ slug: strin
               </div>
 
               {/* Stock badge */}
-              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-                {product.stock_status === 'out_of_stock' && (
-                  <span className="px-2 py-0.5 text-[11px] font-bold text-red-600 bg-red-50 rounded-full">Sin stock</span>
-                )}
-                {product.stock_status === 'low_stock' && (
-                  <span className="px-2 py-0.5 text-[11px] font-bold text-orange-600 bg-orange-50 rounded-full">¡Últimas {product.stock_quantity} uds!</span>
-                )}
-                {product.stock_status !== 'out_of_stock' && product.stock_status !== 'low_stock' && (
-                  <span className="text-[11px] text-emerald-600 font-semibold">
-                    ✓ {product.stock_quantity} disponibles
-                  </span>
-                )}
-              </div>
+              {effectiveStockInfo.show && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                  {effectiveStockInfo.status === 'out_of_stock' && (
+                    <span className="px-2 py-0.5 text-[11px] font-bold text-red-600 bg-red-50 rounded-full">Sin stock</span>
+                  )}
+                  {effectiveStockInfo.status === 'low_stock' && (
+                    <span className="px-2 py-0.5 text-[11px] font-bold text-orange-600 bg-orange-50 rounded-full">¡Últimas {effectiveStockInfo.qty} uds!</span>
+                  )}
+                  {effectiveStockInfo.status === 'available' && (
+                    <span className="text-[11px] text-emerald-600 font-semibold">
+                      ✓ {effectiveStockInfo.qty} disponibles
+                    </span>
+                  )}
+                </div>
+              )}
 
               {product.has_variants && (
                 variantsError ? (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
+import React, { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -23,6 +23,13 @@ import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { toast } from 'sonner'
 import type { Product, ProductVariant, ProductStatus, UnitOfMeasure } from '@/types'
 import { useAdminTabsStore } from '@/lib/stores/adminTabsStore'
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -322,6 +329,138 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
   )
 }
 
+// ─── Sortable Variant Row ────────────────────────────────────────────────
+
+interface SortableVariantRowProps {
+  id: string
+  variant: VariantFormData
+  idx: number
+  onUpdate: (idx: number, updates: Partial<VariantFormData>) => void
+  onRemove: (idx: number) => void
+  onPickImage: (idx: number) => void
+}
+
+function SortableVariantRow({ id, variant, idx, onUpdate, onRemove, onPickImage }: SortableVariantRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'bg-gray-50 rounded-xl p-4 space-y-3 relative select-none',
+        isDragging && 'shadow-lg ring-2 ring-primary-cyan/30 opacity-80 z-10',
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition-colors touch-none"
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-bold text-gray-500">Variante {idx + 1}</span>
+        </div>
+        <button type="button" onClick={() => onRemove(idx)} className="text-gray-400 hover:text-red-500">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-shrink-0 flex flex-col gap-1">
+          <label className="text-[10px] text-gray-400 uppercase font-bold">Imagen</label>
+          <button
+            type="button"
+            onClick={() => onPickImage(idx)}
+            className={cn(
+              'w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all overflow-hidden bg-white',
+              variant.image ? 'border-primary-cyan shadow-sm' : 'border-gray-200 hover:border-primary-cyan',
+            )}
+            title="Asignar imagen a esta variante"
+          >
+            {variant.image ? (
+              <img src={variant.image} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <>
+                <ImageIcon className="w-5 h-5 text-gray-400" />
+                <span className="text-[9px] font-bold text-gray-500 uppercase">Asignar</span>
+              </>
+            )}
+          </button>
+          {variant.image && (
+            <button
+              type="button"
+              onClick={() => onUpdate(idx, { image: '' })}
+              className="text-[10px] text-gray-400 hover:text-red-500 flex items-center justify-center w-full"
+            >
+              Quitar
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
+          <div className="col-span-2 space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase font-bold">Nombre *</label>
+            <Input
+              value={variant.name}
+              onChange={(e) => onUpdate(idx, { name: e.target.value })}
+              placeholder="Ej: Fresa, 500ml, Picante"
+              className="h-9 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase font-bold">Precio</label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+              <Input
+                type="number" step="0.01"
+                value={variant.price}
+                onChange={(e) => onUpdate(idx, { price: e.target.value })}
+                className="h-9 pl-6 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase font-bold">Stock</label>
+            <Input
+              type="number"
+              value={variant.stock}
+              onChange={(e) => onUpdate(idx, { stock: e.target.value })}
+              className="h-9 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase font-bold">SKU</label>
+            <Input
+              value={variant.sku}
+              onChange={(e) => onUpdate(idx, { sku: e.target.value })}
+              placeholder="Auto-generado si vacío"
+              className="h-9 text-sm font-mono"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase font-bold">Precio original</label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+              <Input
+                type="number" step="0.01"
+                value={variant.compare_at_price}
+                onChange={(e) => onUpdate(idx, { compare_at_price: e.target.value })}
+                className="h-9 pl-6 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────
 
 export default function ProductForm({
@@ -352,6 +491,14 @@ export default function ProductForm({
     }
     return initialVariants?.map(variantToForm) ?? []
   })
+  const variantKeys = useRef<string[]>((() => {
+    let count = initialVariants?.length ?? 0
+    if (typeof window !== 'undefined') {
+      const saved = readDraftSnapshot(storageKey)
+      if (saved?.variants) count = saved.variants.length
+    }
+    return Array.from({ length: count }, () => Math.random().toString(36).slice(2))
+  })())
 
   // Sync to sessionStorage
   useEffect(() => {
@@ -742,17 +889,25 @@ export default function ProductForm({
             status: v.status,
           }))
 
-        await fetchWithCredentials(`/api/products/${productId}/variants`, {
+        const varRes = await fetchWithCredentials(`/api/products/${productId}/variants`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: variantData }),
         })
+        if (!varRes.ok) {
+          const varJson = await varRes.json().catch(() => ({}))
+          throw new Error(varJson.error ?? `Error al guardar variantes (${varRes.status})`)
+        }
       } else if (isEdit) {
-        await fetchWithCredentials(`/api/products/${productId}/variants`, {
+        const varRes = await fetchWithCredentials(`/api/products/${productId}/variants`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: [] }),
         })
+        if (!varRes.ok) {
+          const varJson = await varRes.json().catch(() => ({}))
+          throw new Error(varJson.error ?? `Error al limpiar variantes (${varRes.status})`)
+        }
       }
 
       toast.success(isEdit ? 'Producto actualizado' : 'Producto creado')
@@ -815,6 +970,7 @@ export default function ProductForm({
 
   const addVariant = () => {
     const nextIndex = variants.length
+    variantKeys.current = [...variantKeys.current, Math.random().toString(36).slice(2)]
     setVariants(prev => [...prev, {
       name: '', sku: generateVariantSku(form.sku, nextIndex), sku_suffix: '',
       price: form.base_price, compare_at_price: '',
@@ -827,8 +983,25 @@ export default function ProductForm({
   }
 
   const removeVariant = (idx: number) => {
+    variantKeys.current = variantKeys.current.filter((_, i) => i !== idx)
     setVariants(prev => prev.filter((_, i) => i !== idx))
   }
+
+  const variantSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleVariantDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = variantKeys.current.indexOf(String(active.id))
+    const newIndex = variantKeys.current.indexOf(String(over.id))
+    if (oldIndex === -1 || newIndex === -1) return
+    variantKeys.current = arrayMove(variantKeys.current, oldIndex, newIndex)
+    setVariants(prev => arrayMove(prev, oldIndex, newIndex))
+    toast.success('Orden de variantes actualizado')
+  }, [])
 
   // ─── Tag helpers ────────────────────────────────────────────────
 
@@ -1266,110 +1439,39 @@ export default function ProductForm({
               )}
               {form.has_variants && (
                 <div className="space-y-4">
-                  {variants.map((variant, idx) => (
-                    <div key={idx} className="bg-gray-50 rounded-xl p-4 space-y-3 relative">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <GripVertical className="w-4 h-4 text-gray-300" />
-                          <span className="text-xs font-bold text-gray-500">Variante {idx + 1}</span>
-                        </div>
-                        <button type="button" onClick={() => removeVariant(idx)} className="text-gray-400 hover:text-red-500">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-4">
-                        {/* Variant Image */}
-                        <div className="flex-shrink-0 flex flex-col gap-1">
-                          <label className="text-[10px] text-gray-400 uppercase font-bold">Imagen</label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPickingVariantIdx(idx)
-                              fetchMedia()
-                              setMediaDialogOpen(true)
-                            }}
-                            className={cn(
-                              'w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all overflow-hidden bg-white',
-                              variant.image ? 'border-primary-cyan shadow-sm' : 'border-gray-200 hover:border-primary-cyan'
-                            )}
-                            title="Asignar imagen a esta variante"
+                  <DndContext
+                    sensors={variantSensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleVariantDragEnd}
+                  >
+                    <SortableContext items={variantKeys.current} strategy={verticalListSortingStrategy}>
+                      <AnimatePresence>
+                        {variants.map((variant, idx) => (
+                          <motion.div
+                            key={variantKeys.current[idx]}
+                            layout
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.97 }}
+                            transition={{ duration: 0.18 }}
                           >
-                            {variant.image ? (
-                              <img src={variant.image} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <>
-                                <ImageIcon className="w-5 h-5 text-gray-400" />
-                                <span className="text-[9px] font-bold text-gray-500 uppercase">Asignar</span>
-                              </>
-                            )}
-                          </button>
-                          {variant.image && (
-                            <button
-                              type="button"
-                              onClick={() => updateVariant(idx, { image: '' })}
-                              className="text-[10px] text-gray-400 hover:text-red-500 flex items-center justify-center w-full"
-                            >
-                              Quitar
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
-                          <div className="col-span-2 space-y-1">
-                            <label className="text-[10px] text-gray-400 uppercase font-bold">Nombre *</label>
-                            <Input
-                              value={variant.name}
-                              onChange={(e) => updateVariant(idx, { name: e.target.value })}
-                              placeholder="Ej: Fresa, 500ml, Picante"
-                              className="h-9 text-sm"
+                            <SortableVariantRow
+                              id={variantKeys.current[idx]}
+                              variant={variant}
+                              idx={idx}
+                              onUpdate={updateVariant}
+                              onRemove={removeVariant}
+                              onPickImage={(i) => {
+                                setPickingVariantIdx(i)
+                                fetchMedia()
+                                setMediaDialogOpen(true)
+                              }}
                             />
-                          </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-gray-400 uppercase font-bold">Precio</label>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                            <Input
-                              type="number" step="0.01"
-                              value={variant.price}
-                              onChange={(e) => updateVariant(idx, { price: e.target.value })}
-                              className="h-9 pl-6 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-gray-400 uppercase font-bold">Stock</label>
-                          <Input
-                            type="number"
-                            value={variant.stock}
-                            onChange={(e) => updateVariant(idx, { stock: e.target.value })}
-                            className="h-9 text-sm"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-gray-400 uppercase font-bold">SKU</label>
-                          <Input
-                            value={variant.sku}
-                            onChange={(e) => updateVariant(idx, { sku: e.target.value })}
-                            placeholder="Auto-generado si vacío"
-                            className="h-9 text-sm font-mono"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-gray-400 uppercase font-bold">Precio original</label>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
-                            <Input
-                              type="number" step="0.01"
-                              value={variant.compare_at_price}
-                              onChange={(e) => updateVariant(idx, { compare_at_price: e.target.value })}
-                              className="h-9 pl-6 text-sm"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    </div>
-                  ))}
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </SortableContext>
+                  </DndContext>
 
                   <Button
                     type="button"

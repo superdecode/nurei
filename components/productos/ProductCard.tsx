@@ -209,6 +209,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
   const [stockFeedback, setStockFeedback] = useState<string | null>(null)
   const [isCardHovered, setIsCardHovered] = useState(false)
   const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null)
+  const [variantOffset, setVariantOffset] = useState(0)
   const swipedRef = useRef(false)
   const fav = isFavorite(product.id)
 
@@ -263,15 +264,13 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
     })
   }
 
-  // Active variants with images — drives both thumbnails and the clickable selection
+  // All active variants are selectable; image thumbnails come from those that have images
   const activeVariants = product.has_variants && product.variants
     ? product.variants.filter((v) => v.status === 'active')
     : []
-  const clickableVariants = activeVariants.length > 0
-    ? activeVariants.filter((v) => v.image).slice(0, 5)
-    : []
-  const selectableVariants = clickableVariants.length > 0 ? clickableVariants : activeVariants.slice(0, 5)
-  const selectedVariant = selectedVariantIdx !== null ? selectableVariants[selectedVariantIdx] ?? null : null
+  const clickableVariants = activeVariants.filter((v) => v.image)
+  // selectedVariantIdx always indexes into activeVariants
+  const selectedVariant = selectedVariantIdx !== null ? activeVariants[selectedVariantIdx] ?? null : null
   const currentCartQuantity = useCartStore((s) =>
     s.items
       .filter((item) => item.product.id === product.id && (item.variant_id ?? null) === (selectedVariant?.id ?? null))
@@ -298,9 +297,9 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
   const variantThumbs: string[] = clickableVariants.length > 0
     ? clickableVariants.map((v) => v.image as string)
     : product.has_variants
-      ? carouselImages.slice(0, 5)
+      ? carouselImages
       : []
-  const needsVariantSelection = product.has_variants && selectableVariants.length > 0 && !selectedVariant
+  const needsVariantSelection = product.has_variants && activeVariants.length > 0 && !selectedVariant
 
   return (
     <Link
@@ -383,39 +382,77 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
           {!isOutOfStock && (
             <div className="absolute top-3 left-3 flex flex-col gap-1.5">
               {/* Circular variant image thumbnails — clickable */}
-              {product.has_variants && variantThumbs.length > 0 && (
-                <div className="flex gap-1.5">
-                  {variantThumbs.slice(0, 4).map((img, i) => (
-                    <motion.button
-                      key={i}
-                      type="button"
-                      whileTap={{ scale: 0.88 }}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setSelectedVariantIdx(selectedVariantIdx === i ? null : i)
-                      }}
-                      className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${
-                        selectedVariantIdx === i
-                          ? 'border-nurei-cta scale-110 shadow-nurei-cta/40'
-                          : 'border-white hover:border-nurei-cta/60'
-                      }`}
-                    >
-                      <img
-                        src={img}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        draggable={false}
-                      />
-                    </motion.button>
-                  ))}
-                  {variantThumbs.length > 4 && (
-                    <div className="w-7 h-7 rounded-full bg-white/90 border-2 border-white shadow-md flex items-center justify-center shrink-0">
-                      <span className="text-[8px] font-bold text-gray-500">+{variantThumbs.length - 4}</span>
+              {product.has_variants && (activeVariants.length > 0 || variantThumbs.length > 0) && (() => {
+                // Map a clickableVariants index → activeVariants index for correct selection
+                const thumbToActiveIdx = (thumbIdx: number) =>
+                  activeVariants.findIndex(v => v.id === clickableVariants[thumbIdx]?.id)
+
+                if (variantThumbs.length === 0) return null
+
+                const total = variantThumbs.length
+                if (total <= 4) {
+                  return (
+                    <div className="flex gap-1.5">
+                      {variantThumbs.map((img, i) => {
+                        const activeIdx = thumbToActiveIdx(i)
+                        return (
+                          <motion.button
+                            key={i}
+                            type="button"
+                            whileTap={{ scale: 0.88 }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
+                            className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
+                          >
+                            <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
+                          </motion.button>
+                        )
+                      })}
                     </div>
-                  )}
-                </div>
-              )}
+                  )
+                }
+                const hasLeft = variantOffset > 0
+                const hasRight = variantOffset + (hasLeft ? 2 : 3) < total
+                const fullStart = variantOffset
+                const fullCount = hasLeft && hasRight ? 2 : 3
+                const fullThumbs = variantThumbs.slice(fullStart, fullStart + fullCount)
+                return (
+                  <div className="flex gap-1 items-center">
+                    {hasLeft && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVariantOffset(v => v - 1) }}
+                        className="w-3.5 h-7 rounded-r-full overflow-hidden border-2 border-white shadow-md bg-gray-100 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                      >
+                        <img src={variantThumbs[variantOffset - 1]} alt="" className="w-7 h-7 object-cover -translate-x-3.5" draggable={false} />
+                      </button>
+                    )}
+                    {fullThumbs.map((img, i) => {
+                      const thumbIdx = fullStart + i
+                      const activeIdx = thumbToActiveIdx(thumbIdx)
+                      return (
+                        <motion.button
+                          key={thumbIdx}
+                          type="button"
+                          whileTap={{ scale: 0.88 }}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
+                          className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
+                        >
+                          <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
+                        </motion.button>
+                      )
+                    })}
+                    {hasRight && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVariantOffset(v => v + 1) }}
+                        className="w-3.5 h-7 rounded-l-full overflow-hidden border-2 border-white shadow-md bg-gray-100 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                      >
+                        <img src={variantThumbs[fullStart + fullCount]} alt="" className="w-7 h-7 object-cover" draggable={false} />
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
               {product.is_limited && (
                 <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full shadow-lg">
                   🕐 Limitado

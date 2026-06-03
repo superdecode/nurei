@@ -66,6 +66,7 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
   const fav = isFavorite(product.id)
   const [added, setAdded] = useState(false)
   const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null)
+  const [variantOffset, setVariantOffset] = useState(0)
   const [variantError, setVariantError] = useState(false)
 
   const activeVariants = product.has_variants && product.variants
@@ -230,36 +231,77 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                 <p className="mt-0.5 text-[10px] font-bold text-nurei-cta line-clamp-1">{selectedVariant.name}</p>
               )}
             </div>
-            {activeVariants.length > 0 && (
-              <div className="flex shrink-0 gap-1">
-                {activeVariants.slice(0, 4).map((variant, idx) => (
-                  <button
-                    key={variant.id}
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setSelectedVariantIdx(selectedVariantIdx === idx ? null : idx)
-                      setVariantError(false)
-                    }}
-                    className={`h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${
-                      selectedVariant?.id === variant.id
-                        ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm'
-                        : variantError
-                          ? 'border-red-300 bg-red-50 text-red-600'
-                          : 'border-gray-200 bg-gray-50 text-gray-500'
-                    }`}
-                    aria-label={`Seleccionar ${variant.name}`}
-                  >
-                    {variant.image ? (
-                      <img src={variant.image} alt="" className="mx-auto h-4 w-4 rounded-full object-cover" />
-                    ) : (
-                      <span className="block truncate">{variant.name}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
+            {activeVariants.length > 0 && (() => {
+              const total = activeVariants.length
+              if (total <= 4) {
+                return (
+                  <div className="flex shrink-0 gap-1">
+                    {activeVariants.map((variant, idx) => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === idx ? null : idx); setVariantError(false) }}
+                        className={`h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
+                        aria-label={`Seleccionar ${variant.name}`}
+                      >
+                        {variant.image ? <img src={variant.image} alt="" className="mx-auto h-4 w-4 rounded-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )
+              }
+              const hasLeft = variantOffset > 0
+              const hasRight = variantOffset + (hasLeft ? 2 : 3) < total
+              const fullStart = variantOffset
+              const fullCount = hasLeft && hasRight ? 2 : 3
+              const visible = activeVariants.slice(fullStart, fullStart + fullCount)
+              return (
+                <div className="flex shrink-0 gap-1 items-center overflow-hidden">
+                  {hasLeft && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVariantOffset(v => v - 1) }}
+                      className="h-6 w-3 rounded-r-full border border-gray-200 bg-gray-50 overflow-hidden shrink-0 opacity-60"
+                      aria-label="Anterior"
+                    >
+                      <div className="w-6 h-6 -translate-x-3 flex items-center justify-center text-[8px] font-black text-gray-400">
+                        {activeVariants[variantOffset - 1].image
+                          ? <img src={activeVariants[variantOffset - 1].image!} alt="" className="h-4 w-4 rounded-full object-cover" />
+                          : <span className="block truncate">{activeVariants[variantOffset - 1].name}</span>}
+                      </div>
+                    </button>
+                  )}
+                  {visible.map((variant, i) => {
+                    const globalIdx = fullStart + i
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === globalIdx ? null : globalIdx); setVariantError(false) }}
+                        className={`h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
+                        aria-label={`Seleccionar ${variant.name}`}
+                      >
+                        {variant.image ? <img src={variant.image} alt="" className="mx-auto h-4 w-4 rounded-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
+                      </button>
+                    )
+                  })}
+                  {hasRight && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVariantOffset(v => v + 1) }}
+                      className="h-6 w-3 rounded-l-full border border-gray-200 bg-gray-50 overflow-hidden shrink-0 opacity-60"
+                      aria-label="Siguiente"
+                    >
+                      <div className="w-6 h-6 flex items-center justify-center text-[8px] font-black text-gray-400">
+                        {activeVariants[fullStart + fullCount].image
+                          ? <img src={activeVariants[fullStart + fullCount].image!} alt="" className="h-4 w-4 rounded-full object-cover" />
+                          : <span className="block truncate">{activeVariants[fullStart + fullCount].name}</span>}
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
           </div>
           {variantError && (
             <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-red-500">
