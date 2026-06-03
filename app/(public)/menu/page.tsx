@@ -163,14 +163,19 @@ export default function MenuPage() {
   const debouncedSearch = useDebounce(rawSearch, 300)
 
   // View mode — persisted in localStorage
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('nurei-view-mode')
-      return saved === 'list' || saved === 'grid' || saved === 'compact' ? saved : 'list'
+      if (saved === 'list' || saved === 'grid' || saved === 'compact') {
+        setViewMode(saved)
+      }
     } catch {
-      return 'list'
+      // ignore
     }
-  })
+  }, [])
+
   const handleViewModeChange = (mode: ViewMode) => {
     setViewMode(mode)
     try { localStorage.setItem('nurei-view-mode', mode) } catch {}
