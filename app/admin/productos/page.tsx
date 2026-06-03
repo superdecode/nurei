@@ -386,6 +386,20 @@ export default function ProductosAdminPage() {
     const start = (page - 1) * pageSize
     return filteredProducts.slice(start, start + pageSize)
   }, [filteredProducts, page, pageSize])
+  const categoryPositionMap = useMemo(() => {
+    const grouped = new Map<string, Product[]>()
+    for (const p of products) {
+      const group = grouped.get(p.category) ?? []
+      group.push(p)
+      grouped.set(p.category, group)
+    }
+    const map = new Map<string, number>()
+    for (const group of grouped.values()) {
+      group.sort(compareManualOrder).forEach((p, i) => map.set(p.id, i + 1))
+    }
+    return map
+  }, [products])
+
   const reorderEnabled = viewMode !== 'table' && categoryFilter !== 'all' && sortField === 'display_order' && sortDir === 'asc'
   const visibleReorderProducts = viewMode === 'list' ? paginatedProducts : filteredProducts
   const sensors = useSensors(
@@ -1321,7 +1335,7 @@ export default function ProductosAdminPage() {
                               animate="visible"
                               exit="exit"
                               className={cn(
-                                'group grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border bg-white p-3 shadow-sm transition-all hover:border-gray-300 hover:shadow-md xl:grid-cols-[auto_auto_minmax(0,1.5fr)_minmax(15rem,1fr)_auto]',
+                                'group grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-1.5 rounded-xl border bg-white p-2.5 shadow-sm transition-all hover:border-gray-300 hover:shadow-md xl:grid-cols-[auto_auto_minmax(0,1.5fr)_minmax(15rem,1fr)_auto]',
                                 selectedIds.has(product.id) ? 'border-primary-cyan/40 ring-2 ring-primary-cyan/10' : 'border-gray-200',
                                 isDragging && 'opacity-60',
                               )}
@@ -1329,30 +1343,30 @@ export default function ProductosAdminPage() {
                             >
                               <button
                                 type="button"
+                                onClick={(e) => { e.stopPropagation(); toggleSelect(product.id) }}
+                                className={cn('flex h-4 w-4 items-center justify-center rounded border-2 transition-colors',
+                                  selectedIds.has(product.id) ? 'bg-primary-cyan border-primary-cyan' : 'border-gray-300 hover:border-gray-400'
+                                )}
+                                aria-label="Seleccionar producto"
+                              >
+                                {selectedIds.has(product.id) && <Check className="h-[11px] w-[11px] text-primary-dark" />}
+                              </button>
+                              <button
+                                type="button"
                                 {...attributes}
                                 {...listeners}
                                 disabled={!reorderEnabled}
                                 onClick={(e) => e.stopPropagation()}
                                 className={cn(
-                                  'flex h-11 w-11 items-center justify-center rounded-lg transition-colors',
+                                  'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
                                   reorderEnabled ? 'cursor-grab text-gray-300 hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing' : 'cursor-not-allowed text-gray-200',
                                 )}
                                 aria-label="Reordenar producto"
                               >
-                                <GripVertical className="h-4 w-4" />
+                                <GripVertical className="h-[15px] w-[15px]" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); toggleSelect(product.id) }}
-                                className={cn('flex h-5 w-5 items-center justify-center rounded border-2 transition-colors',
-                                  selectedIds.has(product.id) ? 'bg-primary-cyan border-primary-cyan' : 'border-gray-300 hover:border-gray-400'
-                                )}
-                                aria-label="Seleccionar producto"
-                              >
-                                {selectedIds.has(product.id) && <Check className="h-3 w-3 text-primary-dark" />}
-                              </button>
-                              <div className="flex min-w-0 items-center gap-3">
-                                <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
                                   {product.images?.[product.primary_image_index ?? 0] ? (
                                     <img src={product.images[product.primary_image_index ?? 0]} alt={product.name} className="h-full w-full object-cover" />
                                   ) : (
@@ -1376,7 +1390,7 @@ export default function ProductosAdminPage() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="col-span-3 grid min-w-0 grid-cols-2 items-center gap-2 text-xs sm:grid-cols-4 xl:col-span-1">
+                              <div className="col-span-3 grid min-w-0 grid-cols-2 items-center gap-2 text-xs sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] xl:col-span-1">
                                 <span
                                   className="truncate rounded-full px-2 py-1 font-semibold"
                                   style={catInfo.color
@@ -1385,26 +1399,17 @@ export default function ProductosAdminPage() {
                                 >
                                   {catInfo.label}
                                 </span>
-                                <span className="truncate rounded-full bg-sky-50 px-2 py-1 font-semibold text-sky-700">
-                                  {product.origin_country ?? product.origin ?? 'Sin país'}
-                                </span>
                                 <span className="font-bold text-gray-950">
                                   {formatPrice(price)}
+                                </span>
+                                <span className="truncate rounded-full bg-gray-100 px-2 py-1 text-center font-semibold text-gray-500">
+                                  #{categoryPositionMap.get(product.id) ?? '—'}
                                 </span>
                                 <span className={cn('truncate rounded-full px-2 py-1 text-center font-semibold', STATUS_COLORS[product.status ?? 'draft'])}>
                                   {STATUS_LABELS[product.status ?? 'draft']}
                                 </span>
                               </div>
                               <div className="col-span-3 flex items-center justify-end gap-1 xl:col-span-1" onClick={(e) => e.stopPropagation()}>
-                                <span className={cn('mr-1 rounded-full px-2 py-1 text-xs font-semibold',
-                                  product.has_variants
-                                    ? 'bg-gray-100 text-gray-500'
-                                    : (product.stock_quantity ?? 0) <= (product.low_stock_threshold ?? 5)
-                                      ? 'bg-red-50 text-red-600'
-                                      : 'bg-emerald-50 text-emerald-700',
-                                )}>
-                                  {product.has_variants ? 'Vars.' : `${product.stock_quantity ?? 0} stock`}
-                                </span>
                                 <button
                                   type="button"
                                   title={product.is_favorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
