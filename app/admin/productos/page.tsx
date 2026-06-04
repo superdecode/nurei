@@ -848,7 +848,7 @@ export default function ProductosAdminPage() {
           >
             <Upload className="h-3.5 w-3.5" /> Importar
           </Button>
-          <Link href="/admin/productos/new">
+          <Link href="/admin/productos/new?fresh=1">
             <Button className="bg-nurei-cta text-gray-900 hover:bg-nurei-cta-hover font-bold gap-1.5 h-8 px-4 text-xs rounded-full shadow-sm">
               <Plus className="w-3.5 h-3.5" /> Nuevo producto
             </Button>

@@ -1,15 +1,16 @@
 'use client'
 
 import ProductForm from '@/components/admin/productos/ProductForm'
-import { useCallback, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useState, useEffect, Suspense } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAdminTabsStore } from '@/lib/stores/adminTabsStore'
 
-export default function NewProductPage() {
+function NewProductFormWrapper() {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setDirty } = useAdminTabsStore()
   const fullHref = pathname
   const draftStorageKey = 'new-product'
@@ -27,8 +28,15 @@ export default function NewProductPage() {
       // ignore storage failures
     }
     setResetToken((v) => v + 1)
-    router.replace('/admin/productos/new')
+    // Clear query params after reset
+    router.replace('/admin/productos/new', { scroll: false })
   }, [draftStorageKey, fullHref, router, setDirty])
+
+  useEffect(() => {
+    if (searchParams.get('fresh') === '1') {
+      resetDraft()
+    }
+  }, [searchParams, resetDraft])
 
   const handleDirtyChange = useCallback((dirty: boolean) => {
     setDirty(fullHref, dirty)
@@ -77,5 +85,13 @@ export default function NewProductPage() {
         registerSmartSave={handleRegisterSmartSave}
       />
     </div>
+  )
+}
+
+export default function NewProductPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary-cyan" /></div>}>
+      <NewProductFormWrapper />
+    </Suspense>
   )
 }
