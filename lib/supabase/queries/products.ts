@@ -1,13 +1,23 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Product, ProductVariant } from '@/types'
-import { computeStorefrontStockStatus } from '@/lib/inventory/stock-status'
+import { computeStockStatus } from '@/lib/inventory/stock-status'
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
 function getStockStatus(row: Record<string, unknown>): Product['stock_status'] {
-  return computeStorefrontStockStatus({
-    track_inventory: row.track_inventory as boolean | null | undefined,
-    allow_backorder: row.allow_backorder as boolean | null | undefined,
+  const trackInventory = (row.track_inventory as boolean | null | undefined) !== false
+  const allowBackorder = (row.allow_backorder as boolean | null | undefined) === true
+
+  if (!trackInventory || allowBackorder) return 'available'
+
+  if ((row.has_variants as boolean | null | undefined) === true) {
+    type RawV = { stock?: number | null; status: string }
+    const active = ((row.product_variants as RawV[] | null) ?? []).filter(v => v.status === 'active')
+    if (active.length === 0) return 'available'
+    return active.some(v => (v.stock ?? 0) > 0) ? 'available' : 'out_of_stock'
+  }
+
+  return computeStockStatus({
     stock_quantity: row.stock_quantity as number | string | null | undefined,
     low_stock_threshold: row.low_stock_threshold as number | string | null | undefined,
   })
@@ -21,7 +31,7 @@ function coerceWeightG(raw: unknown): number {
 }
 
 function mapRow(row: Record<string, unknown>): Product {
-  type RawVariant = { id: string; name: string; price: number; image: string | null; status: string; sort_order: number }
+  type RawVariant = { id: string; name: string; price: number; image: string | null; status: string; sort_order: number; stock?: number | null }
   const rawVariants = (row.product_variants as RawVariant[] | null) ?? []
   const activeVariants = rawVariants
     .filter((v) => v.status === 'active')
@@ -59,7 +69,7 @@ function mapRow(row: Record<string, unknown>): Product {
       sku_suffix: null,
       price: v.price,
       compare_at_price: null,
-      stock: 0,
+      stock: v.stock ?? 0,
       attributes: {},
       image: v.image,
       status: v.status as 'active' | 'inactive',
@@ -82,7 +92,7 @@ interface ListFilters {
 
 export async function listProducts(filters: ListFilters = {}) {
   const supabase = createServiceClient()
-  let query = supabase.from('products').select('*, product_variants(id, name, price, image, status, sort_order)')
+  let query = supabase.from('products').select('*, product_variants(id, name, price, image, status, sort_order, stock)')
   const normalizedSearch = filters.search
     ? filters.search.replace(/[(),]/g, '').replace(/\./g, ' ').trim()
     : undefined
@@ -130,7 +140,7 @@ export async function getProductBySlug(slug: string) {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('products')
-    .select('*')
+    .select('*, product_variants(id, name, price, image, status, sort_order, stock)')
     .eq('slug', slug)
     .single()
 

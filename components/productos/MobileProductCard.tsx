@@ -121,6 +121,8 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
 
   const isOutOfStock = product.stock_status === 'out_of_stock'
   const isLowStock = product.stock_status === 'low_stock'
+  const variantIsOOS = (v: { stock?: number | null }) =>
+    product.track_inventory !== false && !product.allow_backorder && (v.stock ?? 0) <= 0
   const price = selectedVariant?.price ?? product.base_price ?? product.price
   const shortDescription = product.description ? stripHtml(product.description).trim() : ''
   const hasDiscount = !!product.compare_at_price && product.compare_at_price > price
@@ -236,20 +238,23 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
               if (total <= 4) {
                 return (
                   <div className="flex shrink-0 gap-1">
-                    {activeVariants.map((variant, idx) => (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === idx ? null : idx); setVariantError(false) }}
-                        className={variant.image
-                          ? `w-6 h-6 rounded-full overflow-hidden border-2 shadow-sm bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariant?.id === variant.id ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : variantError ? 'border-red-300' : 'border-white hover:border-nurei-cta/60'}`
-                          : `h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`
-                        }
-                        aria-label={`Seleccionar ${variant.name}`}
-                      >
-                        {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
-                      </button>
-                    ))}
+                    {activeVariants.map((variant, idx) => {
+                      const oos = variantIsOOS(variant)
+                      return (
+                        <button
+                          key={variant.id}
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!oos) { setSelectedVariantIdx(selectedVariantIdx === idx ? null : idx); setVariantError(false) } }}
+                          className={variant.image
+                            ? `w-6 h-6 rounded-full overflow-hidden border-2 shadow-sm bg-gray-100 shrink-0 transition-all duration-150 ${oos ? 'opacity-35 cursor-not-allowed' : ''} ${selectedVariant?.id === variant.id ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : variantError ? 'border-red-300' : 'border-white hover:border-nurei-cta/60'}`
+                            : `h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${oos ? 'opacity-35 cursor-not-allowed line-through' : ''} ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`
+                          }
+                          aria-label={`${variant.name}${oos ? ' (agotado)' : ''}`}
+                        >
+                          {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
+                        </button>
+                      )
+                    })}
                   </div>
                 )
               }
@@ -274,16 +279,17 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                   )}
                   {visible.map((variant, i) => {
                     const globalIdx = fullStart + i
+                    const oos = variantIsOOS(variant)
                     return (
                       <button
                         key={variant.id}
                         type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === globalIdx ? null : globalIdx); setVariantError(false) }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!oos) { setSelectedVariantIdx(selectedVariantIdx === globalIdx ? null : globalIdx); setVariantError(false) } }}
                         className={variant.image
-                          ? `w-6 h-6 rounded-full overflow-hidden border-2 shadow-sm bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariant?.id === variant.id ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : variantError ? 'border-red-300' : 'border-white hover:border-nurei-cta/60'}`
-                          : `h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`
+                          ? `w-6 h-6 rounded-full overflow-hidden border-2 shadow-sm bg-gray-100 shrink-0 transition-all duration-150 ${oos ? 'opacity-35 cursor-not-allowed' : ''} ${selectedVariant?.id === variant.id ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : variantError ? 'border-red-300' : 'border-white hover:border-nurei-cta/60'}`
+                          : `h-6 min-w-6 max-w-[54px] rounded-full border px-1.5 text-[9px] font-black transition-all ${oos ? 'opacity-35 cursor-not-allowed line-through' : ''} ${selectedVariant?.id === variant.id ? 'border-nurei-cta bg-nurei-cta text-gray-900 shadow-sm' : variantError ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`
                         }
-                        aria-label={`Seleccionar ${variant.name}`}
+                        aria-label={`${variant.name}${oos ? ' (agotado)' : ''}`}
                       >
                         {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
                       </button>

@@ -279,6 +279,8 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
 
   const isOutOfStock = product.stock_status === 'out_of_stock'
   const isLowStock = product.stock_status === 'low_stock'
+  const variantIsOOS = (v: { stock?: number | null }) =>
+    product.track_inventory !== false && !product.allow_backorder && (v.stock ?? 0) <= 0
   const basePrice = product.base_price ?? product.price
   const price = selectedVariant ? selectedVariant.price : basePrice
   const discountPercent = product.compare_at_price && product.compare_at_price > price
@@ -395,13 +397,14 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                     <div className="flex gap-1.5">
                       {variantThumbs.map((img, i) => {
                         const activeIdx = thumbToActiveIdx(i)
+                        const oos = variantIsOOS(clickableVariants[i])
                         return (
                           <motion.button
                             key={i}
                             type="button"
-                            whileTap={{ scale: 0.88 }}
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
-                            className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
+                            whileTap={oos ? {} : { scale: 0.88 }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!oos) setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
+                            className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${oos ? 'opacity-35 cursor-not-allowed' : ''} ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
                           >
                             <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
                           </motion.button>
@@ -429,13 +432,14 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                     {fullThumbs.map((img, i) => {
                       const thumbIdx = fullStart + i
                       const activeIdx = thumbToActiveIdx(thumbIdx)
+                      const oos = variantIsOOS(clickableVariants[thumbIdx])
                       return (
                         <motion.button
                           key={thumbIdx}
                           type="button"
-                          whileTap={{ scale: 0.88 }}
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
-                          className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
+                          whileTap={oos ? {} : { scale: 0.88 }}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!oos) setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
+                          className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${oos ? 'opacity-35 cursor-not-allowed' : ''} ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
                         >
                           <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
                         </motion.button>
