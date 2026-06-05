@@ -9,7 +9,7 @@ const FLOATING_SNACKS = [
   { emoji: '🍜', x: '8%',  y: '18%', delay: 0,    size: 'text-4xl' },
   { emoji: '🍡', x: '88%', y: '12%', delay: 0.4,  size: 'text-3xl' },
   { emoji: '🌶️', x: '5%',  y: '68%', delay: 0.8,  size: 'text-2xl' },
-  { emoji: '🍘', x: '91%', y: '72%', delay: 0.2,  size: 'text-4xl' },
+  { emoji: '🍜', x: '91%', y: '72%', delay: 0.2,  size: 'text-4xl' },
   { emoji: '🍵', x: '82%', y: '40%', delay: 0.6,  size: 'text-3xl' },
   { emoji: '🥢', x: '14%', y: '45%', delay: 1.0,  size: 'text-3xl' },
   { emoji: '🍙', x: '50%', y: '6%',  delay: 0.3,  size: 'text-2xl' },

@@ -524,7 +524,7 @@ export default function TrackingPage() {
                               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-lg">🍘</div>
+                            <div className="w-full h-full flex items-center justify-center text-lg">🍜</div>
                           )}
                         </div>
                         <span className="flex-1 text-gray-600 leading-snug">

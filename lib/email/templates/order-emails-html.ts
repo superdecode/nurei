@@ -71,7 +71,7 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
 
         <!-- Header divertido -->
         <tr><td style="background:linear-gradient(135deg, ${BRAND_BG} 0%, #FFF 50%, #ECFEFF 100%);padding:28px 24px;text-align:center;border-bottom:3px solid ${BRAND_AMBER};">
-          <div style="font-size:36px;line-height:1;margin-bottom:8px;">🎉🍘✨</div>
+          <div style="font-size:36px;line-height:1;margin-bottom:8px;">🎉🍜✨</div>
           <p style="margin:0;font-size:22px;font-weight:800;color:${TEXT_DARK};letter-spacing:-0.02em;">¡Recibimos tu pedido!</p>
           <p style="margin:10px 0 0;font-size:15px;color:${TEXT_MUTED};line-height:1.5;">Hola <strong style="color:${TEXT_DARK};">${escapeHtml(p.customerName)}</strong>, gracias por elegir <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong>. Tu snack ya está en fila.</p>
           <div style="margin-top:16px;display:inline-block;background:${TEXT_DARK};color:#FFFFFF;font-family:ui-monospace,monospace;font-size:13px;font-weight:700;padding:8px 14px;border-radius:999px;letter-spacing:0.05em;">${escapeHtml(p.shortId)}</div>
@@ -203,7 +203,7 @@ export function renderOrderDeliveredHtml(p: OrderStatusEmailProps): string {
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(17,24,39,0.08);border:1px solid ${CARD_BORDER};">
         <tr><td style="background:linear-gradient(135deg,#F0FDF4 0%,#FFF 50%,${BRAND_BG} 100%);padding:28px 24px;text-align:center;border-bottom:3px solid #10B981;">
-          <div style="font-size:40px;line-height:1;margin-bottom:8px;">🎉✅🍘</div>
+          <div style="font-size:40px;line-height:1;margin-bottom:8px;">🎉✅🍜</div>
           <p style="margin:0;font-size:22px;font-weight:800;color:${TEXT_DARK};letter-spacing:-0.02em;">¡Pedido entregado!</p>
           <p style="margin:10px 0 0;font-size:15px;color:${TEXT_MUTED};">Hola <strong style="color:${TEXT_DARK};">${escapeHtml(p.customerName)}</strong>, ¡esperamos que disfrutes tus snacks!</p>
           <div style="margin-top:16px;display:inline-block;background:${TEXT_DARK};color:#FFFFFF;font-family:ui-monospace,monospace;font-size:13px;font-weight:700;padding:8px 14px;border-radius:999px;letter-spacing:0.05em;">${escapeHtml(p.shortId)}</div>

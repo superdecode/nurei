@@ -50,7 +50,7 @@ export function Footer() {
               href="/menu"
               className="text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm"
             >
-              🍘 Menú completo
+              🍜 Menú completo
             </Link>
             <Link
               href="/nosotros"
@@ -100,7 +100,7 @@ export function Footer() {
             &copy; {new Date().getFullYear()} {APP_NAME}. Hecho con ❤️ en CDMX.
           </p>
           <p className="text-gray-300 text-xs">
-            🍘 🌶️ 🍵 🥤
+            🍜 🌶️ 🍵 🥤
           </p>
         </div>
       </Container>

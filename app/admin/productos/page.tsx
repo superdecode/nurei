@@ -13,7 +13,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Search, LayoutGrid, List, Table2, Trash2,
-  ChevronUp, ChevronDown, Check, X, Package,
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Package,
   ArrowUpDown, CheckSquare, Filter,
   Copy, Layers, Pencil, GripVertical, Star,
   Upload, Download,
@@ -216,6 +216,20 @@ function SortableProductGridCard({
       {children({ attributes, listeners, isDragging })}
     </motion.div>
   )
+}
+
+// ─── Pagination helper ───────────────────────────────────────────────────
+
+function getPageRange(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: number[] = [1]
+  if (current > 3) pages.push(0)
+  const s = Math.max(2, current - 1)
+  const e = Math.min(total - 1, current + 1)
+  for (let i = s; i <= e; i++) pages.push(i)
+  if (current < total - 2) pages.push(0)
+  pages.push(total)
+  return pages
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────
@@ -1263,38 +1277,34 @@ export default function ProductosAdminPage() {
               </div>
             )}
           </div>
-          <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-gray-500">
-              {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} · Página {page} de {totalPages}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={(value) => {
-                    const next = Number(value)
-                    if (!Number.isFinite(next)) return
-                    setPageSize(next)
-                    setPage(1)
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[104px] rounded-full border-gray-200 bg-white text-xs font-semibold">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <SelectItem key={size} value={String(size)}>{size}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-                <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Siguiente</Button>
+          {filteredProducts.length > 0 && (
+            <div className="flex items-center justify-between px-1 pt-3">
+              <p className="text-xs text-gray-500">
+                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredProducts.length)} de {filteredProducts.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                {getPageRange(page, totalPages).map((n, i) =>
+                  n === 0 ? (
+                    <span key={`e-${i}`} className="flex h-7 w-5 items-center justify-center text-xs text-gray-400">…</span>
+                  ) : (
+                    <button key={n} type="button" onClick={() => setPage(n)}
+                      className={cn('flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold transition',
+                        n === page ? 'bg-nurei-cta text-gray-900' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')}>
+                      {n}
+                    </button>
+                  )
+                )}
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
-          </div>
+          )}
         </motion.div>
       ) : (
         <DndContext
@@ -1463,38 +1473,34 @@ export default function ProductosAdminPage() {
                     <p className="text-xs text-gray-400 mt-1">Intenta cambiar los filtros</p>
                   </div>
                 )}
-              <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-gray-500">
-                  {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} · Página {page} de {totalPages}
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>
-                    <Select
-                      value={String(pageSize)}
-                      onValueChange={(value) => {
-                        const next = Number(value)
-                        if (!Number.isFinite(next)) return
-                        setPageSize(next)
-                        setPage(1)
-                      }}
-                    >
-                      <SelectTrigger className="h-8 w-[104px] rounded-full border-gray-200 bg-white text-xs font-semibold">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAGE_SIZE_OPTIONS.map((size) => (
-                          <SelectItem key={size} value={String(size)}>{size}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-                    <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Siguiente</Button>
+              {filteredProducts.length > 0 && (
+                <div className="flex items-center justify-between px-1 pt-3">
+                  <p className="text-xs text-gray-500">
+                    {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredProducts.length)} de {filteredProducts.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    {getPageRange(page, totalPages).map((n, i) =>
+                      n === 0 ? (
+                        <span key={`e-${i}`} className="flex h-7 w-5 items-center justify-center text-xs text-gray-400">…</span>
+                      ) : (
+                        <button key={n} type="button" onClick={() => setPage(n)}
+                          className={cn('flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold transition',
+                            n === page ? 'bg-nurei-cta text-gray-900' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')}>
+                          {n}
+                        </button>
+                      )
+                    )}
+                    <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           ) : (
             /* Kanban View */

@@ -29,10 +29,10 @@ const DESCRIPTION_PREVIEW_CHARS = 300
 
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
-    crunchy: '🍘', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
+    crunchy: '🍜', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
     snacks: '🍿', ramen: '🍜', dulces: '🍬', salsas: '🫙',
   }
-  return map[category] || '🍘'
+  return map[category] || '🍜'
 }
 
 function getCategoryFlightStyles(category: string): { ring: string; glow: string } {

@@ -88,7 +88,7 @@ export function CartItem({ item, onRemove }: CartItemProps) {
               className="w-full h-full object-cover rounded-xl"
             />
           ) : (
-            <span className="text-xl sm:text-lg opacity-30">🍘</span>
+            <span className="text-xl sm:text-lg opacity-30">🍜</span>
           )}
         </motion.div>
 

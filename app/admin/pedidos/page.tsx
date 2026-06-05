@@ -100,6 +100,18 @@ const STATUS_TABS: Array<{ key: OrderStatus | 'all'; label: string }> = [
 ]
 
 const PAGE_SIZE_OPTIONS = [10, 14, 24, 50] as const
+
+function getPageRange(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: number[] = [1]
+  if (current > 3) pages.push(0)
+  const s = Math.max(2, current - 1)
+  const e = Math.min(total - 1, current + 1)
+  for (let i = s; i <= e; i++) pages.push(i)
+  if (current < total - 2) pages.push(0)
+  pages.push(total)
+  return pages
+}
 const PAGE_SIZE_STORAGE_KEY = 'nurei-admin-pedidos-page-size'
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -730,26 +742,31 @@ export default function PedidosAdminPage() {
         </Table>
 
         {/* Pagination */}
-        {data.totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
-            <p className="text-xs text-gray-400">
-              {(data.page - 1) * data.pageSize + 1}–{Math.min(data.page * data.pageSize, data.total)} de {data.total}
+        {data.total > 0 && (
+          <div className="flex items-center justify-between px-1 pt-3">
+            <p className="text-xs text-gray-500">
+              {(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} de {data.total}
             </p>
-            <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="h-7 rounded-lg text-xs">
+            <div className="flex items-center gap-1">
+              <button type="button" disabled={data.page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">
                 <ChevronLeft className="h-3.5 w-3.5" />
-              </Button>
-              {Array.from({ length: Math.min(data.totalPages, 7) }).map((_, i) => {
-                const p = i + 1
-                return (
-                  <Button key={p} variant={page === p ? 'default' : 'outline'} size="sm" onClick={() => setPage(p)} className="h-7 w-7 rounded-lg text-xs p-0">
-                    {p}
-                  </Button>
+              </button>
+              {getPageRange(data.page, Math.max(1, data.totalPages)).map((n, i) =>
+                n === 0 ? (
+                  <span key={`e-${i}`} className="flex h-7 w-5 items-center justify-center text-xs text-gray-400">…</span>
+                ) : (
+                  <button key={n} type="button" onClick={() => setPage(n)}
+                    className={cn('flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold transition',
+                      n === data.page ? 'bg-nurei-cta text-gray-900' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50')}>
+                    {n}
+                  </button>
                 )
-              })}
-              <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 rounded-lg text-xs">
+              )}
+              <button type="button" disabled={data.page >= data.totalPages} onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed">
                 <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
+              </button>
             </div>
           </div>
         )}

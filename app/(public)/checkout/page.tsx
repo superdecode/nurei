@@ -1106,7 +1106,7 @@ export default function CheckoutPage() {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <span>🍘</span>
+                                <span>🍜</span>
                               )}
                             </div>
 

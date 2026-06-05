@@ -13,6 +13,8 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   CheckSquare,
   Check,
   Package,
@@ -146,6 +148,20 @@ function SortHeader({
       ) : null}
     </button>
   )
+}
+
+// ─── Pagination helper ────────────────────────────────────────────────────────
+
+function getPageRange(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: number[] = [1]
+  if (current > 3) pages.push(0)
+  const s = Math.max(2, current - 1)
+  const e = Math.min(total - 1, current + 1)
+  for (let i = s; i <= e; i++) pages.push(i)
+  if (current < total - 2) pages.push(0)
+  pages.push(total)
+  return pages
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -1104,25 +1120,33 @@ export default function InventoryAdminPage() {
                       </div>
                     </TableCell>
                     <TableCell className="min-w-0 p-1.5">
-                      <span className={cn('inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full', STATUS_COLORS[st])}>
-                        {stockStatusLabel(st)}
-                      </span>
+                      {hasVariants ? (
+                        <span className="inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-50 text-blue-600">
+                          Variantes
+                        </span>
+                      ) : (
+                        <span className={cn('inline-block max-w-full truncate px-2 py-0.5 text-[11px] font-medium rounded-full', STATUS_COLORS[st])}>
+                          {stockStatusLabel(st)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="min-w-0 p-1.5 text-sm text-gray-500 tabular-nums">{product.low_stock_threshold ?? 5}</TableCell>
                     <TableCell className="min-w-0 p-1.5 text-sm text-gray-500 tabular-nums">{product.sold_30d ?? 0}</TableCell>
                     <TableCell className="min-w-0 max-w-full p-1 text-right">
                       <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5">
-                        <button
-                          type="button"
-                          title="Ajuste manual"
-                          className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
-                          onClick={() => {
-                            setAdjustProduct(product); setAdjustVariant(null); setAdjustKind('entrada'); setAdjustValue('')
-                            setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
-                          }}
-                        >
-                          <Wrench className="h-3.5 w-3.5" />
-                        </button>
+                        {!hasVariants && (
+                          <button
+                            type="button"
+                            title="Ajuste manual"
+                            className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                            onClick={() => {
+                              setAdjustProduct(product); setAdjustVariant(null); setAdjustKind('entrada'); setAdjustValue('')
+                              setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
+                            }}
+                          >
+                            <Wrench className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           title="Alerta mínima"
@@ -1241,42 +1265,50 @@ export default function InventoryAdminPage() {
         </Table>
       </div>
       {/* Pagination */}
-      <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
+      {filteredProducts.length > 0 && (
+        <div className="flex items-center justify-between px-1 pt-3">
           <p className="text-xs text-gray-500">
-            {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} · Página {page} de {totalPages}
+            {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredProducts.length)} de {filteredProducts.length}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>
-              <Select
-                value={String(pageSize)}
-                onValueChange={(v) => {
-                  const next = Number(v)
-                  if (!Number.isFinite(next)) return
-                  setPageSize(next)
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger className="h-8 w-[104px] rounded-full border-gray-200 bg-white text-xs font-semibold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={String(size)}>{size}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                Anterior
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                Siguiente
-              </Button>
-            </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            {getPageRange(page, totalPages).map((n, i) =>
+              n === 0 ? (
+                <span key={`e-${i}`} className="flex h-7 w-5 items-center justify-center text-xs text-gray-400">…</span>
+              ) : (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPage(n)}
+                  className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-md text-xs font-semibold transition',
+                    n === page
+                      ? 'bg-nurei-cta text-gray-900'
+                      : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  )}
+                >
+                  {n}
+                </button>
+              )
+            )}
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
-      </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════
           MODALS

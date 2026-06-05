@@ -36,10 +36,10 @@ interface ProductCardProps {
 
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
-    crunchy: '🍘', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
+    crunchy: '🍜', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
     snacks: '🍿', ramen: '🍜', dulces: '🍬', salsas: '🫙',
   }
-  return map[category] || '🍘'
+  return map[category] || '🍜'
 }
 
 function SpiceDots({ level }: { level: number }) {
@@ -245,7 +245,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
         price: selectedVariant.price,
       } : null)
       setAdded(true)
-      toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍘', duration: 2000 })
+      toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍜', duration: 2000 })
       setTimeout(() => setAdded(false), 1400)
     } catch {
       const message = 'No se pudo validar inventario en este momento.'

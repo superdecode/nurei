@@ -128,7 +128,7 @@ function OrderLineThumb({ url, label }: { url?: string | null; label: string }) 
   if (!url || failed) {
     return (
       <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center text-lg shrink-0" title={label}>
-        🍘
+        🍜
       </div>
     )
   }

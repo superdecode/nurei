@@ -128,7 +128,7 @@ export default function NosotrosPage() {
                 <p className="text-3xl font-black text-white italic">"Snacking is an art form."</p>
               </div>
               <div className="absolute inset-0 flex items-center justify-center text-[180px] select-none opacity-20">
-                🍘
+                🍜
               </div>
             </motion.div>
           </div>

@@ -87,7 +87,7 @@ function CartItemRow({ item, selected, onToggleSelect }: { item: CartItem; selec
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xl opacity-30">🍘</div>
+          <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xl opacity-30">🍜</div>
         )}
       </div>
 

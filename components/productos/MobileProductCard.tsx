@@ -12,10 +12,10 @@ import type { Product } from '@/types'
 
 function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
-    crunchy: '🍘', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
+    crunchy: '🍜', spicy: '🌶️', limited_edition: '🍵', drinks: '🥤',
     snacks: '🍿', ramen: '🍜', dulces: '🍬', salsas: '🫙',
   }
-  return map[category] || '🍘'
+  return map[category] || '🍜'
 }
 
 const PlusIcon = () => (
@@ -106,7 +106,7 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
       } : null)
       setAdded(true)
       setVariantError(false)
-      toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍘', duration: 1500 })
+      toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍜', duration: 1500 })
       setTimeout(() => setAdded(false), 1200)
     } catch {
       toast.error('No se pudo validar inventario.')

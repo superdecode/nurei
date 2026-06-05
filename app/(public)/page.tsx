@@ -40,14 +40,14 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
     addItem(product)
     setAdded(true)
     toast.success(`${product.name} agregado al carrito`, {
-      icon: '🍘',
+      icon: '🍜',
       description: '¡Buen provecho!',
       duration: 2000,
     })
     setTimeout(() => setAdded(false), 1400)
   }
 
-  const emoji = product.category === 'crunchy' ? '🍘' :
+  const emoji = product.category === 'crunchy' ? '🍜' :
                 product.category === 'spicy' ? '🌶️' :
                 product.category === 'limited_edition' ? '🍵' : '🥤'
 
@@ -338,7 +338,7 @@ export default function LandingPage() {
               />
               <div className="relative flex flex-col items-center justify-center">
                 <span className="text-[12rem] sm:text-[18rem] select-none filter drop-shadow-2xl">
-                  🍘
+                  🍜
                 </span>
                 <div className="flex gap-4 mt-[-2rem]">
                   <span className="text-6xl filter drop-shadow-xl animate-bounce" style={{ animationDelay: '0s' }}>🌶️</span>

@@ -38,7 +38,7 @@ const STAGE_COPY: Record<SnackWaitStage, { title: string; subtitle: string }> = 
 
 const SNACKS = [
   {
-    emoji: '🍘',
+    emoji: '🍜',
     label: 'Rice cracker',
     tilt: -8,
     delay: 0,
