@@ -1264,7 +1264,9 @@ export default function ProductosAdminPage() {
             )}
           </div>
           <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-gray-500">Página {page} de {totalPages}</p>
+            <p className="text-xs text-gray-500">
+              {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} · Página {page} de {totalPages}
+            </p>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>
@@ -1462,7 +1464,9 @@ export default function ProductosAdminPage() {
                   </div>
                 )}
               <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-gray-500">Página {page} de {totalPages}</p>
+                <p className="text-xs text-gray-500">
+                  {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} · Página {page} de {totalPages}
+                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>

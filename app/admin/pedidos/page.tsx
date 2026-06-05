@@ -99,6 +99,9 @@ const STATUS_TABS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'refunded', label: 'Reembolsado' },
 ]
 
+const PAGE_SIZE_OPTIONS = [10, 14, 24, 50] as const
+const PAGE_SIZE_STORAGE_KEY = 'nurei-admin-pedidos-page-size'
+
 // ── Types ────────────────────────────────────────────────────────────────
 
 interface ApiList {
@@ -126,9 +129,21 @@ export default function PedidosAdminPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(() => {
+    if (typeof window === 'undefined') return 24
+    const raw = window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY)
+    const n = raw ? Number(raw) : 24
+    return PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number]) ? n : 24
+  })
   const [sortBy, setSortBy] = useState('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize))
+    }
+  }, [pageSize])
 
   // Smart filter panel open state
   const [filterOpen, setFilterOpen] = useState(false)
@@ -185,7 +200,7 @@ export default function PedidosAdminPage() {
     try {
       const params = new URLSearchParams()
       params.set('page', String(p))
-      params.set('pageSize', '20')
+      params.set('pageSize', String(pageSize))
       params.set('sortBy', sortBy)
       params.set('sortDir', sortDir)
       if (searchApplied) params.set('search', searchApplied)
@@ -205,7 +220,7 @@ export default function PedidosAdminPage() {
     } finally {
       setLoading(false)
     }
-  }, [searchApplied, statusFilter, dateFrom, dateTo, sortBy, sortDir, page])
+  }, [searchApplied, statusFilter, dateFrom, dateTo, sortBy, sortDir, page, pageSize])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 

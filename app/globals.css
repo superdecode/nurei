@@ -577,7 +577,7 @@
 }
 
 /* ── Rich text content (Tiptap output) ─────────────────────── */
-.rich-content p { margin-bottom: 0.5em; line-height: 1.6; }
+.rich-content p { margin-bottom: 0.5em; line-height: 1.6; list-style-type: none; }
 .rich-content p:last-child { margin-bottom: 0; }
 .rich-content strong { font-weight: 700; }
 .rich-content em { font-style: italic; }
@@ -586,8 +586,15 @@
 .rich-content h1 { font-size: 1.25em; font-weight: 800; margin-bottom: 0.4em; }
 .rich-content h2 { font-size: 1.1em; font-weight: 700; margin-bottom: 0.4em; }
 .rich-content h3 { font-size: 1em; font-weight: 700; margin-bottom: 0.4em; }
-.rich-content ul { list-style: disc inside; margin-bottom: 0.5em; padding-left: 0.25em; }
-.rich-content ol { list-style: decimal inside; margin-bottom: 0.5em; padding-left: 0.25em; }
+.rich-content ul { list-style: disc outside; margin-bottom: 0.5em; padding-left: 1.1rem; }
+.rich-content ol { list-style: decimal outside; margin-bottom: 0.5em; padding-left: 1.1rem; }
 .rich-content li { margin-bottom: 0.2em; }
+.rich-content li p { margin-bottom: 0; display: inline; }
 .rich-content hr { border: none; border-top: 1px solid #e5e7eb; margin: 0.75em 0; }
 .rich-content a { color: inherit; text-decoration: underline; }
+
+/* Hide markers on non-list items to prevent "ghost" bullets */
+.rich-content *:not(li)::before, 
+.rich-content *:not(li)::after {
+  content: none !important;
+}

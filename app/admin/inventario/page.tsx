@@ -62,6 +62,9 @@ type InventoryApiData = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE_OPTIONS = [10, 14, 24, 50] as const
+const PAGE_SIZE_STORAGE_KEY = 'nurei-admin-inventario-page-size'
+
 const MOVEMENT_TYPE_LABEL: Record<InventoryMovementType, string> = {
   entrada: 'Entrada',
   salida: 'Salida',
@@ -159,7 +162,12 @@ export default function InventoryAdminPage() {
     'todos' | 'stock_bajo' | 'mejores_ventas' | 'nuevas_entradas'
   >('todos')
   const [page, setPage] = useState(1)
-  const pageSize = 14
+  const [pageSize, setPageSize] = useState(() => {
+    if (typeof window === 'undefined') return 14
+    const raw = window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY)
+    const n = raw ? Number(raw) : 14
+    return PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number]) ? n : 14
+  })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // ─ Search & filter state ──────────────────────────────────────────────────
@@ -316,6 +324,11 @@ export default function InventoryAdminPage() {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
     }
   }, [searchDraft])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize))
+  }, [pageSize])
 
   // ─── Summary metrics ──────────────────────────────────────────────────────
 
@@ -1062,14 +1075,18 @@ export default function InventoryAdminPage() {
                     </TableCell>
                     <TableCell className="min-w-0 p-1.5 text-center">
                       <div className="inline-flex items-center justify-center gap-0.5">
-                        <span
-                          className={cn(
-                            'text-sm font-semibold tabular-nums',
-                            st === 'out_of_stock' ? 'text-amber-700' : st === 'low_stock' ? 'text-amber-700' : 'text-emerald-700'
-                          )}
-                        >
-                          {product.stock_quantity ?? 0}
-                        </span>
+                        {hasVariants ? (
+                          <span className="text-xs font-bold text-blue-500">Var</span>
+                        ) : (
+                          <span
+                            className={cn(
+                              'text-sm font-semibold tabular-nums',
+                              st === 'out_of_stock' ? 'text-amber-700' : st === 'low_stock' ? 'text-amber-700' : 'text-emerald-700'
+                            )}
+                          >
+                            {product.stock_quantity ?? 0}
+                          </span>
+                        )}
                         {!hasVariants && (
                           <button
                             type="button"
@@ -1095,19 +1112,17 @@ export default function InventoryAdminPage() {
                     <TableCell className="min-w-0 p-1.5 text-sm text-gray-500 tabular-nums">{product.sold_30d ?? 0}</TableCell>
                     <TableCell className="min-w-0 max-w-full p-1 text-right">
                       <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5">
-                        {!hasVariants && (
-                          <button
-                            type="button"
-                            title="Ajuste manual"
-                            className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
-                            onClick={() => {
-                              setAdjustProduct(product); setAdjustVariant(null); setAdjustKind('entrada'); setAdjustValue('')
-                              setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
-                            }}
-                          >
-                            <Wrench className="h-3.5 w-3.5" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          title="Ajuste manual"
+                          className="shrink-0 rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-primary-dark"
+                          onClick={() => {
+                            setAdjustProduct(product); setAdjustVariant(null); setAdjustKind('entrada'); setAdjustValue('')
+                            setAdjustMotivo(MOTIVO_PRESETS[0]); setAdjustNota(''); setAdjustOpen(true)
+                          }}
+                        >
+                          <Wrench className="h-3.5 w-3.5" />
+                        </button>
                         <button
                           type="button"
                           title="Alerta mínima"
@@ -1224,20 +1239,43 @@ export default function InventoryAdminPage() {
             )}
           </TableBody>
         </Table>
-        {/* Pagination */}
-        <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2.5">
+      </div>
+      {/* Pagination */}
+      <div className="mt-4 flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-gray-500">
             {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} · Página {page} de {totalPages}
           </p>
-          <div className="flex gap-1.5">
-            <Button size="sm" variant="outline" className="h-7 rounded-lg text-xs" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-              Anterior
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 rounded-lg text-xs" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-              Siguiente
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por página</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  const next = Number(v)
+                  if (!Number.isFinite(next)) return
+                  setPageSize(next)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="h-8 w-[104px] rounded-full border-gray-200 bg-white text-xs font-semibold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                Anterior
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                Siguiente
+              </Button>
+            </div>
           </div>
-        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════

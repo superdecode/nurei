@@ -87,6 +87,73 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Product-level adjustment ──────────────────────────────────────────────
+    const { data: prod, error: pErr } = await supabase
+      .from('products')
+      .select('stock_quantity, has_variants')
+      .eq('id', product_id)
+      .single()
+    if (pErr || !prod) return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
+
+    if (prod.has_variants) {
+      // Apply adjustment to each active variant equally, then sync parent
+      const { data: variants } = await supabase
+        .from('product_variants')
+        .select('id, stock')
+        .eq('product_id', product_id)
+        .eq('status', 'active')
+
+      const activeVariants = (variants ?? []) as Array<{ id: string; stock: number }>
+      if (activeVariants.length === 0) {
+        return NextResponse.json({ error: 'El producto tiene variantes pero ninguna está activa' }, { status: 400 })
+      }
+
+      const prevTotal = prod.stock_quantity ?? 0
+
+      for (const variant of activeVariants) {
+        const currentStock = variant.stock ?? 0
+        let newStock: number
+        if (kind === 'entrada') {
+          newStock = currentStock + value
+        } else if (kind === 'salida') {
+          newStock = Math.max(0, currentStock - value)
+        } else {
+          newStock = value
+        }
+        await supabase
+          .from('product_variants')
+          .update({ stock: newStock })
+          .eq('id', variant.id)
+      }
+
+      // Sync parent stock_quantity = sum of all active variant stocks
+      const { data: allVariants } = await supabase
+        .from('product_variants')
+        .select('stock')
+        .eq('product_id', product_id)
+        .eq('status', 'active')
+      const newTotal = ((allVariants ?? []) as Array<{ stock?: number }>)
+        .reduce((s, v) => s + (v.stock ?? 0), 0)
+      
+      await supabase
+        .from('products')
+        .update({ stock_quantity: newTotal })
+        .eq('id', product_id)
+
+      const delta = newTotal - prevTotal
+      if (delta !== 0) {
+        await supabase.from('inventory_movements').insert({
+          product_id,
+          type: kind === 'entrada' ? 'entrada' : kind === 'salida' ? 'salida' : 'ajuste',
+          quantity: delta,
+          reason: `${reason} (${activeVariants.length} variantes)`,
+          reference,
+          created_by: null,
+        })
+      }
+
+      return NextResponse.json({ data: { product_id, newTotal, delta } })
+    }
+
     if (kind === 'entrada') {
       if (value <= 0) return NextResponse.json({ error: 'La entrada debe ser mayor a 0' }, { status: 400 })
       const movement = await createInventoryMovement(supabase, {
@@ -114,8 +181,6 @@ export async function POST(request: NextRequest) {
     }
 
     // correccion: value = nuevo stock absoluto
-    const { data: prod, error } = await supabase.from('products').select('stock_quantity').eq('id', product_id).single()
-    if (error || !prod) return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     const current = prod.stock_quantity ?? 0
     const delta = value - current
     if (delta === 0) {

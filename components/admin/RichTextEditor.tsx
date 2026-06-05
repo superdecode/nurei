@@ -33,6 +33,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, minHei
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({ heading: false, codeBlock: false, code: false }),
+      Underline,
       TextStyle,
       Color,
       Placeholder.configure({ placeholder: placeholder ?? 'Descripción del producto…' }),
