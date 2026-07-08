@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Plus, Heart, Ban, Flame, ChevronRight, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { MotionImage } from '@/components/ui/motion-image'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
@@ -147,15 +148,17 @@ function ImageCarousel({ images, primaryIndex, isHovered, onSwipeDetected }: Ima
       style={{ touchAction: 'pan-y' }}
     >
       <AnimatePresence mode="wait">
-        <motion.img
+        <MotionImage
           key={idx}
           src={images[idx]}
           alt=""
+          fill
+          sizes="(max-width: 640px) 50vw, 25vw"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="w-full h-full object-cover pointer-events-none"
+          className="object-cover pointer-events-none"
           draggable={false}
         />
       </AnimatePresence>
@@ -327,11 +330,13 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
         <div className="relative aspect-square bg-gray-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
           {hasImages && primaryImage ? (
             selectedVariant ? (
-              <motion.img
+              <MotionImage
                 key={selectedVariant.id}
                 src={selectedVariant.image!}
                 alt={selectedVariant.name}
-                className="w-full h-full object-cover"
+                fill
+                sizes="(max-width: 640px) 50vw, 25vw"
+                className="object-cover"
                 initial={{ opacity: 0, scale: 1.04 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.25 }}
@@ -346,10 +351,12 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                 />
               </div>
             ) : (
-              <motion.img
+              <MotionImage
                 src={primaryImage}
                 alt={product.name}
-                className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                fill
+                sizes="(max-width: 640px) 50vw, 25vw"
+                className={`object-cover transition-transform duration-700 ease-out ${
                   isOutOfStock ? '' : 'group-hover:scale-110'
                 }`}
                 initial={{ opacity: 0 }}

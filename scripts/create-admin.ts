@@ -5,15 +5,19 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jotoxalbyvbppvgtdbee.supabase.co'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
-const ADMIN_EMAIL = 'quiron96@hotmail.com'
-const ADMIN_PASSWORD = 'Nurei@Admin2026'
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || ''
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''
 
 async function main() {
-  if (!SERVICE_ROLE_KEY) {
-    console.error('SUPABASE_SERVICE_ROLE_KEY is required. Set it in .env.local or pass as env var.')
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required. Set them in .env.local.')
+    process.exit(1)
+  }
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+    console.error('Usage: ADMIN_EMAIL=... ADMIN_PASSWORD=... npx tsx scripts/create-admin.ts')
     process.exit(1)
   }
 

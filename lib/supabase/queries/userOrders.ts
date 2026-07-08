@@ -17,7 +17,8 @@ function productThumbUrl(row: {
 export async function getUserOrders(
   supabase: SupabaseClient,
   userId: string,
-  status?: OrderStatus
+  status?: OrderStatus,
+  email?: string | null
 ) {
   let query = supabase
     .from('orders')
@@ -29,7 +30,30 @@ export async function getUserOrders(
 
   const { data, error } = await query
   if (error) throw error
-  const orders = (data ?? []) as Order[]
+
+  // Guest checkouts placed under this email before the account existed: only surface
+  // orders still unpaid, since email isn't verified at signup — paid/delivered history
+  // stays hidden until the account confirms ownership of the address.
+  let guestOrders: Order[] = []
+  if (email) {
+    let guestQuery = supabase
+      .from('orders')
+      .select('*')
+      .is('user_id', null)
+      .ilike('customer_email', email)
+      .eq('payment_status', 'pending')
+      .order('created_at', { ascending: false })
+
+    if (status) guestQuery = guestQuery.eq('status', status)
+
+    const { data: guestData, error: guestError } = await guestQuery
+    if (guestError) throw guestError
+    guestOrders = (guestData ?? []) as Order[]
+  }
+
+  const orders = [...(data ?? []), ...guestOrders]
+    .filter((order, index, all) => all.findIndex((o) => o.id === order.id) === index)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) as Order[]
 
   const productIds = [
     ...new Set(

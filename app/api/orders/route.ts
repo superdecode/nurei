@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl
     const status = searchParams.get('status') as import('@/types').OrderStatus | null
 
-    const orders = await getUserOrders(supabase, user.id, status ?? undefined)
+    const orders = await getUserOrders(supabase, user.id, status ?? undefined, user.email)
     return NextResponse.json({ data: orders })
   } catch {
     return NextResponse.json({ error: 'Error al obtener pedidos' }, { status: 500 })

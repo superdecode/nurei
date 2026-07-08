@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { AlertCircle, Ban, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
@@ -143,10 +144,12 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
         {/* Image */}
         <div className="relative w-[76px] h-[76px] flex-shrink-0 rounded-xl overflow-hidden bg-gray-50">
           {(selectedVariant?.image ?? product.images?.[product.primary_image_index] ?? product.image_thumbnail_url) ? (
-            <img
+            <Image
               src={selectedVariant?.image ?? product.images?.[product.primary_image_index] ?? product.image_thumbnail_url!}
               alt={product.name}
-              className="w-full h-full object-cover"
+              fill
+              sizes="76px"
+              className="object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-100">

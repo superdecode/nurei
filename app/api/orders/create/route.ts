@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
+import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 import { saveCheckoutOrder } from '@/lib/server/checkout-session-store'
 import { createPublicOrderAccessToken } from '@/lib/server/order-access'
 import { createInventoryMovement } from '@/lib/supabase/queries/inventory'
@@ -10,6 +11,8 @@ import {
 } from '@/lib/validations/order-create-payload'
 import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
 import { getReferralLinkIdFromHeader } from '@/lib/affiliate/cookie'
+import { getSettings } from '@/lib/supabase/queries/settings'
+import { normalizeShippingFromConfig } from '@/lib/store/normalize-checkout-settings'
 
 /** Human-readable unique order number; avoids collisions vs. weak random 4-digit IDs. */
 function generateShortOrderId(): string {
@@ -18,6 +21,15 @@ function generateShortOrderId(): string {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers)
+  const rl = rateLimit(`orders-create:${ip}`, 5, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados pedidos. Intenta en un momento.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await request.json()
     const parsed = createOrderPayloadSchema.safeParse(body)
@@ -87,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     for (const line of payload.items) {
       const product = dbProducts.find((entry) => entry.id === line.product_id)
-      if (!product || (!product.is_active && product.status !== 'active')) {
+      if (!product || !product.is_active || product.status !== 'active') {
         stockErrors.push({
           product_id: line.product_id,
           product_name: product?.name ?? 'Producto no disponible',
@@ -135,6 +147,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate shipping fee against server-side configuration — ignore client-supplied value
+    const service0 = createServiceClient()
+    const rawSettings = await getSettings(service0)
+    const shippingCfg = normalizeShippingFromConfig(rawSettings.shipping)
+    const freeMin = shippingCfg.free_shipping_min_cents
+    const qualifiesFree = typeof freeMin === 'number' && freeMin > 0 && subtotal >= freeMin
+
+    const validShippingFees: Record<string, number> = {
+      standard: qualifiesFree ? 0 : shippingCfg.standard_fee_cents,
+      express: shippingCfg.express_fee_cents,
+    }
+    const methodId = payload.shipping.method_id
+    const serverShippingFee =
+      methodId in validShippingFees ? validShippingFees[methodId] : validShippingFees.standard
+
     let couponCode: string | null = null
     let couponDiscount = 0
     let couponId: string | null = null
@@ -143,7 +170,7 @@ export async function POST(request: NextRequest) {
       const result = await validateCoupon({
         code: payload.coupon_code,
         subtotal,
-        shippingFee: payload.shipping.fee,
+        shippingFee: serverShippingFee,
         customerEmail: payload.customer.email ?? null,
         customerPhone: payload.customer.phone ?? null,
         items: orderItems.map((item) => ({
@@ -163,7 +190,7 @@ export async function POST(request: NextRequest) {
       couponSnapshot = result.snapshot
     }
 
-    const total = Math.max(0, subtotal + payload.shipping.fee - couponDiscount)
+    const total = Math.max(0, subtotal + serverShippingFee - couponDiscount)
 
     // Capture referral link from the customer's cookie NOW — it won't be available later
     // (e.g. when admin confirms a cash order days later).
@@ -194,7 +221,7 @@ export async function POST(request: NextRequest) {
         subtotal: item.subtotal,
       })),
       subtotal,
-      shipping_fee: payload.shipping.fee,
+      shipping_fee: serverShippingFee,
       coupon_code: couponCode,
       coupon_discount: couponDiscount,
       coupon_snapshot: couponSnapshot,
@@ -280,6 +307,7 @@ export async function POST(request: NextRequest) {
       id: createdOrderId,
       shortId,
       createdAt: new Date().toISOString(),
+      publicAccessToken,
       customerName: payload.customer.full_name,
       customerEmail: payload.customer.email,
       customerPhone: payload.customer.phone,
@@ -296,7 +324,7 @@ export async function POST(request: NextRequest) {
       shippingMethod: {
         id: payload.shipping.method_id,
         label: payload.shipping.method_label,
-        price: payload.shipping.fee,
+        price: serverShippingFee,
         etaLabel: payload.shipping.eta_label,
         estimatedDate: payload.shipping.estimated_date,
       },
@@ -314,7 +342,7 @@ export async function POST(request: NextRequest) {
         short_id: shortId,
         public_access_token: publicAccessToken,
         subtotal,
-        shipping_fee: payload.shipping.fee,
+        shipping_fee: serverShippingFee,
         coupon_discount: couponDiscount,
         coupon_snapshot: couponSnapshot,
         total,

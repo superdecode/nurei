@@ -9,11 +9,9 @@ export async function GET(
   try {
     const { id } = await params
 
-    try {
-      const publicToken = request.nextUrl.searchParams.get('token')
-      const dbOrder = await getAccessibleOrder(id, publicToken)
-      if (!dbOrder) throw new Error('Pedido no encontrado')
-
+    const publicToken = request.nextUrl.searchParams.get('token')
+    const dbOrder = await getAccessibleOrder(id, publicToken)
+    if (dbOrder) {
       return NextResponse.json({
         data: {
           id: dbOrder.id,
@@ -34,11 +32,9 @@ export async function GET(
           },
         },
       })
-    } catch {
-      // fallback continues below
     }
 
-    const cached = getCheckoutOrder(id)
+    const cached = getCheckoutOrder(id, publicToken)
     if (!cached) {
       return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
     }
@@ -46,7 +42,7 @@ export async function GET(
     return NextResponse.json({
       data: {
         id: cached.id,
-        public_access_token: null,
+        public_access_token: cached.publicAccessToken,
         order_number: cached.shortId,
         created_at: cached.createdAt,
         estimated_delivery: cached.shippingMethod.estimatedDate,

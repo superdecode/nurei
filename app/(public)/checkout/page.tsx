@@ -800,6 +800,7 @@ export default function CheckoutPage() {
         credentials: 'include',
         body: JSON.stringify({
           orderId: nextOrderId,
+          public_access_token: publicAccessToken,
           amount: total,
           method: paymentMethod,
           saveMethod: savePaymentMethod,
@@ -1102,7 +1103,6 @@ export default function CheckoutPage() {
                                   alt={item.product.name}
                                   width={64}
                                   height={64}
-                                  unoptimized
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
@@ -1128,12 +1128,12 @@ export default function CheckoutPage() {
 
                               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                 {lowStock && (
-                                  <span className="text-[10px] uppercase tracking-wide font-bold rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-red-600">
+                                  <span className="whitespace-nowrap text-[10px] uppercase tracking-wide font-bold rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-red-600">
                                     Últimas unidades
                                   </span>
                                 )}
                                 {showViewers && (
-                                  <span className="text-[10px] uppercase tracking-wide font-semibold rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+                                  <span className="whitespace-nowrap text-[10px] uppercase tracking-wide font-semibold rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
                                     {viewerCount} viendo ahora
                                   </span>
                                 )}
@@ -1145,16 +1145,16 @@ export default function CheckoutPage() {
                                 <button
                                   type="button"
                                   onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.variant_id)}
-                                  className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-full bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                                  className="w-9 h-9 lg:w-8 lg:h-8 inline-flex items-center justify-center rounded-full bg-white text-gray-500 hover:bg-gray-100 transition-colors"
                                   aria-label="Restar"
                                 >
                                   <Minus className="w-4 h-4" />
                                 </button>
-                                <span className="w-7 text-center font-black text-sm lg:text-xs tabular-nums">{item.quantity}</span>
+                                <span className="w-6 text-center font-black text-sm lg:text-xs tabular-nums">{item.quantity}</span>
                                 <button
                                   type="button"
                                   onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.variant_id)}
-                                  className="w-8 h-8 lg:w-7 lg:h-7 inline-flex items-center justify-center rounded-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover transition-colors"
+                                  className="w-9 h-9 lg:w-8 lg:h-8 inline-flex items-center justify-center rounded-full bg-primary-cyan text-primary-dark hover:bg-primary-cyan-hover transition-colors"
                                   aria-label="Sumar"
                                 >
                                   <Plus className="w-4 h-4" />
@@ -1260,7 +1260,7 @@ export default function CheckoutPage() {
                       {shippingErrors.phone && <p className="text-xs text-red-600 mt-1">{shippingErrors.phone}</p>}
                     </div>
 
-                    <div className="sm:col-span-2 rounded-2xl border border-gray-200 bg-gray-50/80 px-4 py-4 space-y-4">
+                    <div className="md:col-span-2 rounded-2xl border border-gray-200 bg-gray-50/80 px-4 py-4 space-y-4">
                       {authOk ? (
                         <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
                           <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 mt-0.5" />
@@ -1345,7 +1345,7 @@ export default function CheckoutPage() {
                       )}
                     </div>
 
-                    <div className="sm:col-span-2 border-t border-gray-100 pt-4 mt-1">
+                    <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-1">
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Dirección de entrega</p>
                     </div>
 
@@ -1412,7 +1412,7 @@ export default function CheckoutPage() {
                       {shippingErrors.zipCode && <p className="text-xs text-red-600 mt-1">{shippingErrors.zipCode}</p>}
                     </div>
 
-                    <div data-checkout-field="address" className="sm:col-span-2">
+                    <div data-checkout-field="address" className="md:col-span-2">
                       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Calle y número</label>
                       <Input
                         value={shippingForm.address}
@@ -1551,7 +1551,7 @@ export default function CheckoutPage() {
                         {cardErrors.name && <p className="text-xs text-red-600 mt-1">{cardErrors.name}</p>}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Vencimiento</label>
                           <Input
@@ -1896,7 +1896,7 @@ export default function CheckoutPage() {
         )}
 
         <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
-          <DialogContent className="sm:max-w-[420px] border-0 bg-transparent p-0 shadow-none overflow-visible">
+          <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-2rem)] border-0 bg-transparent p-0 shadow-none overflow-hidden">
             <div className="relative rounded-3xl border border-gray-200/80 bg-gradient-to-b from-white to-gray-50/95 p-1 shadow-[0_24px_80px_-12px_rgba(15,23,42,0.28)]">
               <div className="rounded-[1.35rem] bg-white/95 px-6 pt-8 pb-6 backdrop-blur-sm">
                 <DialogHeader className="space-y-2 text-center sm:text-center pb-2">

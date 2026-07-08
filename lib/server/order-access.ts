@@ -37,5 +37,16 @@ export async function getAccessibleOrder(orderId: string, publicToken?: string |
     return order as Order
   }
 
+  // Guest checkout under the same (unverified) email — only while still unpaid.
+  if (
+    user?.email &&
+    !order.user_id &&
+    order.payment_status === 'pending' &&
+    order.customer_email &&
+    order.customer_email.toLowerCase() === user.email.toLowerCase()
+  ) {
+    return order as Order
+  }
+
   return null
 }

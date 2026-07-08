@@ -9,12 +9,14 @@ import {
 } from 'recharts'
 import {
   TrendingUp, ShoppingBag, Users, Tag, Package, Truck,
-  CreditCard, BarChart3, RefreshCw,
+  BarChart3, Gauge,
 } from 'lucide-react'
+import { VitalsPanel } from '@/components/admin/analytics/performance/VitalsPanel'
+import { ErrorsPanel } from '@/components/admin/analytics/performance/ErrorsPanel'
+import { SeoPanel } from '@/components/admin/analytics/performance/SeoPanel'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/lib/utils/format'
 import { PeriodSelector, type DateRange } from '@/components/admin/analytics/PeriodSelector'
-import { MetricCard } from '@/components/admin/analytics/MetricCard'
 import { TimeSeriesChart } from '@/components/admin/analytics/TimeSeriesChart'
 import { RankingTable } from '@/components/admin/analytics/RankingTable'
 import { HeatmapChart } from '@/components/admin/analytics/HeatmapChart'
@@ -50,6 +52,7 @@ const TABS = [
   { id: 'operations', label: 'Operaciones', icon: Truck },
   { id: 'forecast', label: 'Forecast', icon: BarChart3 },
   { id: 'inventario', label: 'Inventario', icon: Package },
+  { id: 'performance', label: 'Performance', icon: Gauge },
 ]
 
 function getDefaultRange(): DateRange {
@@ -57,6 +60,55 @@ function getDefaultRange(): DateRange {
     dateFrom: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
     dateTo: new Date().toISOString().slice(0, 10),
   }
+}
+
+type VitalsData = {
+  summary: { name: string; p75: number; median: number; pct_good: number; count: number; rating: 'good' | 'needs-improvement' | 'poor'; unit: string }[]
+  trend: Record<string, number | string>[]
+  slow_pages: { path: string; lcp_p75: number; samples: number }[]
+}
+type ErrorsData = {
+  total: number
+  by_type: Record<string, number>
+  grouped: { error_type: string; error_msg: string; count: number; pages: string[]; pages_count: number; last_seen: string }[]
+  recent: { id: number; error_type: string; error_msg: string; source_url: string | null; page_path: string; created_at: string }[]
+}
+type SeoData = {
+  score: number
+  products: { total: number; with_description: number; with_images: number; with_slug: number; missing_description: { id: string; name: string }[] }
+  categories: { total: number; with_description: number }
+  checklist: { label: string; passed: boolean; value: string }[]
+}
+
+function PerformanceTab({
+  vitalsData, vitalsLoading, errorsData, errorsLoading, seoData, seoLoading,
+}: {
+  vitalsData: VitalsData | null; vitalsLoading: boolean
+  errorsData: ErrorsData | null; errorsLoading: boolean
+  seoData: SeoData | null; seoLoading: boolean
+}) {
+  const [perfTab, setPerfTab] = useState<'vitals' | 'errors' | 'seo'>('vitals')
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        {(['vitals', 'errors', 'seo'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setPerfTab(t)}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              perfTab === t ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700',
+            )}
+          >
+            {t === 'vitals' ? 'Core Web Vitals' : t === 'errors' ? 'Errores de carga' : 'SEO'}
+          </button>
+        ))}
+      </div>
+      {perfTab === 'vitals' && <VitalsPanel data={vitalsData} loading={vitalsLoading} />}
+      {perfTab === 'errors' && <ErrorsPanel data={errorsData} loading={errorsLoading} />}
+      {perfTab === 'seo' && <SeoPanel data={seoData} loading={seoLoading} />}
+    </div>
+  )
 }
 
 export default function AnalyticsPage() {
@@ -114,6 +166,16 @@ export default function AnalyticsPage() {
     historical: { date: string; revenue: number }[]
     forecast: { date: string; forecast: number; lower: number; upper: number }[]
   }>('/api/admin/analytics/forecast', { params: { historicalDays: '90', forecastDays: '30' }, enabled: enabled('forecast') })
+
+  const { data: vitalsData, loading: vitalsLoading } = useAnalytics<VitalsData>(
+    '/api/admin/analytics/performance/vitals', { params, enabled: enabled('performance') },
+  )
+  const { data: errorsData, loading: errorsLoading } = useAnalytics<ErrorsData>(
+    '/api/admin/analytics/performance/errors', { params, enabled: enabled('performance') },
+  )
+  const { data: seoData, loading: seoLoading } = useAnalytics<SeoData>(
+    '/api/admin/analytics/performance/seo', { enabled: enabled('performance') },
+  )
 
   const cohortMatrix = useMemo(() => {
     if (!cohorts) return { rows: [], cols: [] }
@@ -816,6 +878,19 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
             )}
           </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'performance' && (
+        <motion.div key="performance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <PerformanceTab
+            vitalsData={vitalsData}
+            vitalsLoading={vitalsLoading}
+            errorsData={errorsData}
+            errorsLoading={errorsLoading}
+            seoData={seoData}
+            seoLoading={seoLoading}
+          />
         </motion.div>
       )}
     </div>
