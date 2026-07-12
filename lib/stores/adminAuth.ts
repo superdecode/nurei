@@ -84,9 +84,10 @@ export const useAdminAuthStore = create<AdminAuthStore>()(
     }),
     {
       name: 'nurei-admin-auth',
+      // Only persist the display name — never auth state. The server session
+      // cookie is the source of truth; checkSession() validates it on mount.
       partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
+        user: state.user ? { id: state.user.id, full_name: state.user.full_name ?? null } : null,
       }),
     }
   )

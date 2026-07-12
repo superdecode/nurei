@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateCoupon } from '@/lib/server/coupons/engine'
+import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers)
+  const rl = rateLimit(`apply-coupon:${ip}`, 20, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { valid: false, error: 'Demasiados intentos. Intenta en un momento.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await request.json()
     const code = String(body?.code ?? '').trim().toUpperCase()

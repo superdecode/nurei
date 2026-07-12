@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendOrderConfirmationEmails } from '@/lib/email/send-order-emails'
 import { createServiceClient } from '@/lib/supabase/server'
 import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
+import { getAccessibleOrder } from '@/lib/server/order-access'
+import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 
 function notifyOrderEmails(
   orderId: string,
@@ -42,14 +44,23 @@ function isCardExpired(expiry: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers)
+  const rl = rateLimit(`payments:${ip}`, 10, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos de pago. Espera un momento.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await request.json()
     const method = String(body?.method ?? '').trim()
     const orderId = String(body?.orderId ?? '')
-    const amount = Number(body?.amount ?? 0)
+    const publicAccessToken = body?.public_access_token ? String(body.public_access_token) : null
     const cartLastUpdatedAt = String(body?.cartLastUpdatedAt ?? '')
 
-    if (!orderId || !method || !amount) {
+    if (!orderId || !method) {
       return NextResponse.json(
         { error: 'Faltan datos para procesar el pago' },
         { status: 400 }
@@ -79,6 +90,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Verify caller has access to this order (owns it or has the public token)
+    const accessibleOrder = await getAccessibleOrder(orderId, publicAccessToken)
+    if (!accessibleOrder) {
+      return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
+    }
+
+    // Prevent double-payment
+    if (accessibleOrder.payment_status === 'paid') {
+      return NextResponse.json({ error: 'Este pedido ya fue pagado' }, { status: 400 })
+    }
+
     const cardLike =
       method === 'card' ||
       method.endsWith('_card')
@@ -87,11 +109,6 @@ export async function POST(request: NextRequest) {
 
     async function markOrderAsPaid(currentMethod: string) {
       const now = new Date().toISOString()
-      const { data: order } = await supabase
-        .from('orders')
-        .select('id, coupon_code')
-        .eq('id', orderId)
-        .single()
 
       // 'paid' is NOT a valid value for status (constraint allows only pending/confirmed/shipped/delivered/cancelled/failed)
       // Use 'confirmed' for status and 'paid' for payment_status
@@ -105,6 +122,7 @@ export async function POST(request: NextRequest) {
           payment_method: currentMethod,
         })
         .eq('id', orderId)
+        .eq('payment_status', 'pending')  // idempotency guard
 
       if (updateErr) console.error('[payment] markOrderAsPaid update failed', updateErr.message)
 
@@ -116,7 +134,7 @@ export async function POST(request: NextRequest) {
         metadata: { event: 'payment_confirmed', method: currentMethod },
       })
 
-      return order?.coupon_code ?? null
+      return accessibleOrder!.coupon_code ?? null
     }
 
     if (cardLike) {
@@ -166,34 +184,21 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const couponCode = await markOrderAsPaid(method)
-
-      const rawCookie = request.headers.get('cookie') ?? ''
-      const hasReferralCookie = rawCookie.includes('_nurei_ref')
-      console.log('[payment] pre-attribution debug', {
-        orderId,
-        cookiePresent: Boolean(rawCookie),
-        cookieHasReferral: hasReferralCookie,
-        cookieLen: rawCookie.length,
-        cookiePreview: hasReferralCookie ? rawCookie.slice(rawCookie.indexOf('_nurei_ref'), rawCookie.indexOf('_nurei_ref') + 30) : null,
+      // Manual card methods have no real payment gateway — order stays pending
+      // until admin confirms receipt. Do NOT mark as paid here.
+      await supabase.from('order_updates').insert({
+        order_id: orderId,
+        status: 'pending',
+        message: `Datos de tarjeta registrados (${cardBrand} ****${cardLast4}) — pendiente de cobro manual`,
+        updated_by: 'checkout_payment',
+        metadata: { event: 'manual_card_submitted', method, last4: cardLast4, brand: cardBrand },
       })
-
-      const attribResult = await executeAffiliateAttribution({
-        orderId,
-        couponCode,
-        cookieHeader: request.headers.get('cookie'),
-      }).catch((err) => {
-        console.error('[attribution] failed', err)
-        return { ok: false, attributed: false, error: String(err) } as const
-      })
-      console.log('[attribution] result', { orderId, ...attribResult })
 
       notifyOrderEmails(orderId, method)
 
       return NextResponse.json({
         data: {
-          status: 'approved',
-          transactionId: `txn_${Date.now()}`,
+          status: 'pending',
           method,
           cardType: cardBrand,
           cardLast4,

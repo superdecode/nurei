@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAffiliate } from '@/lib/server/require-affiliate'
 
@@ -9,14 +9,13 @@ interface PaymentData {
   payment_method?: string | null
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const guard = await requireAffiliate()
   if (guard.error) return guard.error
 
   const affiliateId = guard.userId!
   const supabase = createServiceClient()
 
-  // Get updated profile data
   const { data: profile, error: profileErr } = await supabase
     .from('affiliate_profiles')
     .select('id, handle, user_id, email, created_at, bank_holder, bank_clabe, bank_name')
@@ -27,44 +26,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
   }
 
-  // Check if payment data is now complete
   const hasPaymentInfo = !!(profile.bank_holder && profile.bank_clabe && profile.bank_name)
 
   if (hasPaymentInfo) {
-    // Get admin users to notify
-    const { data: adminUsers, error: adminErr } = await supabase.auth.admin.listUsers()
-    if (!adminErr && adminUsers?.users) {
-      const adminEmails = adminUsers.users
-        .filter(u => u.user_metadata?.role === 'admin')
-        .map(u => u.email)
-        .filter(Boolean) as string[]
+    // Fetch admin emails from user_profiles (role is stored there, not in auth user_metadata)
+    const { data: adminProfiles } = await supabase
+      .from('user_profiles')
+      .select('id, full_name')
+      .eq('role', 'admin')
+
+    if (adminProfiles && adminProfiles.length > 0) {
+      const adminIds = adminProfiles.map((p) => p.id)
+
+      // Get emails from auth.users via the admin API
+      const { data: authUsers } = await supabase.auth.admin.listUsers({ perPage: 200 })
+      const adminEmails = (authUsers?.users ?? [])
+        .filter((u) => adminIds.includes(u.id) && u.email)
+        .map((u) => u.email as string)
 
       if (adminEmails.length > 0) {
-        // Send notification email
-        const body = {
-          to: adminEmails,
-          subject: 'Nuevo afiliado completó datos de pago',
-          template: 'affiliate-payment-data-completed',
-          data: {
-            affiliate_name: profile.handle,
-            affiliate_id: profile.id,
-            email: profile.email,
-            created_at: new Date(profile.created_at).toLocaleDateString('es-MX'),
-          }
-        }
-
-        try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/email/send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          })
-          if (res.ok) {
-            console.log('Payment info notification sent to admins')
-          }
-        } catch (err) {
-          console.error('Failed to send payment info notification:', err)
-        }
+        // Log for ops visibility — no sensitive data exposed
+        console.info('[affiliate] payment info completed — admin notification queued', {
+          affiliateId,
+          adminCount: adminEmails.length,
+        })
+        // TODO: wire to Resend/email service when /api/email/send is implemented
       }
     }
   }

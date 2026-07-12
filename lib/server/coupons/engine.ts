@@ -261,15 +261,28 @@ export async function registerCouponUsage(input: {
   discountAmount: number
   snapshot: Record<string, unknown>
 }) {
+  if (!input.orderId) return
+
   const supabase = createServiceClient()
-  await supabase.from('coupon_usages').insert({
-    coupon_id: input.couponId,
-    order_id: input.orderId,
-    customer_id: input.customerId ?? null,
-    customer_email: input.customerEmail?.toLowerCase() ?? null,
-    customer_phone: input.customerPhone ?? null,
-    discount_amount: input.discountAmount,
-    applied_snapshot: input.snapshot,
+  const code = String(input.snapshot.code ?? '')
+
+  // Use atomic RPC to prevent race conditions on max_uses enforcement
+  const { data: result, error } = await supabase.rpc('claim_coupon_atomic', {
+    p_code: code,
+    p_order_id: input.orderId,
+    p_customer_email: input.customerEmail?.toLowerCase() ?? null,
+    p_customer_phone: input.customerPhone ?? null,
+    p_discount_cents: input.discountAmount,
+    p_snapshot: input.snapshot,
   })
-  await supabase.rpc('increment_coupon_use', { p_code: String(input.snapshot.code ?? '') })
+
+  if (error) {
+    console.error('[coupons] claim_coupon_atomic error', error.message)
+    throw new Error(`Error al registrar uso del cupón: ${error.message}`)
+  }
+
+  if (result !== 'ok') {
+    console.warn('[coupons] claim_coupon_atomic rejected', { code, result, orderId: input.orderId })
+    // Non-throwing — order is already created; log and continue
+  }
 }

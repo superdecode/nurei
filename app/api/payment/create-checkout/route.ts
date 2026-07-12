@@ -39,12 +39,9 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    // Add shipping as a line item if the order total exceeds the sum of item subtotals
-    const itemsTotal = (order.items as Array<{ subtotal: number }>).reduce(
-      (sum, item) => sum + item.subtotal,
-      0
-    )
-    const shippingFee = order.total - itemsTotal + (order.coupon_discount ?? 0)
+    // Add shipping as a line item using the stored shipping_fee on the order
+    // Avoid deriving from totals to prevent negative unit_amount when coupon >= shipping cost
+    const shippingFee = Math.max(0, order.shipping_fee ?? 0)
     if (shippingFee > 0) {
       lineItems.push({
         price_data: {
@@ -82,7 +79,7 @@ export async function POST(request: NextRequest) {
         ? {
             discounts: [
               {
-                coupon: await getOrCreateStripeCoupon(stripe, order.coupon_discount),
+                coupon: await getOrCreateStripeCoupon(stripe, order.coupon_discount, order.id),
               },
             ],
           }
@@ -120,20 +117,22 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Creates (or returns cached) a one-time Stripe coupon for a fixed discount amount.
- * Since Stripe coupons are persistent, we create one per unique amount to avoid
- * proliferation. Amount is in centavos MXN.
+ * Creates a per-order Stripe coupon so it cannot be reused across sessions.
+ * Each order gets its own unique coupon ID keyed to the order UUID.
  */
 async function getOrCreateStripeCoupon(
   stripe: ReturnType<typeof getStripeServer>,
-  discountAmount: number
+  discountAmount: number,
+  orderId: string
 ): Promise<string> {
-  const couponId = `order_disc_${discountAmount}`
+  const couponId = `disc_${orderId}`
   try {
-    await stripe.coupons.retrieve(couponId)
-    return couponId
-  } catch {
-    // Doesn't exist yet — create it
+    const existing = await stripe.coupons.retrieve(couponId)
+    return existing.id
+  } catch (err: unknown) {
+    // Only proceed if the coupon genuinely doesn't exist (404); re-throw other errors
+    const stripeErr = err as { statusCode?: number }
+    if (stripeErr?.statusCode !== 404) throw err
   }
 
   const coupon = await stripe.coupons.create({
@@ -141,7 +140,8 @@ async function getOrCreateStripeCoupon(
     amount_off: Math.round(discountAmount),
     currency: 'mxn',
     duration: 'once',
-    name: `Descuento (${discountAmount / 100} MXN)`,
+    max_redemptions: 1,
+    name: `Descuento orden ${orderId.slice(-8)}`,
   })
 
   return coupon.id

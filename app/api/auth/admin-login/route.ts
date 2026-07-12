@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
+import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 
 type CookieToSet = { name: string; value: string; options?: Parameters<NextResponse['cookies']['set']>[2] }
 
@@ -16,6 +17,13 @@ function applyAuthCookies(res: NextResponse, pending: CookieToSet[]) {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers)
+  // Tighter limit for admin: 5 attempts per 5 minutes
+  const rl = rateLimit(`admin-login:${ip}`, 5, 300_000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Demasiados intentos. Intenta en unos minutos.' }, { status: 429 })
+  }
+
   const pendingCookies: CookieToSet[] = []
 
   try {
@@ -58,10 +66,8 @@ export async function POST(request: NextRequest) {
 
     if (!profile || profile.role !== 'admin') {
       await supabase.auth.signOut()
-      const res = NextResponse.json(
-        { error: 'No tienes permisos de administrador' },
-        { status: 403 },
-      )
+      // Use the same 401 message to avoid leaking whether the account exists with a different role
+      const res = NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
       return applyAuthCookies(res, pendingCookies)
     }
 

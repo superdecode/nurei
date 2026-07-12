@@ -23,8 +23,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Link no encontrado' }, { status: 404 })
     }
 
-    const forwarded = request.headers.get('x-forwarded-for')
-    const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown'
+    // Prefer the trusted proxy header (Vercel sets x-real-ip) over spoofable x-forwarded-for
+    const ip =
+      request.headers.get('x-real-ip') ??
+      request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ??
+      'unknown'
     const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
 
     const { error: insertError } = await supabase

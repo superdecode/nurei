@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { z } from 'zod'
+import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 
 type CookieToSet = { name: string; value: string; options?: Parameters<NextResponse['cookies']['set']>[2] }
 
@@ -22,6 +23,12 @@ const schema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers)
+  const rl = rateLimit(`register:${ip}`, 5, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Demasiados intentos. Intenta en unos minutos.' }, { status: 429 })
+  }
+
   const pendingCookies: CookieToSet[] = []
 
   try {
