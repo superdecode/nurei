@@ -429,6 +429,9 @@ export function ProductDetailClient({
       toast.error('Selecciona una variante primero')
       return
     }
+    // Capture the button before any `await` — React nulls out event.currentTarget
+    // once the synchronous part of the handler finishes.
+    const sourceButton = event.currentTarget
     // Compute per-variant cart quantity at call time (not stale closure)
     const currentCartQuantity = cartItems
       .filter((item) => item.product.id === product.id && (item.variant_id ?? null) === (selectedVariant?.id ?? null))
@@ -458,7 +461,7 @@ export function ProductDetailClient({
       } : null
       for (let i = 0; i < quantity; i++) addItem(product, variantPayload)
       setAdded(true)
-      launchSnackTrail(event.currentTarget)
+      launchSnackTrail(sourceButton)
       toast.success(`${quantity}x ${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`)
       setTimeout(() => setAdded(false), 1400)
     } catch {

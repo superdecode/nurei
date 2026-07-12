@@ -15,6 +15,18 @@ export async function GET() {
   }
 }
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // pre-compression input cap
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+])
+// jpeg/png/webp get recompressed server-side regardless of client flags —
+// prevents oversized originals from ever reaching storage (egress cost).
+const COMPRESSIBLE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
 export async function POST(request: NextRequest) {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
@@ -22,10 +34,23 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    const convertToWebp = formData.get('convertToWebp') === 'true'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    }
+
+    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: 'Formato no permitido. Usa JPG, PNG, WebP, GIF o SVG.' },
+        { status: 400 },
+      )
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: 'Archivo demasiado grande (máximo 10MB).' },
+        { status: 400 },
+      )
     }
 
     let uploadBuffer: ArrayBuffer | Buffer = await file.arrayBuffer()
@@ -33,9 +58,10 @@ export async function POST(request: NextRequest) {
     let originalName = file.name
     let uploadSize = file.size
 
-    if (convertToWebp && file.type.startsWith('image/') && file.type !== 'image/webp' && file.type !== 'image/svg+xml') {
+    if (COMPRESSIBLE_TYPES.has(file.type)) {
       const sharp = (await import('sharp')).default
       const webpBuffer = await sharp(Buffer.from(uploadBuffer))
+        .rotate() // respect EXIF orientation before stripping metadata
         .resize({ width: 1200, withoutEnlargement: true })
         .webp({ quality: 85 })
         .toBuffer()
@@ -47,9 +73,11 @@ export async function POST(request: NextRequest) {
 
     const filename = `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
+    // Filenames are timestamp-prefixed (immutable) — cache aggressively to
+    // minimize Supabase egress on repeat views.
     const { error: uploadError } = await supabase.storage
       .from('media')
-      .upload(filename, uploadBuffer, { cacheControl: '3600', upsert: false, contentType: mimeType })
+      .upload(filename, uploadBuffer, { cacheControl: '31536000', upsert: false, contentType: mimeType })
     if (uploadError) throw uploadError
 
     const { data: urlData } = supabase.storage.from('media').getPublicUrl(filename)

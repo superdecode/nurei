@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { listProducts } from '@/lib/supabase/queries/products'
 import { listCategories } from '@/lib/supabase/queries/categories'
 import { getSettings } from '@/lib/supabase/queries/settings'
@@ -7,7 +7,9 @@ import { HomeClient, type HomeCategory } from './HomeClient'
 export const revalidate = 60
 
 export default async function LandingPage() {
-  const supabase = await createServerSupabaseClient()
+  // Service client (no cookies()) keeps this page ISR-cacheable — reading
+  // cookies would force dynamic rendering on every request (Vercel cost).
+  const supabase = createServiceClient()
 
   const [products, dbCategories, settings] = await Promise.all([
     listProducts({ status: 'active' }),

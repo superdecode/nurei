@@ -36,12 +36,23 @@ export async function GET(request: NextRequest) {
 
     if (slug) {
       const product = await getProductBySlug(slug)
-      return NextResponse.json({ data: { products: [product], total: 1 } })
+      const res = NextResponse.json({ data: { products: [product], total: 1 } })
+      res.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300')
+      return res
     }
 
     const products = await listProducts({ category, status, featured, search, hasVariants })
 
-    return NextResponse.json({ data: { products, total: products.length } })
+    const res = NextResponse.json({ data: { products, total: products.length } })
+
+    // Only cache public, non-filtered reads (admin search/filter results must not be cached publicly)
+    if (!search && !hasVariants && (status === 'active' || status === undefined)) {
+      res.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300')
+    } else {
+      res.headers.set('Cache-Control', 'private, no-store')
+    }
+
+    return res
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error fetching products'
     return NextResponse.json({ error: message }, { status: 500 })
