@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import Papa from 'papaparse'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { requireAdmin } from '@/lib/server/require-admin'
 import { createServiceClient } from '@/lib/supabase/server'
 import { formatPrice } from '@/lib/utils/format'
@@ -16,7 +16,7 @@ import {
   getCustomerLTV,
 } from '@/lib/supabase/queries/analytics'
 
-const VALID_REPORTS = ['revenue', 'products', 'categories', 'customers', 'affiliates', 'coupons', 'inventory', 'refunds', 'full_dashboard'] as const
+const VALID_REPORTS = ['revenue', 'products', 'categories', 'customers', 'affiliates', 'coupons', 'inventory', 'refunds', 'performance', 'full_dashboard'] as const
 type ReportName = (typeof VALID_REPORTS)[number]
 
 const paramsSchema = z.object({
@@ -171,6 +171,51 @@ async function buildReportData(
         ],
       }
     }
+    case 'performance': {
+      const from = range.dateFrom + 'T00:00:00Z'
+      const to = range.dateTo + 'T23:59:59Z'
+      const [{ data: vitals }, { data: errors }] = await Promise.all([
+        supabase
+          .from('page_performance_events')
+          .select('metric_name, metric_value, rating, page_path, connection, created_at')
+          .gte('created_at', from).lte('created_at', to)
+          .order('created_at', { ascending: false })
+          .limit(5000),
+        supabase
+          .from('page_load_errors')
+          .select('error_type, error_msg, source_url, page_path, created_at')
+          .gte('created_at', from).lte('created_at', to)
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ])
+
+      // p75 per metric — the standard Core Web Vitals aggregate
+      const byMetric: Record<string, number[]> = {}
+      for (const v of vitals ?? []) {
+        ;(byMetric[v.metric_name] ??= []).push(Number(v.metric_value))
+      }
+      const summary = Object.entries(byMetric).map(([metric, values]) => {
+        const sorted = [...values].sort((a, b) => a - b)
+        const p75 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.75))]
+        return { Metrica: metric, Muestras: values.length, 'p75': Math.round(p75 * 1000) / 1000 }
+      })
+
+      return {
+        sheets: [
+          { name: 'Resumen Vitals', rows: summary },
+          {
+            name: 'Errores',
+            rows: (errors ?? []).map((e) => ({
+              Tipo: e.error_type,
+              Mensaje: e.error_msg,
+              Recurso: e.source_url ?? '',
+              Pagina: e.page_path,
+              Fecha: e.created_at,
+            })),
+          },
+        ],
+      }
+    }
     default: {
       const [rev, prod, cats] = await Promise.all([
         getRevenueTimeSeries(supabase, range),
@@ -228,24 +273,30 @@ export async function GET(
     })
   }
 
-  const wb = XLSX.utils.book_new()
-
-  const headerRow = [
-    [`Reporte: ${report}`],
-    [`Periodo: ${dateFrom} al ${dateTo}`],
-    [`Generado: ${new Date().toLocaleString('es-MX')}`],
-    [],
-  ]
+  const wb = new ExcelJS.Workbook()
+  wb.created = new Date()
 
   for (const sheet of sheets) {
-    const ws = XLSX.utils.aoa_to_sheet(headerRow)
-    XLSX.utils.sheet_add_json(ws, sheet.rows, { origin: 4 })
-    XLSX.utils.book_append_sheet(wb, ws, sheet.name)
+    const ws = wb.addWorksheet(sheet.name)
+
+    ws.addRow([`Reporte: ${report}`])
+    ws.addRow([`Periodo: ${dateFrom} al ${dateTo}`])
+    ws.addRow([`Generado: ${new Date().toLocaleString('es-MX')}`])
+    ws.addRow([])
+
+    if (sheet.rows.length > 0) {
+      const headers = Object.keys(sheet.rows[0])
+      const headerRow = ws.addRow(headers)
+      headerRow.font = { bold: true }
+      for (const row of sheet.rows) {
+        ws.addRow(headers.map((h) => row[h]))
+      }
+    }
   }
 
-  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  const buffer = await wb.xlsx.writeBuffer()
 
-  return new NextResponse(buffer, {
+  return new NextResponse(buffer as ArrayBuffer, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}.xlsx"`,

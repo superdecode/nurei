@@ -5,6 +5,7 @@ import { Download, Receipt, X, FileText, CalendarDays, Tag, Eye } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatPrice } from '@/lib/utils/format'
+import { downloadCsv } from '@/lib/utils/download-csv'
 import type { CommissionPayment } from '@/types'
 
 export default function AffiliatePagosPage() {
@@ -59,7 +60,6 @@ export default function AffiliatePagosPage() {
   const handleExport = async () => {
     setExporting(true)
     try {
-      const XLSX = await import('xlsx')
       const [payoutsRes, ordersRes, profileRes] = await Promise.all([
         fetch('/api/affiliate/payouts').then((r) => r.json()),
         fetch('/api/affiliate/orders').then((r) => r.json()),
@@ -68,10 +68,9 @@ export default function AffiliatePagosPage() {
       const payouts: CommissionPayment[] = payoutsRes.data ?? []
       const orders: Array<Record<string, unknown>> = ordersRes.data ?? []
       const profile = profileRes.data ?? {}
+      const handle = (profile.handle ?? 'afiliado') as string
 
-      const wb = XLSX.utils.book_new()
-
-      const ordersSheet = (orders as Array<Record<string, unknown>>).map((o) => {
+      const ordersRows = (orders as Array<Record<string, unknown>>).map((o) => {
         const order = (o.orders ?? o) as Record<string, unknown>
         return {
           'Pedido': o.short_id ?? order?.short_id ?? '',
@@ -79,38 +78,24 @@ export default function AffiliatePagosPage() {
           'Cliente': (o as Record<string, unknown>).customer_name ?? '',
           'Subtotal': o.total ?? order?.total ?? 0,
           'Atribucion': o.attribution_type ?? '',
-          'Comision %': o.commission_pct ?? '',
-          'Comision $': o.commission_amount_cents ?? 0,
-          'Estado pago': (o.payout_status as string) === 'paid' ? 'Pagado' : 'Pendiente',
+          'Comision_%': o.commission_pct ?? '',
+          'Comision_$': o.commission_amount_cents ?? 0,
+          'Estado_pago': (o.payout_status as string) === 'paid' ? 'Pagado' : 'Pendiente',
         }
       })
-      const ws1 = XLSX.utils.json_to_sheet(ordersSheet)
-      XLSX.utils.book_append_sheet(wb, ws1, 'Ventas')
+      downloadCsv(ordersRows, `${handle}_ventas.csv`)
 
-      const paymentsSheet = payouts.map((p) => ({
-        'Fecha de pago': new Date(p.paid_at).toLocaleDateString('es-MX'),
-        'Periodo inicio': new Date(p.period_from).toLocaleDateString('es-MX'),
-        'Periodo fin': new Date(p.period_to).toLocaleDateString('es-MX'),
+      const paymentsRows = payouts.map((p) => ({
+        'Fecha_de_pago': new Date(p.paid_at).toLocaleDateString('es-MX'),
+        'Periodo_inicio': new Date(p.period_from).toLocaleDateString('es-MX'),
+        'Periodo_fin': new Date(p.period_to).toLocaleDateString('es-MX'),
         'Monto': p.amount_cents,
-        'Tipo de pago': p.payment_type ?? '',
+        'Tipo_de_pago': p.payment_type ?? '',
         'Referencia': p.reference_number ?? '',
         'Nota': p.notes ?? '',
-        'Ordenes': (p.orders ?? []).map((o) => `#${o.short_id}`).join(', '),
+        'Ordenes': (p.orders ?? []).map((o) => `#${o.short_id}`).join(' | '),
       }))
-      const ws2 = XLSX.utils.json_to_sheet(paymentsSheet)
-      XLSX.utils.book_append_sheet(wb, ws2, 'Pagos')
-
-      const summary = [{
-        'Total ganado': profile.total_earned_cents ?? 0,
-        'Pendiente de pago': profile.pending_payout_cents ?? 0,
-        'Total ordenes': profile.total_orders ?? orders.length,
-        'Handle': profile.handle ?? '',
-      }]
-      const ws3 = XLSX.utils.json_to_sheet(summary)
-      XLSX.utils.book_append_sheet(wb, ws3, 'Resumen')
-
-      const handle = (profile.handle ?? 'afiliado') as string
-      XLSX.writeFile(wb, `${handle}_reporte.xlsx`)
+      if (paymentsRows.length > 0) downloadCsv(paymentsRows, `${handle}_pagos.csv`)
     } catch {
       alert('Error al exportar. Inténtalo de nuevo.')
     }

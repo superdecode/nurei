@@ -1,22 +1,29 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
+import { unstable_cache } from 'next/cache'
 import { Analytics } from '@vercel/analytics/react'
 import { Toaster } from '@/components/ui/sonner'
 import { createServiceClient } from '@/lib/supabase/server'
 import { ServiceWorkerCleanup } from './ServiceWorkerCleanup'
+import { WebVitalsTracker } from '@/components/performance/WebVitalsTracker'
 import './globals.css'
 
+// next/font/google auto-hosts fonts at build time — no runtime Google dependency.
+// display:'optional' avoids layout shift: if fonts aren't ready on first paint,
+// system fallback is used permanently for that page load (no FOUT).
 const inter = Inter({
   variable: '--font-sans',
   subsets: ['latin'],
-  display: 'swap',
+  display: 'optional',
+  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
 })
 
 const jetbrainsMono = JetBrains_Mono({
   variable: '--font-mono',
   subsets: ['latin'],
-  display: 'swap',
+  display: 'optional',
   preload: false,
+  fallback: ['ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
 })
 
 export const viewport: Viewport = {
@@ -26,26 +33,30 @@ export const viewport: Viewport = {
   maximumScale: 1,
 }
 
-async function getAppearanceSettings(): Promise<{ logo_url?: string; favicon_url?: string; store_name?: string; slogan?: string }> {
-  try {
-    const supabase = createServiceClient()
-    const { data } = await supabase
-      .from('app_config')
-      .select('key, value')
-      .in('key', ['appearance', 'store_info'])
-    const rows = data ?? []
-    const appearance = rows.find((r) => r.key === 'appearance')?.value as Record<string, string> | undefined
-    const storeInfo = rows.find((r) => r.key === 'store_info')?.value as Record<string, string> | undefined
-    return {
-      logo_url: appearance?.logo_url || undefined,
-      favicon_url: appearance?.favicon_url || undefined,
-      store_name: storeInfo?.name || undefined,
-      slogan: storeInfo?.slogan || undefined,
+const getAppearanceSettings = unstable_cache(
+  async (): Promise<{ logo_url?: string; favicon_url?: string; store_name?: string; slogan?: string }> => {
+    try {
+      const supabase = createServiceClient()
+      const { data } = await supabase
+        .from('app_config')
+        .select('key, value')
+        .in('key', ['appearance', 'store_info'])
+      const rows = data ?? []
+      const appearance = rows.find((r) => r.key === 'appearance')?.value as Record<string, string> | undefined
+      const storeInfo = rows.find((r) => r.key === 'store_info')?.value as Record<string, string> | undefined
+      return {
+        logo_url: appearance?.logo_url || undefined,
+        favicon_url: appearance?.favicon_url || undefined,
+        store_name: storeInfo?.name || undefined,
+        slogan: storeInfo?.slogan || undefined,
+      }
+    } catch {
+      return {}
     }
-  } catch {
-    return {}
-  }
-}
+  },
+  ['appearance-settings'],
+  { revalidate: 3600 }
+)
 
 export async function generateMetadata(): Promise<Metadata> {
   const { logo_url, store_name, slogan } = await getAppearanceSettings()
@@ -93,6 +104,7 @@ export default function RootLayout({
         <Toaster position="top-center" richColors theme="light" />
         <Analytics debug={false} />
         <ServiceWorkerCleanup />
+        <WebVitalsTracker />
       </body>
     </html>
   )

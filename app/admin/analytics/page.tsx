@@ -883,6 +883,9 @@ export default function AnalyticsPage() {
 
       {activeTab === 'performance' && (
         <motion.div key="performance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="flex justify-end">
+            <ExportButton report="performance" dateFrom={range.dateFrom} dateTo={range.dateTo} />
+          </div>
           <PerformanceTab
             vitalsData={vitalsData}
             vitalsLoading={vitalsLoading}

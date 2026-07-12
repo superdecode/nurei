@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, Code2, Globe, Layers } from 'lucide-react'
+import { AlertTriangle, Code2, FileCode2, Globe, Image as ImageIcon, Layers, Paintbrush } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { EmptyState } from '@/components/admin/analytics/EmptyState'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,9 @@ interface ErrorsData {
 
 const TYPE_ICON: Record<string, typeof AlertTriangle> = {
   resource: Globe,
+  css: Paintbrush,
+  chunk: FileCode2,
+  img: ImageIcon,
   js: Code2,
   network: Globe,
   render: Layers,
@@ -40,6 +43,9 @@ const TYPE_ICON: Record<string, typeof AlertTriangle> = {
 
 const TYPE_COLOR: Record<string, string> = {
   resource: '#EF4444',
+  css: '#EC4899',
+  chunk: '#DC2626',
+  img: '#14B8A6',
   js: '#F59E0B',
   network: '#8B5CF6',
   render: '#3B82F6',
@@ -48,6 +54,9 @@ const TYPE_COLOR: Record<string, string> = {
 
 const TYPE_LABEL: Record<string, string> = {
   resource: 'Recurso',
+  css: 'CSS',
+  chunk: 'Chunk JS',
+  img: 'Imagen',
   js: 'JavaScript',
   network: 'Red',
   render: 'Render',

@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { motion, AnimatePresence } from 'framer-motion'
+import { downloadCsv } from '@/lib/utils/download-csv'
 import type { InventoryMovement, InventoryMovementType, Product, ProductVariant, StockStatus } from '@/types'
 import { computeStockStatus, stockStatusLabel } from '@/lib/inventory/stock-status'
 import { cn } from '@/lib/utils'
@@ -681,22 +682,17 @@ export default function InventoryAdminPage() {
           <Button
             variant="outline"
             onClick={() => {
-              import('xlsx').then((XLSX) => {
-                const date = new Date().toISOString().slice(0, 10)
-                const rows = filteredProducts.map((p) => ({
-                  SKU: p.sku ?? '',
-                  Nombre: p.name ?? '',
-                  Categoria: p.category ?? '',
-                  Stock: p.stock_quantity ?? 0,
-                  Estado: stockStatusLabel(computeStockStatus(p)),
-                  Alerta: p.low_stock_threshold ?? '',
-                  Vendidos_30d: p.sold_30d ?? 0,
-                }))
-                const ws = XLSX.utils.json_to_sheet(rows)
-                const wb = XLSX.utils.book_new()
-                XLSX.utils.book_append_sheet(wb, ws, 'Inventario')
-                XLSX.writeFile(wb, `inventario_${date}.xlsx`)
-              })
+              const date = new Date().toISOString().slice(0, 10)
+              const rows = filteredProducts.map((p) => ({
+                SKU: p.sku ?? '',
+                Nombre: p.name ?? '',
+                Categoria: p.category ?? '',
+                Stock: p.stock_quantity ?? 0,
+                Estado: stockStatusLabel(computeStockStatus(p)),
+                Alerta: p.low_stock_threshold ?? '',
+                Vendidos_30d: p.sold_30d ?? 0,
+              }))
+              downloadCsv(rows, `inventario_${date}.csv`)
             }}
             className="gap-1.5 h-8 rounded-full text-xs font-semibold"
           >

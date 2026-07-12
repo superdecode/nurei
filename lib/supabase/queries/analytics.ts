@@ -294,6 +294,7 @@ export async function getProductPerformance(
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo + 'T23:59:59.999Z')
     .in('status', ['pending', 'confirmed', 'shipped', 'delivered'])
+    .limit(5000)
 
   if (error || !orders) return []
 
@@ -363,6 +364,7 @@ export async function getCategoryPerformance(
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo + 'T23:59:59.999Z')
     .in('status', ['pending', 'confirmed', 'shipped', 'delivered'])
+    .limit(5000)
 
   if (error || !orders) return []
 
@@ -434,6 +436,7 @@ export async function getCustomerCohorts(
     .select('customer_phone, paid_at')
     .eq('payment_status', 'paid')
     .not('paid_at', 'is', null)
+    .limit(10000)
 
   for (const o of allOrdersData ?? []) {
     const existing = firstOrderByCustomer.get(o.customer_phone)
