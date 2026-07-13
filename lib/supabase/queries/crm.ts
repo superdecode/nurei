@@ -37,6 +37,12 @@ const TASK_SELECT = `
   company:crm_companies ( id, name )
 `
 
+// Escape LIKE/ILIKE metacharacters so a search term is matched literally
+// (a raw `%` or `_` from user input would otherwise broaden the match).
+function escapeLike(term: string): string {
+  return term.replace(/[\\%_]/g, (ch) => `\\${ch}`)
+}
+
 // ─── Pipelines & stages ──────────────────────
 export async function getDefaultPipeline(
   supabase: SupabaseClient,
@@ -142,7 +148,7 @@ export async function listDeals(
   if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status)
   if (filters.customerId) query = query.eq('customer_id', filters.customerId)
   if (filters.companyId) query = query.eq('company_id', filters.companyId)
-  if (filters.search) query = query.ilike('title', `%${filters.search}%`)
+  if (filters.search) query = query.ilike('title', `%${escapeLike(filters.search)}%`)
   query = query.limit(Math.min(filters.limit ?? 200, 500))
 
   const { data, error } = await query
@@ -301,32 +307,15 @@ export async function moveDeal(
 
   const status = stage.stage_type === 'won' ? 'won' : stage.stage_type === 'lost' ? 'lost' : 'open'
 
-  // Persist new order for every deal in the target stage
-  const updates = input.ordered_ids.map((id, index) =>
-    supabase
-      .from('crm_deals')
-      .update(
-        id === dealId
-          ? { stage_id: input.stage_id, position: index, status }
-          : { position: index },
-      )
-      .eq('id', id),
-  )
-
-  // Robustness: if the client omitted the dragged deal from ordered_ids, still
-  // move it (append to the end) so the stage/status change is never lost.
-  if (!input.ordered_ids.includes(dealId)) {
-    updates.push(
-      supabase
-        .from('crm_deals')
-        .update({ stage_id: input.stage_id, position: input.ordered_ids.length, status })
-        .eq('id', dealId),
-    )
-  }
-
-  const results = await Promise.all(updates)
-  const failed = results.find((r) => r.error)
-  if (failed?.error) throw failed.error
+  // Atomic reorder: a single transactional RPC updates all positions and moves
+  // the dragged deal (even if the client omitted it from ordered_ids), so a
+  // partial failure can't leave the stage in an inconsistent order.
+  const { error: rpcError } = await supabase.rpc('crm_reorder_deals', {
+    p_deal_id: dealId,
+    p_stage_id: input.stage_id,
+    p_ordered_ids: input.ordered_ids,
+  })
+  if (rpcError) throw rpcError
 
   if (before.stage_id !== input.stage_id) {
     const type: CrmActivityType =
@@ -359,7 +348,7 @@ export async function listCompanies(
   filters: CompanyListFilters = {},
 ): Promise<CrmCompany[]> {
   let query = supabase.from('crm_companies').select('*').order('created_at', { ascending: false })
-  if (filters.search) query = query.ilike('name', `%${filters.search}%`)
+  if (filters.search) query = query.ilike('name', `%${escapeLike(filters.search)}%`)
   query = query.limit(Math.min(filters.limit ?? 200, 500))
 
   const { data, error } = await query

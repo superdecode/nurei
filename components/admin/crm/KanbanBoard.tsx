@@ -249,12 +249,14 @@ function DealCardView({
         >
           <p className="truncate text-sm font-semibold text-gray-900">{deal.title}</p>
         </button>
-        <span
-          className="mt-0.5 cursor-grab touch-none text-gray-300 opacity-0 group-hover:opacity-100 active:cursor-grabbing"
+        <button
+          type="button"
+          aria-label={`Mover ${deal.title}`}
+          className="mt-0.5 cursor-grab touch-none text-gray-300 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
           {...dragHandleProps}
         >
           <GripVertical className="h-4 w-4" />
-        </span>
+        </button>
       </div>
 
       <p className="mt-1 text-sm font-bold text-gray-800 tabular-nums">{formatPrice(deal.amount_cents)}</p>
