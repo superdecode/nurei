@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Package, BarChart3, LogOut, ShoppingBag, FolderTree,
   Image as ImageIcon, Settings, Menu, X, ChevronRight, Ticket,
   Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff, Boxes, UserCheck, Users2,
+  KanbanSquare,
 } from 'lucide-react'
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell'
 import { AdminTopBar } from '@/components/admin/AdminTopBar'
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: '/admin/affiliates', label: 'Afiliados', icon: Users2 },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/admin/clientes', label: 'Clientes', icon: UserCheck },
+  { href: '/admin/crm', label: 'CRM', icon: KanbanSquare },
   { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/configuracion', label: 'Administracion', icon: Settings },

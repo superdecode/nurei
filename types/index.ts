@@ -2,6 +2,9 @@
 // DATABASE TYPES
 // ============================================
 
+// CRM module (companies, pipeline, deals, tasks, activities)
+export * from './crm'
+
 export type ProductCategory = string
 
 export type OrderStatus =
