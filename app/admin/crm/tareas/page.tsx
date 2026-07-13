@@ -133,6 +133,7 @@ export default function TareasPage() {
               )}
             >
               <button
+                aria-label={task.status === 'done' ? 'Marcar como pendiente' : 'Marcar como completada'}
                 onClick={() => toggleDone(task)}
                 className={cn(
                   'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
@@ -186,6 +187,7 @@ export default function TareasPage() {
                   Editar
                 </button>
                 <button
+                  aria-label={`Eliminar tarea ${task.title}`}
                   onClick={() => handleDelete(task)}
                   className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-500"
                 >

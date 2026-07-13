@@ -99,20 +99,23 @@ export function KanbanBoard({ columns, onAddDeal, onOpenDeal, onChanged }: Props
     const targetStage = colMap[overId] ? overId : findStageOfDeal(overId)
     if (!targetStage) return
 
-    // Reorder within the target column so the dropped card lands in place
+    // Reorder within the target column and capture the final order from inside
+    // the updater — reading colMap after setColMap would be stale (the state
+    // update is async), which would persist the wrong card ordering.
+    let orderedIds: string[] = []
     setColMap((prev) => {
-      const deals = [...prev[targetStage]]
+      const deals = [...(prev[targetStage] ?? [])]
       const from = deals.findIndex((d) => d.id === activeId)
       const to = colMap[overId] ? deals.length - 1 : deals.findIndex((d) => d.id === overId)
-      if (from === -1 || to === -1 || from === to) return prev
-      const [moving] = deals.splice(from, 1)
-      deals.splice(to, 0, moving)
+      if (from !== -1 && to !== -1 && from !== to) {
+        const [moving] = deals.splice(from, 1)
+        deals.splice(to, 0, moving)
+      }
+      orderedIds = deals.map((d) => d.id)
       return { ...prev, [targetStage]: deals }
     })
 
-    // Persist: send the final ordering of the target stage
-    const orderedIds = (colMap[targetStage] ?? []).map((d) => d.id)
-    // Ensure the active id is included (state update above is async)
+    // Guarantee the dragged deal is part of the persisted ordering
     if (!orderedIds.includes(activeId)) orderedIds.push(activeId)
 
     try {

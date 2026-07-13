@@ -312,6 +312,18 @@ export async function moveDeal(
       )
       .eq('id', id),
   )
+
+  // Robustness: if the client omitted the dragged deal from ordered_ids, still
+  // move it (append to the end) so the stage/status change is never lost.
+  if (!input.ordered_ids.includes(dealId)) {
+    updates.push(
+      supabase
+        .from('crm_deals')
+        .update({ stage_id: input.stage_id, position: input.ordered_ids.length, status })
+        .eq('id', dealId),
+    )
+  }
+
   const results = await Promise.all(updates)
   const failed = results.find((r) => r.error)
   if (failed?.error) throw failed.error
