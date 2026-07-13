@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
+import { claimCouponForPaidOrder } from '@/lib/server/coupons/engine'
 
 /** Lazy-init: avoid instantiating Stripe at module load (breaks build when STRIPE_SECRET_KEY is unset). */
 function getStripe() {
@@ -55,6 +56,9 @@ export async function POST(request: NextRequest) {
           updated_by: 'stripe_webhook',
           metadata: { event: 'payment_confirmed' },
         })
+
+        // Register coupon usage now that the order is paid (idempotent per order).
+        void claimCouponForPaidOrder(orderId).catch(() => {})
 
         const { data: order } = await supabase
           .from('orders')

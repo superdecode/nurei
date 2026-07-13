@@ -3,7 +3,7 @@ import { createOrderSchema } from '@/lib/validations/order'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { getUserOrders } from '@/lib/supabase/queries/userOrders'
 import { getSettings } from '@/lib/supabase/queries/settings'
-import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
+import { validateCoupon } from '@/lib/server/coupons/engine'
 import { createPublicOrderAccessToken } from '@/lib/server/order-access'
 import {
   computeStandardShippingFeeCents,
@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
     const shippingFee = computeStandardShippingFeeCents(subtotal, normalizedShipping)
     let couponDiscount = 0
     let validatedCouponCode: string | null = null
-    let validatedCouponId: string | null = null
     let couponSnapshot: Record<string, unknown> | null = null
 
     // Validate coupon if provided (server-side robust validator)
@@ -106,7 +105,6 @@ export async function POST(request: NextRequest) {
       }
       couponDiscount = result.discountAmount
       validatedCouponCode = result.code
-      validatedCouponId = result.couponId
       couponSnapshot = result.snapshot
     }
 
@@ -148,17 +146,8 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (!error && order) {
-        // Register coupon use if used
-        if (validatedCouponCode && validatedCouponId) {
-          await registerCouponUsage({
-            couponId: validatedCouponId,
-            orderId: order.id,
-            customerEmail: customer_email ?? null,
-            customerPhone: customer_phone,
-            discountAmount: couponDiscount,
-            snapshot: couponSnapshot ?? { code: validatedCouponCode },
-          })
-        }
+        // Coupon usage is claimed at PAYMENT confirmation (Stripe webhook / admin confirm),
+        // not at order creation — an unpaid order must not consume coupon inventory.
 
         // Log initial status
         await supabase.from('order_updates').insert({

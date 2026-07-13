@@ -32,7 +32,7 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
   // 'paid' is a valid payment_status value, NOT a valid status value.
   const { data: order, error: orderErr } = await supabase
     .from('orders')
-    .select('id, total, status, payment_status')
+    .select('id, total, subtotal, coupon_discount, user_id, status, payment_status')
     .eq('id', orderId)
     .eq('payment_status', 'paid')
     .single()
@@ -42,7 +42,13 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
     return { ok: false, attributed: false, error: 'Orden no válida o no pagada', status: 400 }
   }
 
-  const orderTotalCents: number = order.total
+  // Commission is paid on net product revenue (subtotal minus coupon discount),
+  // never on shipping. Fall back to total only if subtotal is unavailable.
+  const netProductCents: number =
+    typeof order.subtotal === 'number'
+      ? Math.max(0, order.subtotal - (order.coupon_discount ?? 0))
+      : order.total
+  const orderBuyerId: string | null = order.user_id ?? null
   let couponAffiliateId: string | null = null
   let couponId: string | null = null
   let couponCodeResolved: string | null = null
@@ -105,8 +111,14 @@ export async function executeAffiliateAttribution(input: AttributionExecInput): 
     return { ok: true, attributed: false }
   }
 
+  // Block self-referral: an affiliate cannot earn commission on their own purchase.
+  if (orderBuyerId && attribution.affiliateId === orderBuyerId) {
+    console.warn('[attribution] self-referral blocked', { orderId, affiliateId: attribution.affiliateId })
+    return { ok: true, attributed: false }
+  }
+
   const commissionAmountCents = calculateCommission({
-    orderTotalCents,
+    orderTotalCents: netProductCents,
     commissionPct: attribution.commissionPct,
   })
 

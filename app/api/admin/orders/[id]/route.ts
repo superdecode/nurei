@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/server/require-admin'
 import { VALID_STATUS_TRANSITIONS } from '@/lib/utils/constants'
 import { sendOrderStatusEmail } from '@/lib/email/send-order-emails'
 import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
+import { claimCouponForPaidOrder } from '@/lib/server/coupons/engine'
 import type { OrderStatus } from '@/types'
 
 export async function GET(
@@ -107,6 +108,9 @@ export async function PATCH(
           if (orderSnap?.payment_status !== 'paid') {
             await supabase.from('orders').update({ payment_status: 'paid' }).eq('id', id)
           }
+
+          // Register coupon usage now that the order is paid (idempotent per order).
+          await claimCouponForPaidOrder(id)
 
           // Create the attribution record (no-op if already exists — ON CONFLICT DO NOTHING).
           const result = await executeAffiliateAttribution({

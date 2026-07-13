@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
       .eq('id', data.user.id)
       .single()
 
+    // Do NOT return raw tokens in the body: the session is already delivered via the
+    // httpOnly Supabase cookies applied below. Echoing tokens in the JSON response only
+    // widens the exposure surface (network logs, browser extensions) with no consumer.
     const res = NextResponse.json({
       data: {
         user: profile ?? {
@@ -82,9 +85,6 @@ export async function POST(request: NextRequest) {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at,
       },
     })
     return applyAuthCookies(res, pendingCookies)

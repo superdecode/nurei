@@ -9,7 +9,7 @@ import {
   createOrderPayloadSchema,
   formatCreateOrderPayloadErrors,
 } from '@/lib/validations/order-create-payload'
-import { registerCouponUsage, validateCoupon } from '@/lib/server/coupons/engine'
+import { validateCoupon } from '@/lib/server/coupons/engine'
 import { getReferralLinkIdFromHeader } from '@/lib/affiliate/cookie'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { normalizeShippingFromConfig } from '@/lib/store/normalize-checkout-settings'
@@ -164,7 +164,6 @@ export async function POST(request: NextRequest) {
 
     let couponCode: string | null = null
     let couponDiscount = 0
-    let couponId: string | null = null
     let couponSnapshot: Record<string, unknown> | null = null
     if (payload.coupon_code) {
       const result = await validateCoupon({
@@ -186,7 +185,6 @@ export async function POST(request: NextRequest) {
       }
       couponCode = result.code
       couponDiscount = result.discountAmount
-      couponId = result.couponId
       couponSnapshot = result.snapshot
     }
 
@@ -194,7 +192,7 @@ export async function POST(request: NextRequest) {
 
     // Capture referral link from the customer's cookie NOW — it won't be available later
     // (e.g. when admin confirms a cash order days later).
-    const referralLinkId = getReferralLinkIdFromHeader(request.headers.get('cookie'))
+    const referralLinkIdRaw = getReferralLinkIdFromHeader(request.headers.get('cookie'))
 
     const supabaseSession = await createServerSupabaseClient()
     const {
@@ -202,6 +200,21 @@ export async function POST(request: NextRequest) {
     } = await supabaseSession.auth.getUser()
 
     const service = createServiceClient()
+
+    // Validate the referral cookie against existing links before using it as an FK.
+    // A stale or forged `_nurei_ref` value (e.g. the link was deleted when an affiliate
+    // was removed, but the 30-day cookie still lives in the browser) would otherwise
+    // violate the orders.referral_link_id FK and break checkout entirely.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    let referralLinkId: string | null = null
+    if (referralLinkIdRaw && UUID_RE.test(referralLinkIdRaw)) {
+      const { data: linkRow } = await service
+        .from('referral_links')
+        .select('id')
+        .eq('id', referralLinkIdRaw)
+        .maybeSingle()
+      referralLinkId = linkRow?.id ?? null
+    }
 
     let createdOrderId: string | null = null
     let shortId = ''
@@ -271,20 +284,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (couponId && couponCode) {
-      try {
-        await registerCouponUsage({
-          couponId,
-          orderId: createdOrderId,
-          customerEmail: payload.customer.email ?? null,
-          customerPhone: payload.customer.phone ?? null,
-          discountAmount: couponDiscount,
-          snapshot: couponSnapshot ?? { code: couponCode },
-        })
-      } catch (e) {
-        console.error('[orders/create] coupon usage:', e)
-      }
-    }
+    // Coupon usage is claimed at PAYMENT confirmation (Stripe webhook / admin confirm),
+    // not here — an unpaid or abandoned order must not consume coupon inventory.
 
     try {
       for (const item of orderItems) {

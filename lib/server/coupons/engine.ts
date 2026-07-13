@@ -252,37 +252,52 @@ export async function validateCoupon(input: CouponValidationInput): Promise<Coup
   }
 }
 
-export async function registerCouponUsage(input: {
-  couponId: string
-  orderId: string | null
-  customerId?: string | null
-  customerEmail?: string | null
-  customerPhone?: string | null
-  discountAmount: number
-  snapshot: Record<string, unknown>
-}) {
-  if (!input.orderId) return
+/**
+ * Claim a coupon for an order that has just been PAID.
+ *
+ * Coupon usage is registered at payment confirmation (not at order creation) so that
+ * abandoned/failed card orders do not consume coupon inventory, and so used_count /
+ * per-customer limits reflect realized sales. Safe to call from every confirmation path
+ * (Stripe webhook, admin confirm) and on retries: the RPC is idempotent per order_id.
+ */
+export async function claimCouponForPaidOrder(orderId: string): Promise<void> {
+  if (!orderId) return
 
   const supabase = createServiceClient()
-  const code = String(input.snapshot.code ?? '')
 
-  // Use atomic RPC to prevent race conditions on max_uses enforcement
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .select('id, coupon_code, coupon_discount, coupon_snapshot, customer_email, customer_phone, payment_status')
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (orderErr) {
+    console.error('[coupons] claimCouponForPaidOrder load order', orderErr.message)
+    return
+  }
+  if (!order || !order.coupon_code) return
+
+  // Only realized (paid) orders consume coupon inventory.
+  if (order.payment_status !== 'paid') return
+
+  const snapshot =
+    (order.coupon_snapshot as Record<string, unknown> | null) ?? { code: order.coupon_code }
+
   const { data: result, error } = await supabase.rpc('claim_coupon_atomic', {
-    p_code: code,
-    p_order_id: input.orderId,
-    p_customer_email: input.customerEmail?.toLowerCase() ?? null,
-    p_customer_phone: input.customerPhone ?? null,
-    p_discount_cents: input.discountAmount,
-    p_snapshot: input.snapshot,
+    p_code: order.coupon_code,
+    p_order_id: order.id,
+    p_customer_email: order.customer_email?.toLowerCase() ?? null,
+    p_customer_phone: order.customer_phone ?? null,
+    p_discount_cents: order.coupon_discount ?? 0,
+    p_snapshot: snapshot,
   })
 
   if (error) {
     console.error('[coupons] claim_coupon_atomic error', error.message)
-    throw new Error(`Error al registrar uso del cupón: ${error.message}`)
+    return
   }
 
-  if (result !== 'ok') {
-    console.warn('[coupons] claim_coupon_atomic rejected', { code, result, orderId: input.orderId })
-    // Non-throwing — order is already created; log and continue
+  if (result !== 'ok' && result !== 'already_claimed') {
+    console.warn('[coupons] claim_coupon_atomic rejected', { code: order.coupon_code, result, orderId })
   }
 }
