@@ -53,6 +53,12 @@ export function Footer() {
               🍜 Menú completo
             </Link>
             <Link
+              href="/guias"
+              className="text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm"
+            >
+              📖 Guías de snacks asiáticos
+            </Link>
+            <Link
               href="/nosotros"
               className="text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm"
             >

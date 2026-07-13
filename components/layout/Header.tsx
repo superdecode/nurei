@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, Heart, User, LogIn, LogOut, Settings, ChevronRight, Home, UtensilsCrossed, Info } from 'lucide-react'
+import { ShoppingBag, Heart, User, LogIn, LogOut, Settings, ChevronRight, Home, UtensilsCrossed, Info, BookOpen } from 'lucide-react'
 import { Container } from './Container'
 import { useCartStore } from '@/lib/stores/cart'
 import { useUIStore } from '@/lib/stores/ui'
@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 const desktopNavItems = [
   { href: '/', label: 'Inicio', icon: Home, exact: true },
   { href: '/menu', label: 'Menú', icon: UtensilsCrossed, exact: false },
+  { href: '/guias', label: 'Guías', icon: BookOpen, exact: false },
   { href: '/nosotros', label: 'Nosotros', icon: Info, exact: false },
 ]
 

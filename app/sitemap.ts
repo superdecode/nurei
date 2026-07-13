@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
+import { getAllGuides } from '@/lib/content/guias'
 
 export const revalidate = 3600
 
@@ -10,10 +11,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
     { url: base, changeFrequency: 'daily', priority: 1 },
     { url: `${base}/menu`, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${base}/guias`, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${base}/nosotros`, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/legal/terminos`, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${base}/legal/privacidad`, changeFrequency: 'yearly', priority: 0.2 },
   ]
+
+  // SEO guide hub — static content, safe to include unconditionally.
+  const guideEntries: MetadataRoute.Sitemap = getAllGuides().map((g) => ({
+    url: `${base}/guias/${g.slug}`,
+    lastModified: new Date(g.updated),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }))
 
   try {
     const supabase = createServiceClient()
@@ -33,8 +43,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.8,
       }))
 
-    return [...staticEntries, ...productEntries]
+    return [...staticEntries, ...guideEntries, ...productEntries]
   } catch {
-    return staticEntries
+    return [...staticEntries, ...guideEntries]
   }
 }
