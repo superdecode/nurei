@@ -1,6 +1,7 @@
 'use client'
 
-import { AlertTriangle, Code2, FileCode2, Globe, Image as ImageIcon, Layers, Paintbrush } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, Check, Clipboard, Code2, FileCode2, Globe, Image as ImageIcon, Layers, Paintbrush, Trash2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { EmptyState } from '@/components/admin/analytics/EmptyState'
 import { cn } from '@/lib/utils'
@@ -66,9 +67,44 @@ const TYPE_LABEL: Record<string, string> = {
 interface Props {
   data: ErrorsData | null
   loading: boolean
+  onDeleted?: () => void
 }
 
-export function ErrorsPanel({ data, loading }: Props) {
+export function ErrorsPanel({ data, loading, onDeleted }: Props) {
+  const [copied, setCopied] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleCopy = async () => {
+    if (!data) return
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard unavailable — silently ignore
+    }
+  }
+
+  const handleDeleteClick = () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      setTimeout(() => setConfirmDelete(false), 4000)
+      return
+    }
+    setDeleting(true)
+    fetch('/api/admin/analytics/performance/errors', { method: 'DELETE' })
+      .then((res) => {
+        if (!res.ok) throw new Error('No se pudo eliminar')
+        onDeleted?.()
+      })
+      .catch(() => {})
+      .finally(() => {
+        setDeleting(false)
+        setConfirmDelete(false)
+      })
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -89,6 +125,30 @@ export function ErrorsPanel({ data, loading }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Actions */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"
+        >
+          {copied ? <Check size={12} className="text-nurei-stock" /> : <Clipboard size={12} />}
+          {copied ? 'Copiado' : 'Copiar todos (JSON)'}
+        </button>
+        <button
+          onClick={handleDeleteClick}
+          disabled={deleting}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-50',
+            confirmDelete
+              ? 'bg-red-500 text-white hover:bg-red-600'
+              : 'border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200',
+          )}
+        >
+          <Trash2 size={12} />
+          {deleting ? 'Eliminando...' : confirmDelete ? 'Confirmar: borrar todos' : 'Eliminar todos'}
+        </button>
+      </div>
+
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-2xl p-4 border border-red-100 shadow-sm col-span-2 sm:col-span-1">

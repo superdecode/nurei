@@ -62,3 +62,14 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ data: { total: rows?.length ?? 0, by_type: byType, grouped, recent } })
 }
+
+export async function DELETE() {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
+
+  const supabase = createServiceClient()
+  const { error } = await supabase.from('page_load_errors').delete().gte('id', 0)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
+}

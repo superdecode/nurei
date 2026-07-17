@@ -81,10 +81,10 @@ type SeoData = {
 }
 
 function PerformanceTab({
-  vitalsData, vitalsLoading, errorsData, errorsLoading, seoData, seoLoading,
+  vitalsData, vitalsLoading, errorsData, errorsLoading, onErrorsDeleted, seoData, seoLoading,
 }: {
   vitalsData: VitalsData | null; vitalsLoading: boolean
-  errorsData: ErrorsData | null; errorsLoading: boolean
+  errorsData: ErrorsData | null; errorsLoading: boolean; onErrorsDeleted: () => void
   seoData: SeoData | null; seoLoading: boolean
 }) {
   const [perfTab, setPerfTab] = useState<'vitals' | 'errors' | 'seo'>('vitals')
@@ -105,7 +105,7 @@ function PerformanceTab({
         ))}
       </div>
       {perfTab === 'vitals' && <VitalsPanel data={vitalsData} loading={vitalsLoading} />}
-      {perfTab === 'errors' && <ErrorsPanel data={errorsData} loading={errorsLoading} />}
+      {perfTab === 'errors' && <ErrorsPanel data={errorsData} loading={errorsLoading} onDeleted={onErrorsDeleted} />}
       {perfTab === 'seo' && <SeoPanel data={seoData} loading={seoLoading} />}
     </div>
   )
@@ -170,7 +170,7 @@ export default function AnalyticsPage() {
   const { data: vitalsData, loading: vitalsLoading } = useAnalytics<VitalsData>(
     '/api/admin/analytics/performance/vitals', { params, enabled: enabled('performance') },
   )
-  const { data: errorsData, loading: errorsLoading } = useAnalytics<ErrorsData>(
+  const { data: errorsData, loading: errorsLoading, refetch: refetchErrors } = useAnalytics<ErrorsData>(
     '/api/admin/analytics/performance/errors', { params, enabled: enabled('performance') },
   )
   const { data: seoData, loading: seoLoading } = useAnalytics<SeoData>(
@@ -891,6 +891,7 @@ export default function AnalyticsPage() {
             vitalsLoading={vitalsLoading}
             errorsData={errorsData}
             errorsLoading={errorsLoading}
+            onErrorsDeleted={refetchErrors}
             seoData={seoData}
             seoLoading={seoLoading}
           />
