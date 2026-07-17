@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { CAMPAIGN_TEMPLATES, getTemplate } from '../../lib/marketing/templates'
+import type { CampaignTemplateKey } from '../../types'
 
 describe('getTemplate', () => {
   it('returns the bienvenida template with a heading and CTA', () => {
@@ -33,5 +34,9 @@ describe('getTemplate', () => {
     expect(CAMPAIGN_TEMPLATES.map((t) => t.templateKey)).toEqual([
       'bienvenida', 'winback', 'promo', 'blank',
     ])
+  })
+
+  it('throws for an unknown template key', () => {
+    expect(() => getTemplate('nope' as CampaignTemplateKey)).toThrow('Unknown campaign template: nope')
   })
 })
