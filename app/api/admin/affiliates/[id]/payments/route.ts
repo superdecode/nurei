@@ -96,7 +96,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   try {
     const { data: attributions, error: attrErr } = await supabase
       .from('affiliate_attributions')
-      .select('id, commission_amount_cents, payout_status, created_at')
+      .select('id, commission_amount_cents, refund_adjustment_cents, payout_status, created_at')
       .eq('affiliate_id', id)
       .in('id', attribution_ids)
 
@@ -104,15 +104,32 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'No se encontraron las atribuciones seleccionadas' }, { status: 404 })
     }
 
-    const totalAmount = attributions.reduce((sum, a) => sum + (a.commission_amount_cents ?? 0), 0)
+    const grossAmount = attributions.reduce(
+      (sum, a) => sum + Math.max(0, (a.commission_amount_cents ?? 0) - (a.refund_adjustment_cents ?? 0)),
+      0
+    )
 
-    if (totalAmount <= 0) {
+    if (grossAmount <= 0) {
       return NextResponse.json({ error: 'El monto total debe ser mayor a 0' }, { status: 400 })
     }
+
+    const { data: affiliateProfile } = await supabase
+      .from('affiliate_profiles')
+      .select('clawback_debt_cents')
+      .eq('id', id)
+      .single()
+
+    const clawbackDebt = affiliateProfile?.clawback_debt_cents ?? 0
+    const debtDeducted = Math.min(grossAmount, clawbackDebt)
+    const totalAmount = grossAmount - debtDeducted
 
     const dates = attributions.map((a) => new Date(a.created_at))
     const periodFrom = new Date(Math.min(...dates.map((d) => d.getTime())))
     const periodTo = new Date(Math.max(...dates.map((d) => d.getTime())))
+
+    const debtNote = debtDeducted > 0
+      ? `Se descontaron $${(debtDeducted / 100).toFixed(2)} MXN de deuda por reembolso previo.`
+      : null
 
     const { data: paymentData, error: insertErr } = await supabase
       .from('commission_payments')
@@ -122,7 +139,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         period_from: periodFrom.toISOString().slice(0, 10),
         period_to: periodTo.toISOString().slice(0, 10),
         attribution_ids,
-        notes: notes || null,
+        notes: [notes, debtNote].filter(Boolean).join(' — ') || null,
         payment_type: payment_type ?? 'transferencia',
         reference_number: reference_number || null,
         paid_by: guard.userId,
@@ -149,15 +166,21 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const { data: remainingAttrs } = await supabase
       .from('affiliate_attributions')
-      .select('commission_amount_cents')
+      .select('commission_amount_cents, refund_adjustment_cents')
       .eq('affiliate_id', id)
       .in('payout_status', ['pending', 'approved'])
 
-    const newPending = (remainingAttrs ?? []).reduce((sum, a) => sum + (a.commission_amount_cents ?? 0), 0)
+    const newPending = (remainingAttrs ?? []).reduce(
+      (sum, a) => sum + Math.max(0, (a.commission_amount_cents ?? 0) - (a.refund_adjustment_cents ?? 0)),
+      0
+    )
 
     const { error: profileErr } = await supabase
       .from('affiliate_profiles')
-      .update({ pending_payout_cents: newPending })
+      .update({
+        pending_payout_cents: newPending,
+        clawback_debt_cents: Math.max(0, clawbackDebt - debtDeducted),
+      })
       .eq('id', id)
 
     if (profileErr) {
