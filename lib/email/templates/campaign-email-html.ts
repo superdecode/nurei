@@ -41,12 +41,13 @@ export function renderCampaignEmailHtml(p: CampaignEmailProps): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>${escapeHtml(p.content.heading)}</title></head>
 <body style="margin:0;padding:0;background:${BRAND_BG};font-family:Arial,Helvetica,sans-serif;">
   ${preheaderBlock}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND_BG};padding:24px 0;">
     <tr>
       <td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:16px;border:1px solid ${CARD_BORDER};overflow:hidden;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FFFFFF;border-radius:24px;border:1px solid ${CARD_BORDER};overflow:hidden;box-shadow:0 10px 40px rgba(17,24,39,0.08);">
           <tr>
             <td style="background:${BRAND_AMBER};padding:20px;text-align:center;">
               <span style="font-size:22px;font-weight:900;color:${TEXT_DARK};letter-spacing:-0.5px;">nurei</span>

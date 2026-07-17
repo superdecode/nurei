@@ -47,7 +47,7 @@ describe('renderCampaignEmailHtml', () => {
 
   it('omits the coupon block when couponCode is null', () => {
     const html = renderCampaignEmailHtml({ content: { ...content, couponCode: null }, resolvedCtaUrl: 'https://nurei.mx/menu' })
-    expect(html).not.toContain('couponCode')
+    expect(html).not.toContain('PROMO20')
   })
 
   it('uses the shared brand amber color', () => {
