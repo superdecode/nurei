@@ -6,6 +6,7 @@ import {
   Users, Shield, Plus, Search, Edit2, Trash2, ToggleLeft, ToggleRight,
   LayoutDashboard, ShoppingCart, Package, FolderTree, Warehouse, Ticket,
   Image, UserCheck, UserCog, Lock, Settings, BarChart3, CreditCard, X, Check, BellRing,
+  Megaphone,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,7 +34,7 @@ const ALL_MODULES: AdminModule[] = [
   'dashboard', 'pedidos', 'productos', 'categorias', 'inventario',
   'cupones', 'multimedia', 'clientes', 'usuarios', 'roles',
   'configuracion', 'analytics', 'pagos',
-  'afiliados',
+  'afiliados', 'marketing',
 ]
 
 const MODULE_LABELS: Record<AdminModule, string> = {
@@ -41,7 +42,7 @@ const MODULE_LABELS: Record<AdminModule, string> = {
   categorias: 'Categorías', inventario: 'Inventario', cupones: 'Cupones',
   multimedia: 'Multimedia', clientes: 'Clientes', usuarios: 'Usuarios',
   roles: 'Roles', configuracion: 'Administración', analytics: 'Analytics',
-  pagos: 'Pagos', afiliados: 'Afiliados',
+  pagos: 'Pagos', afiliados: 'Afiliados', marketing: 'Marketing',
 }
 
 const MODULE_ICONS: Record<AdminModule, React.ElementType> = {
@@ -49,7 +50,7 @@ const MODULE_ICONS: Record<AdminModule, React.ElementType> = {
   categorias: FolderTree, inventario: Warehouse, cupones: Ticket,
   multimedia: Image, clientes: UserCheck, usuarios: Users,
   roles: Shield, configuracion: Settings, analytics: BarChart3,
-  pagos: CreditCard, afiliados: Users,
+  pagos: CreditCard, afiliados: Users, marketing: Megaphone,
 }
 
 const PERMISSION_LEVELS: PermissionLevel[] = ['total', 'escritura', 'lectura', 'sin_acceso']
