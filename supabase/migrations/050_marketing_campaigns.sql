@@ -3,7 +3,7 @@
 -- Deliverability compliance (suppression/unsubscribe) and Smart Campaigns
 -- automation are explicitly deferred — see docs/superpowers/specs/2026-07-16-marketing-campaigns-design.md
 
-create table public.marketing_campaigns (
+create table if not exists public.marketing_campaigns (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   subject text not null,
@@ -20,10 +20,10 @@ create table public.marketing_campaigns (
   sent_at timestamptz
 );
 
-create index idx_marketing_campaigns_status on public.marketing_campaigns(status);
-create index idx_marketing_campaigns_created_at on public.marketing_campaigns(created_at desc);
+create index if not exists idx_marketing_campaigns_status on public.marketing_campaigns(status);
+create index if not exists idx_marketing_campaigns_created_at on public.marketing_campaigns(created_at desc);
 
-create table public.marketing_campaign_recipients (
+create table if not exists public.marketing_campaign_recipients (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references public.marketing_campaigns(id) on delete cascade,
   customer_id uuid references public.customers(id) on delete set null,
@@ -36,8 +36,9 @@ create table public.marketing_campaign_recipients (
   open_count int not null default 0
 );
 
-create index idx_marketing_campaign_recipients_campaign on public.marketing_campaign_recipients(campaign_id);
+create index if not exists idx_marketing_campaign_recipients_campaign on public.marketing_campaign_recipients(campaign_id);
 
+drop trigger if exists set_marketing_campaigns_updated_at on public.marketing_campaigns;
 create trigger set_marketing_campaigns_updated_at before update on public.marketing_campaigns
   for each row execute function public.handle_updated_at();
 
@@ -46,10 +47,12 @@ alter table public.marketing_campaign_recipients enable row level security;
 
 -- Admin-only via service-role client (same pattern as orders/coupons) — no public policy needed;
 -- the app never queries these tables with the anon/user client.
-create policy "Marketing campaigns: admin read/write" on public.marketing_campaigns
+drop policy if exists "Marketing campaigns: admin all" on public.marketing_campaigns;
+create policy "Marketing campaigns: admin all" on public.marketing_campaigns
   for all using (public.is_admin()) with check (public.is_admin());
 
-create policy "Marketing recipients: admin read/write" on public.marketing_campaign_recipients
+drop policy if exists "Marketing recipients: admin all" on public.marketing_campaign_recipients;
+create policy "Marketing recipients: admin all" on public.marketing_campaign_recipients
   for all using (public.is_admin()) with check (public.is_admin());
 
 -- Add the new 'marketing' permission key to existing admin roles, defaulting the top-tier
