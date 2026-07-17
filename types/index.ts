@@ -41,7 +41,7 @@ export type PermissionLevel = 'total' | 'escritura' | 'lectura' | 'sin_acceso'
 export type AdminModule =
   | 'dashboard' | 'pedidos' | 'productos' | 'categorias'
   | 'inventario' | 'cupones' | 'multimedia' | 'clientes'
-  | 'usuarios' | 'roles' | 'configuracion' | 'analytics' | 'pagos' | 'afiliados'
+  | 'usuarios' | 'roles' | 'configuracion' | 'analytics' | 'pagos' | 'afiliados' | 'marketing'
 
 export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste' | 'venta' | 'devolucion'
 
@@ -698,4 +698,62 @@ export interface CartState {
   getSubtotal: () => number
   getTotal: (shippingFee: number, discount?: number) => number
   getItemCount: () => number
+}
+
+// ─── MARKETING CAMPAIGNS ────────────────────────────────────────────────────
+
+export type CampaignStatus = 'draft' | 'sending' | 'sent' | 'failed'
+export type CampaignTemplateKey = 'bienvenida' | 'winback' | 'promo' | 'blank'
+export type CtaLinkType = 'product' | 'category' | 'url'
+
+export interface CampaignCtaLink {
+  type: CtaLinkType
+  value: string // product slug, category slug, or a raw http(s) URL
+}
+
+export interface CampaignContent {
+  heading: string
+  body: string
+  imageUrl: string | null
+  ctaLabel: string
+  ctaLink: CampaignCtaLink | null
+  couponCode: string | null
+}
+
+export interface MarketingCampaign {
+  id: string
+  name: string
+  subject: string
+  preheader: string | null
+  status: CampaignStatus
+  template_key: CampaignTemplateKey | null
+  content: CampaignContent
+  audience_segments: string[]
+  audience_tags: string[]
+  coupon_code: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  sent_at: string | null
+}
+
+export interface CampaignRecipient {
+  id: string
+  campaign_id: string
+  customer_id: string | null
+  email: string
+  name: string | null
+  status: 'queued' | 'sent' | 'failed'
+  error_message: string | null
+  sent_at: string | null
+  opened_at: string | null
+  open_count: number
+}
+
+export interface CampaignMetrics {
+  recipients: number
+  sent: number
+  failed: number
+  opened: number
+  openRate: number // 0-100
 }
