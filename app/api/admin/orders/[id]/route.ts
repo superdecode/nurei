@@ -129,8 +129,10 @@ export async function PATCH(
       })()
     }
 
-    if (newStatus === 'preparing' || newStatus === 'ready_to_ship' || newStatus === 'shipped') {
+    if (newStatus === 'preparing') {
       void sendOrderStatusEmail(id, 'preparing')
+    } else if (newStatus === 'ready_to_ship' || newStatus === 'shipped') {
+      void sendOrderStatusEmail(id, 'shipped')
     } else if (newStatus === 'delivered') {
       void sendOrderStatusEmail(id, 'delivered')
     }

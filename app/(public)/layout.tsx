@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Header } from '@/components/layout/Header'
 import { ConditionalFooter } from '@/components/layout/ConditionalFooter'
 import { CartDrawer } from '@/components/carrito/CartDrawer'
+import { CartFlightLayer } from '@/components/carrito/CartFlightLayer'
 import { ReferralTracker } from '@/components/ReferralTracker'
 import { StoreCheckoutProvider } from '@/components/providers/StoreCheckoutProvider'
 
@@ -19,6 +20,7 @@ export default function PublicLayout({
       <main className="flex-1">{children}</main>
       <ConditionalFooter />
       <CartDrawer />
+      <CartFlightLayer />
     </StoreCheckoutProvider>
   )
 }

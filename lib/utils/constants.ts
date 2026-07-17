@@ -52,6 +52,18 @@ export const VALID_STATUS_TRANSITIONS: Record<string, OrderStatus[]> = {
   failed:    [],
 }
 
+// Label for the primary status-transition button, keyed by the order's CURRENT status.
+// Falls back to `Cambiar a ${label del siguiente estado}` when a status has no entry here.
+export const STATUS_PRIMARY_ACTION: Partial<Record<OrderStatus, string>> = {
+  pending_payment: 'Confirmar pago',
+  paid: 'Aceptar pedido',
+  preparing: 'Marcar en camino',
+  shipped: 'Marcar entregado',
+  delivered: 'Marcar reembolsado',
+  pending: 'Confirmar pedido',
+  confirmed: 'Marcar enviado',
+}
+
 export const CANCELLABLE_STATUSES: OrderStatus[] = [
   'pending_payment', 'paid', 'preparing', 'pending', 'confirmed',
 ]

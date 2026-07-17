@@ -8,6 +8,7 @@ import {
   renderAdminNewOrderHtml,
   renderCustomerOrderConfirmationHtml,
   renderOrderPreparingHtml,
+  renderOrderShippedHtml,
   renderOrderDeliveredHtml,
   type OrderEmailLineItem,
 } from '@/lib/email/templates/order-emails-html'
@@ -233,11 +234,11 @@ export async function sendOrderConfirmationEmails(
   return { sent: true }
 }
 
-type StatusEmailType = 'preparing' | 'delivered'
+type StatusEmailType = 'preparing' | 'shipped' | 'delivered'
 
 /**
  * Envía correo de actualización de estatus al cliente.
- * Solo para 'preparing' (pedido listo para envío) y 'delivered' (entregado).
+ * 'preparing' (procesando), 'shipped' (en camino) y 'delivered' (entregado).
  */
 export async function sendOrderStatusEmail(
   orderId: string,
@@ -249,7 +250,7 @@ export async function sendOrderStatusEmail(
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('orders')
-    .select('short_id, public_access_token, customer_email, customer_name, delivery_address')
+    .select('short_id, public_access_token, customer_email, customer_name, delivery_address, tracking_number, carrier')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -268,18 +269,26 @@ export async function sendOrderStatusEmail(
     customerName: (data.customer_name ?? 'Cliente').trim() || 'Cliente',
     orderUrl,
     deliveryAddress: data.delivery_address ?? undefined,
+    trackingNumber: data.tracking_number ?? null,
+    carrier: data.carrier ?? null,
   }
 
-  const { subject, html } =
-    status === 'preparing'
-      ? {
-          subject: `Tu pedido ${data.short_id} está siendo preparado 📦`,
-          html: renderOrderPreparingHtml(props),
-        }
-      : {
-          subject: `¡Tu pedido ${data.short_id} fue entregado! 🎉`,
-          html: renderOrderDeliveredHtml(props),
-        }
+  const templates: Record<StatusEmailType, { subject: string; html: string }> = {
+    preparing: {
+      subject: `Tu pedido ${data.short_id} está siendo preparado 📦`,
+      html: renderOrderPreparingHtml(props),
+    },
+    shipped: {
+      subject: `Tu pedido ${data.short_id} va en camino 🚚`,
+      html: renderOrderShippedHtml(props),
+    },
+    delivered: {
+      subject: `¡Tu pedido ${data.short_id} fue entregado! 🎉`,
+      html: renderOrderDeliveredHtml(props),
+    },
+  }
+
+  const { subject, html } = templates[status]
 
   try {
     await resend.emails.send({ from, to: [data.customer_email], subject, html })

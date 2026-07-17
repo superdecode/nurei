@@ -147,7 +147,13 @@ export function Header() {
               </div>
             )
             return 'onClick' in item && item.onClick ? (
-              <button key={item.key} type="button" onClick={item.onClick} className="outline-none">
+              <button
+                key={item.key}
+                type="button"
+                onClick={item.onClick}
+                data-cart-fly-target={item.key === 'carrito' ? 'mobile' : undefined}
+                className="outline-none"
+              >
                 {inner}
               </button>
             ) : (
@@ -211,6 +217,7 @@ export function Header() {
             transition={{ duration: 0.3 }}
             onClick={openCart}
             data-cart-target="true"
+            data-cart-fly-target="desktop"
             className="relative flex items-center justify-center w-10 h-10 rounded-xl text-gray-500 hover:text-gray-900 hover:bg-yellow-50 transition-all duration-200"
             aria-label="Abrir carrito"
           >

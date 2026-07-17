@@ -148,6 +148,8 @@ export type OrderStatusEmailProps = {
   orderUrl: string
   deliveryAddress?: string
   estimatedDelivery?: string | null
+  trackingNumber?: string | null
+  carrier?: string | null
 }
 
 /** Correo al cliente cuando su pedido está siendo preparado. */
@@ -185,6 +187,55 @@ export function renderOrderPreparingHtml(p: OrderStatusEmailProps): string {
             </td></tr>
           </table>
           <p style="margin:28px 0 0;text-align:center;font-size:13px;color:${TEXT_MUTED};">¡Gracias por tu paciencia! El equipo de <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong> 💛</p>
+        </td></tr>
+        <tr><td style="padding:14px 24px;background:#FAFAFA;border-top:1px solid ${CARD_BORDER};text-align:center;font-size:11px;color:${TEXT_MUTED};">© ${new Date().getFullYear()} ${escapeHtml(p.brandName)}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+/** Correo al cliente cuando su pedido va en camino (fue despachado/enviado). */
+export function renderOrderShippedHtml(p: OrderStatusEmailProps): string {
+  const SKY = '#0284C7'
+  const trackingRow = p.trackingNumber
+    ? `<p style="margin:0 0 8px;font-size:14px;color:${TEXT_MUTED};"><strong style="color:${TEXT_DARK};">Número de guía:</strong> ${escapeHtml(p.trackingNumber)}${p.carrier ? ` · ${escapeHtml(p.carrier)}` : ''}</p>`
+    : ''
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>Pedido ${escapeHtml(p.shortId)} en camino</title></head>
+<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(17,24,39,0.08);border:1px solid ${CARD_BORDER};">
+        <tr><td style="background:linear-gradient(135deg,#F0F9FF 0%,#FFF 60%);padding:28px 24px;text-align:center;border-bottom:3px solid ${SKY};">
+          <div style="font-size:40px;line-height:1;margin-bottom:8px;">🚚💨</div>
+          <p style="margin:0;font-size:22px;font-weight:800;color:${TEXT_DARK};letter-spacing:-0.02em;">¡Tu pedido va en camino!</p>
+          <p style="margin:10px 0 0;font-size:15px;color:${TEXT_MUTED};">Hola <strong style="color:${TEXT_DARK};">${escapeHtml(p.customerName)}</strong>, tus snacks ya salieron rumbo a tu dirección.</p>
+          <div style="margin-top:16px;display:inline-block;background:${TEXT_DARK};color:#FFFFFF;font-family:ui-monospace,monospace;font-size:13px;font-weight:700;padding:8px 14px;border-radius:999px;letter-spacing:0.05em;">${escapeHtml(p.shortId)}</div>
+        </td></tr>
+        <tr><td style="padding:28px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F0F9FF;border-radius:16px;border:2px solid #BAE6FD;margin-bottom:24px;">
+            <tr><td style="padding:20px 22px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:40px;height:40px;background:${SKY};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;text-align:center;line-height:40px;">📦</div>
+                <div>
+                  <p style="margin:0;font-size:15px;font-weight:800;color:${TEXT_DARK};">En camino</p>
+                  <p style="margin:4px 0 0;font-size:13px;color:${TEXT_MUTED};">Va directo hacia ti. Te avisaremos cuando llegue.</p>
+                </div>
+              </div>
+            </td></tr>
+          </table>
+          ${trackingRow}
+          ${p.estimatedDelivery ? `<p style="margin:0 0 20px;font-size:14px;color:${TEXT_MUTED};"><strong style="color:${TEXT_DARK};">Entrega estimada:</strong> ${escapeHtml(p.estimatedDelivery)}</p>` : ''}
+          ${p.deliveryAddress ? `<p style="margin:0 0 20px;font-size:14px;color:${TEXT_MUTED};"><strong style="color:${TEXT_DARK};">Dirección de entrega:</strong> ${escapeHtml(p.deliveryAddress)}</p>` : ''}
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr><td align="center" bgcolor="${BRAND_AMBER}" style="border-radius:14px;">
+              <a href="${escapeHtml(p.orderUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:800;color:${TEXT_DARK};text-decoration:none;border-radius:14px;background:${BRAND_AMBER};border:2px solid ${TEXT_DARK};box-shadow:0 4px 0 ${TEXT_DARK};">Seguir mi pedido →</a>
+            </td></tr>
+          </table>
+          <p style="margin:28px 0 0;text-align:center;font-size:13px;color:${TEXT_MUTED};">¡Ya casi llega! El equipo de <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong> 💛</p>
         </td></tr>
         <tr><td style="padding:14px 24px;background:#FAFAFA;border-top:1px solid ${CARD_BORDER};text-align:center;font-size:11px;color:${TEXT_MUTED};">© ${new Date().getFullYear()} ${escapeHtml(p.brandName)}</td></tr>
       </table>

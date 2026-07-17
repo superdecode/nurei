@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -75,9 +75,6 @@ interface UserForm {
   password: string
   phone: string
   admin_role_id: string
-}
-
-type UserNotificationPrefs = {
   sound_enabled: boolean
   browser_notifications: boolean
   email_on_new_order: boolean
@@ -85,12 +82,7 @@ type UserNotificationPrefs = {
 
 const EMPTY_USER_FORM: UserForm = {
   full_name: '', email: '', password: '', phone: '', admin_role_id: '',
-}
-
-const DEFAULT_USER_NOTIFICATION_PREFS: UserNotificationPrefs = {
-  sound_enabled: true,
-  browser_notifications: true,
-  email_on_new_order: true,
+  sound_enabled: true, browser_notifications: true, email_on_new_order: true,
 }
 
 // ─── Role Form ───────────────────────────────────────────────────────────────
@@ -125,10 +117,6 @@ export default function UsuariosPage() {
   const [userDialogOpen, setUserDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<(UserProfile & { email?: string }) | null>(null)
   const [userForm, setUserForm] = useState<UserForm>(EMPTY_USER_FORM)
-  const [prefsDialogOpen, setPrefsDialogOpen] = useState(false)
-  const [prefsUser, setPrefsUser] = useState<(UserProfile & { email?: string }) | null>(null)
-  const [prefsForm, setPrefsForm] = useState<UserNotificationPrefs>(DEFAULT_USER_NOTIFICATION_PREFS)
-  const [prefsSaving, setPrefsSaving] = useState(false)
 
   // Delete user
   const [deleteUserConfirm, setDeleteUserConfirm] = useState<(UserProfile & { email?: string }) | null>(null)
@@ -183,51 +171,18 @@ export default function UsuariosPage() {
 
   const openEditUser = (user: UserProfile & { email?: string }) => {
     setEditingUser(user)
+    const prefs = (user.notification_prefs ?? {}) as Record<string, unknown>
     setUserForm({
       full_name: user.full_name ?? '',
       email: user.email ?? '',
       password: '',
       phone: user.phone ?? '',
       admin_role_id: user.admin_role_id ?? '',
-    })
-    setUserDialogOpen(true)
-  }
-
-  const openNotificationPrefs = (user: UserProfile & { email?: string }) => {
-    setPrefsUser(user)
-    const prefs = (user.notification_prefs ?? {}) as Record<string, unknown>
-    setPrefsForm({
       sound_enabled: prefs.sound_enabled !== false,
       browser_notifications: prefs.browser_notifications !== false,
       email_on_new_order: prefs.email_on_new_order !== false,
     })
-    setPrefsDialogOpen(true)
-  }
-
-  const saveNotificationPrefs = async () => {
-    if (!prefsUser) return
-    setPrefsSaving(true)
-    try {
-      const res = await fetch(`/api/admin/users/${prefsUser.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notification_prefs: prefsForm }),
-      })
-      if (!res.ok) throw new Error()
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === prefsUser.id
-            ? { ...u, notification_prefs: { ...prefsForm } }
-            : u
-        ),
-      )
-      toast.success('Preferencias guardadas')
-      setPrefsDialogOpen(false)
-    } catch {
-      toast.error('No se pudieron guardar las preferencias')
-    } finally {
-      setPrefsSaving(false)
-    }
+    setUserDialogOpen(true)
   }
 
   const handleSaveUser = async () => {
@@ -245,6 +200,11 @@ export default function UsuariosPage() {
             full_name: userForm.full_name,
             phone: userForm.phone || null,
             admin_role_id: userForm.admin_role_id || null,
+            notification_prefs: {
+              sound_enabled: userForm.sound_enabled,
+              browser_notifications: userForm.browser_notifications,
+              email_on_new_order: userForm.email_on_new_order,
+            },
             ...(userForm.email !== editingUser.email ? { email: userForm.email } : {}),
             ...(userForm.password ? { password: userForm.password } : {}),
           }),
@@ -562,13 +522,6 @@ export default function UsuariosPage() {
                                   : <ToggleLeft className="w-4 h-4 text-gray-400" />}
                               </button>
                               <button
-                                onClick={() => openNotificationPrefs(user)}
-                                className="p-1.5 rounded-lg hover:bg-amber-50 transition-colors"
-                                title="Preferencias de notificación"
-                              >
-                                <BellRing className="w-4 h-4 text-amber-500" />
-                              </button>
-                              <button
                                 onClick={() => openEditUser(user)}
                                 className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                                 title="Editar"
@@ -787,6 +740,62 @@ export default function UsuariosPage() {
                 </Select>
               </div>
             </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                <BellRing className="w-3.5 h-3.5 text-amber-500" />
+                Notificaciones de pedidos
+              </p>
+              <div className="space-y-2">
+                {([
+                  {
+                    key: 'sound_enabled' as const,
+                    title: 'Sonido al llegar un pedido',
+                    description: 'Reproduce alerta sonora aunque la pestaña esté en segundo plano.',
+                    editable: true,
+                  },
+                  {
+                    key: 'browser_notifications' as const,
+                    title: 'Notificación del navegador',
+                    description: 'Muestra notificación push del navegador para nuevos pedidos.',
+                    editable: true,
+                  },
+                  {
+                    key: 'email_on_new_order' as const,
+                    title: 'Correo por pedido nuevo',
+                    description: editingUser
+                      ? 'Solo aplica a roles con acceso al módulo Pedidos. El usuario no puede cambiarlo por su cuenta.'
+                      : 'Solo aplica a roles con acceso al módulo Pedidos. Una vez creado, solo un admin puede cambiarlo aquí — el usuario no puede.',
+                    editable: true,
+                  },
+                ]).map((opt) => (
+                  <label
+                    key={opt.key}
+                    className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 cursor-pointer"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{opt.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className={cn(
+                        'mt-0.5 h-6 w-11 shrink-0 rounded-full relative transition-colors',
+                        userForm[opt.key] ? 'bg-primary-cyan' : 'bg-gray-300',
+                      )}
+                      onClick={() => setUserForm({ ...userForm, [opt.key]: !userForm[opt.key] })}
+                    >
+                      <span
+                        className={cn(
+                          'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
+                          userForm[opt.key] ? 'left-5' : 'left-0.5',
+                        )}
+                      />
+                    </button>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="p-6 flex justify-end gap-3 border-t bg-gray-50/50 flex-shrink-0">
@@ -802,79 +811,6 @@ export default function UsuariosPage() {
               className="bg-primary-dark text-white hover:bg-black font-bold rounded-xl h-10 px-8 shadow-md"
             >
               {editingUser ? 'Guardar' : 'Crear'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── User Notification Preferences ─────────────────────────────────── */}
-      <Dialog open={prefsDialogOpen} onOpenChange={setPrefsDialogOpen}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-amber-100 to-amber-50 border-b border-amber-200 px-6 py-4">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <BellRing className="w-4 h-4 text-amber-600" />
-                Preferencias de pedido
-              </DialogTitle>
-              <p className="text-xs text-gray-600 mt-1">
-                Configura sonido y correo para <span className="font-semibold">{prefsUser?.full_name ?? prefsUser?.email}</span>.
-              </p>
-            </DialogHeader>
-          </div>
-          <div className="px-6 py-5 space-y-4">
-            {([
-              {
-                key: 'sound_enabled' as const,
-                title: 'Sonido al llegar un pedido',
-                description: 'Reproduce alerta sonora aunque la pestaña esté en segundo plano.',
-              },
-              {
-                key: 'browser_notifications' as const,
-                title: 'Notificación del navegador',
-                description: 'Muestra notificación push del navegador para nuevos pedidos.',
-              },
-              {
-                key: 'email_on_new_order' as const,
-                title: 'Correo por pedido nuevo',
-                description: 'Recibe correo interno cada vez que entra un pedido.',
-              },
-            ]).map((opt) => (
-              <label
-                key={opt.key}
-                className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">{opt.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
-                </div>
-                <button
-                  type="button"
-                  className={cn(
-                    'mt-0.5 h-6 w-11 rounded-full relative transition-colors',
-                    prefsForm[opt.key] ? 'bg-primary-cyan' : 'bg-gray-300',
-                  )}
-                  onClick={() => setPrefsForm((prev) => ({ ...prev, [opt.key]: !prev[opt.key] }))}
-                >
-                  <span
-                    className={cn(
-                      'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
-                      prefsForm[opt.key] ? 'left-5' : 'left-0.5',
-                    )}
-                  />
-                </button>
-              </label>
-            ))}
-          </div>
-          <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setPrefsDialogOpen(false)} disabled={prefsSaving}>
-              Cancelar
-            </Button>
-            <Button
-              className="bg-primary-dark text-white hover:bg-black"
-              onClick={saveNotificationPrefs}
-              disabled={prefsSaving}
-            >
-              {prefsSaving ? 'Guardando…' : 'Guardar preferencias'}
             </Button>
           </div>
         </DialogContent>

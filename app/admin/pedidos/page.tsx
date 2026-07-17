@@ -30,18 +30,12 @@ import {
 import { Separator } from '@/components/ui/separator'
 
 import type { Order, OrderStatus, OrderItem, OrderUpdate } from '@/types'
-import { ORDER_STATUS_MAP, VALID_STATUS_TRANSITIONS, PAYMENT_METHOD_LABELS, CANCELLABLE_STATUSES } from '@/lib/utils/constants'
+import { ORDER_STATUS_MAP, VALID_STATUS_TRANSITIONS, PAYMENT_METHOD_LABELS, CANCELLABLE_STATUSES, STATUS_PRIMARY_ACTION } from '@/lib/utils/constants'
 import type { StatusMeta } from '@/lib/utils/constants'
 import { formatPrice, formatDate, formatRelativeTime, formatPhone } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
-
-// ── Status-aware primary action label ───────────────────────────────────
-const STATUS_PRIMARY_ACTION: Partial<Record<OrderStatus, string>> = {
-  paid: 'Aceptar pedido',
-  preparing: 'Marcar en camino',
-  shipped: 'Marcar entregado',
-}
+import { TicketSurtidoModal } from '@/components/admin/pedidos/TicketSurtidoModal'
 
 function playSuccessAudio(): void {
   const el = document.getElementById('nurei-success-sound') as HTMLAudioElement | null
@@ -202,6 +196,9 @@ export default function PedidosAdminPage() {
   const [exportTo, setExportTo] = useState('')
   const [exporting, setExporting] = useState(false)
 
+  // Ticket / surtido print modal
+  const [printModal, setPrintModal] = useState<{ ids: string[]; type: 'ticket' | 'surtido'; autoPrint: boolean } | null>(null)
+
   // Selected for bulk print
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -360,8 +357,7 @@ export default function PedidosAdminPage() {
 
   const handleBulkPrint = () => {
     if (selectedIds.size === 0) return
-    const ids = Array.from(selectedIds).join(',')
-    window.location.href = `/admin/pedidos/print?ids=${ids}&type=surtido&autoprint=1`
+    setPrintModal({ ids: Array.from(selectedIds), type: 'surtido', autoPrint: true })
   }
 
   // ── Date quick chips ──────────────────────────────────────────────
@@ -729,7 +725,7 @@ export default function PedidosAdminPage() {
                         <Link href={`/admin/pedidos/${order.id}`} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Detalle completo">
                           <FileText className="h-4 w-4" />
                         </Link>
-                        <button type="button" onClick={() => { window.location.href = `/admin/pedidos/print?ids=${order.id}` }} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Surtido / Imprimir">
+                        <button type="button" onClick={() => setPrintModal({ ids: [order.id], type: 'surtido', autoPrint: false })} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" title="Surtido / Imprimir">
                           <Printer className="h-4 w-4" />
                         </button>
                       </div>
@@ -808,7 +804,7 @@ export default function PedidosAdminPage() {
                     <>
                       <button
                         type="button"
-                        onClick={() => { window.location.href = `/admin/pedidos/print?ids=${drawerOrder.id}&type=ticket` }}
+                        onClick={() => setPrintModal({ ids: [drawerOrder.id], type: 'ticket', autoPrint: false })}
                         className="flex items-center gap-1 h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition shadow-sm"
                         title="Imprimir ticket"
                       >
@@ -816,7 +812,7 @@ export default function PedidosAdminPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { window.location.href = `/admin/pedidos/print?ids=${drawerOrder.id}&type=surtido&autoprint=1` }}
+                        onClick={() => setPrintModal({ ids: [drawerOrder.id], type: 'surtido', autoPrint: true })}
                         className="flex items-center gap-1 h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition shadow-sm"
                         title="Hoja de surtido"
                       >
@@ -1051,6 +1047,14 @@ export default function PedidosAdminPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <TicketSurtidoModal
+        open={!!printModal}
+        onOpenChange={(v) => { if (!v) setPrintModal(null) }}
+        orderIds={printModal?.ids ?? []}
+        type={printModal?.type ?? 'ticket'}
+        autoPrint={printModal?.autoPrint ?? false}
+      />
     </div>
   )
 }

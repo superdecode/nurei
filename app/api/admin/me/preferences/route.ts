@@ -125,9 +125,13 @@ export async function PATCH(request: NextRequest) {
 
     const body = (await request.json()) as { notification_prefs?: Partial<NotificationPrefs> }
     const current = normalizePrefs(profile.notification_prefs)
-    const merged = {
+    // email_on_new_order is intentionally excluded from self-service updates —
+    // it's configured by an administrator at user creation/edit time (Usuarios y Roles),
+    // not by the affected user themselves.
+    const merged: NotificationPrefs = {
       ...current,
-      ...(body.notification_prefs ?? {}),
+      sound_enabled: body.notification_prefs?.sound_enabled ?? current.sound_enabled,
+      browser_notifications: body.notification_prefs?.browser_notifications ?? current.browser_notifications,
     }
 
     const perms = (profile.admin_role as { permissions?: Record<string, string> } | null)?.permissions ?? {}

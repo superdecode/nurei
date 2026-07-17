@@ -21,13 +21,18 @@ import {
 } from '@/components/ui/table'
 
 import type { Order, OrderStatus, OrderItem, OrderUpdate } from '@/types'
-import { ORDER_STATUS_MAP, VALID_STATUS_TRANSITIONS, PAYMENT_METHOD_LABELS, CANCELLABLE_STATUSES } from '@/lib/utils/constants'
+import { ORDER_STATUS_MAP, VALID_STATUS_TRANSITIONS, PAYMENT_METHOD_LABELS, CANCELLABLE_STATUSES, STATUS_PRIMARY_ACTION } from '@/lib/utils/constants'
 import type { StatusMeta } from '@/lib/utils/constants'
 import { formatPrice, formatDate, formatPhone } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useAdminTabsStore } from '@/lib/stores/adminTabsStore'
+import { TicketSurtidoModal } from '@/components/admin/pedidos/TicketSurtidoModal'
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+// The "tiempo transcurrido" badge pressures admins to ship quickly — once the
+// order has shipped (or moved past that point) the urgency no longer applies.
+const SHIPPED_OR_LATER_STATUSES: OrderStatus[] = ['shipped', 'delivered', 'cancelled', 'refunded']
 
 function sMeta(status: OrderStatus): StatusMeta {
   return ORDER_STATUS_MAP[status] ?? { label: status, color: 'text-gray-600', bgColor: 'bg-gray-50', borderColor: 'border-gray-300' }
@@ -135,6 +140,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const [orderCopied, setOrderCopied] = useState(false)
   const orderCopyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [printModalOpen, setPrintModalOpen] = useState(false)
 
   const fetchOrder = useCallback(async () => {
     setLoading(true)
@@ -364,23 +371,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto sm:shrink-0">
             <button
               type="button"
-              onClick={() => {
-                const iframe = document.createElement('iframe')
-                iframe.style.position = 'fixed'
-                iframe.style.right = '0'
-                iframe.style.bottom = '0'
-                iframe.style.width = '0'
-                iframe.style.height = '0'
-                iframe.style.border = 'none'
-                iframe.src = `/admin/pedidos/print?ids=${order.id}`
-                iframe.onload = () => {
-                  setTimeout(() => {
-                    try { iframe.contentWindow?.print() } catch {}
-                    setTimeout(() => iframe.remove(), 1000)
-                  }, 800)
-                }
-                document.body.appendChild(iframe)
-              }}
+              onClick={() => setPrintModalOpen(true)}
               className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
             >
               <Printer className="h-4 w-4" /> Imprimir
@@ -396,7 +387,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 >
                   {confirmLoading
                     ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <>{sIcon(nextStatus)} Confirmar pedido</>
+                    : <>{sIcon(nextStatus)} {STATUS_PRIMARY_ACTION[order.status] ?? `Cambiar a ${sMeta(nextStatus).label}`}</>
                   }
                 </button>
               )}
@@ -546,10 +537,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         {/* RIGHT — elapsed time + history + notes */}
         <div className="min-w-0 max-w-full space-y-4 xl:max-w-none">
 
-          {/* Elapsed time badge */}
-          <div className="max-w-full overflow-hidden">
-            <ElapsedTimeBadge createdAt={order.created_at} />
-          </div>
+          {/* Elapsed time badge — only relevant while the order still needs to ship */}
+          {!SHIPPED_OR_LATER_STATUSES.includes(order.status) && (
+            <div className="max-w-full overflow-hidden">
+              <ElapsedTimeBadge createdAt={order.created_at} />
+            </div>
+          )}
 
           {/* Activity history / timeline */}
           <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
@@ -687,6 +680,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </DialogContent>
       </Dialog>
+
+      <TicketSurtidoModal
+        open={printModalOpen}
+        onOpenChange={setPrintModalOpen}
+        orderIds={[order.id]}
+        type="ticket"
+        autoPrint
+      />
     </div>
   )
 }

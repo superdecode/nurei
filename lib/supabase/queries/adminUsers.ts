@@ -63,7 +63,16 @@ export async function updateUserProfile(
 
 export async function createAdminUser(
   supabase: SupabaseClient,
-  params: { email: string; password: string; full_name: string; phone?: string; admin_role_id: string }
+  params: {
+    email: string
+    password: string
+    full_name: string
+    phone?: string
+    admin_role_id: string
+    sound_enabled?: boolean
+    browser_notifications?: boolean
+    email_on_new_order?: boolean
+  }
 ) {
   // Use admin API to create user
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -74,7 +83,9 @@ export async function createAdminUser(
   })
   if (authError) throw authError
 
-  // Update the auto-created profile with admin role
+  // Update the auto-created profile with admin role.
+  // notification_prefs.email_on_new_order is set here (creation time) rather than
+  // left self-editable — only an admin managing Usuarios y Roles configures it.
   const { data, error } = await supabase
     .from('user_profiles')
     .update({
@@ -82,6 +93,11 @@ export async function createAdminUser(
       phone: params.phone ?? null,
       role: 'admin',
       admin_role_id: params.admin_role_id,
+      notification_prefs: {
+        sound_enabled: params.sound_enabled ?? true,
+        browser_notifications: params.browser_notifications ?? true,
+        email_on_new_order: params.email_on_new_order ?? true,
+      },
     })
     .eq('id', authData.user.id)
     .select('*, admin_role:admin_roles(*)')

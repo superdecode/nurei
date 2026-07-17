@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Container } from '@/components/layout/Container'
 import { OrderTimeline } from '@/components/pedido/OrderTimeline'
 import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
+import { useCartStore } from '@/lib/stores/cart'
 import { formatPrice } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import type { Order, OrderStatus } from '@/types'
@@ -243,6 +244,7 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(true)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [showConfetti, setShowConfetti] = useState(isSuccess)
+  const clearCart = useCartStore((s) => s.clearCart)
 
   // Fetch order — retry up to 2 times on network failure
   useEffect(() => {
@@ -276,6 +278,18 @@ export default function TrackingPage() {
       cancelled = true
     }
   }, [params.id, isSuccess])
+
+  // Stripe redirects here with `success=true` after a paid checkout session —
+  // the checkout page's own clearCart() never runs since it navigates away to
+  // Stripe before payment resolves. Clear once per order so revisiting this
+  // page later doesn't wipe out a cart the user has since repopulated.
+  useEffect(() => {
+    if (!isSuccess || !order || order.payment_status !== 'paid') return
+    const flagKey = `nurei-cart-cleared-${order.id}`
+    if (sessionStorage.getItem(flagKey)) return
+    clearCart()
+    sessionStorage.setItem(flagKey, '1')
+  }, [isSuccess, order, clearCart])
 
   useEffect(() => {
     ;(async () => {
@@ -417,14 +431,26 @@ export default function TrackingPage() {
           {!isDelivered && !isCancelled && (
             <motion.div
               key="shipping-card"
-              className="relative bg-gradient-to-r from-cyan-50 via-blue-50 to-indigo-50 border-2 border-primary-cyan/30 rounded-2xl p-6 sm:p-8 text-center mb-6 sm:mb-8 overflow-hidden"
+              className="relative bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 border-2 border-nurei-cta/40 rounded-2xl p-6 sm:p-8 text-center mb-6 sm:mb-8 overflow-hidden shadow-[0_0_50px_-12px_rgba(255,193,7,0.55)]"
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.92 }}
               transition={{ delay: 0.2, duration: 0.5, type: 'spring', stiffness: 200, damping: 22 }}
             >
+              {/* Ambient glow blobs, slowly drifting */}
               <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-nurei-cta/40 blur-3xl"
+                animate={{ x: [0, 24, 0], y: [0, 16, 0], opacity: [0.4, 0.7, 0.4] }}
+                transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.div
+                className="absolute -bottom-12 -right-8 w-48 h-48 rounded-full bg-orange-300/40 blur-3xl"
+                animate={{ x: [0, -20, 0], y: [0, -12, 0], opacity: [0.35, 0.6, 0.35] }}
+                transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+              />
+              {/* Shine sweep */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
                 initial={{ x: '-100%' }}
                 animate={{ x: '200%' }}
                 transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: 'easeInOut' }}

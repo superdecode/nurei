@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { MotionImage } from '@/components/ui/motion-image'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
+import { useAddToCartFlight } from '@/lib/hooks/useAddToCartFlight'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
 import { countryToFlag } from '@/lib/utils/country-flag'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
@@ -207,6 +208,7 @@ const SPRING_SMOOTH = { type: 'spring', stiffness: 300, damping: 28 } as const
 
 export function ProductCard({ product, searchQuery = '', compact = false }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
+  const launchFlight = useAddToCartFlight()
   const { isFavorite, toggleFavorite } = useFavoritesStore()
   const [added, setAdded] = useState(false)
   const [stockFeedback, setStockFeedback] = useState<string | null>(null)
@@ -216,9 +218,11 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
   const swipedRef = useRef(false)
   const fav = isFavorite(product.id)
 
-  const handleAdd = async (e: React.MouseEvent) => {
+  const handleAdd = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
+    // Capture before any `await` — React nulls out event.currentTarget once the handler yields.
+    const sourceButton = e.currentTarget
     if (product.has_variants && !selectedVariant) {
       const message = 'Escoge una variante primero'
       setStockFeedback(message)
@@ -248,6 +252,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
         price: selectedVariant.price,
       } : null)
       setAdded(true)
+      launchFlight({ sourceEl: sourceButton, quantity: 1 })
       toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍜', duration: 2000 })
       setTimeout(() => setAdded(false), 1400)
     } catch {

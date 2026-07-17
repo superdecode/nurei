@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { Printer, X, Loader2 } from 'lucide-react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import type { Order, OrderItem } from '@/types'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import type { OrderStatus } from '@/types'
@@ -25,7 +26,6 @@ function aggregateItems(orders: Order[]): PickItem[] {
       const entry = map.get(key)!
       entry.totalQty += item.quantity
       entry.orders.push({ short_id: o.short_id, qty: item.quantity })
-      // Preserve SKU if it was missing initially but found in another order
       if (!entry.sku && item.sku) {
         entry.sku = item.sku
       }
@@ -43,7 +43,6 @@ function SurtidoView({ orders, brandColor }: { orders: Order[]; brandColor: stri
 
   return (
     <div className="max-w-[680px] mx-auto px-6 py-6">
-      {/* Header */}
       <div className="flex items-end justify-between mb-5 pb-4 border-b-2" style={{ borderColor: brandColor }}>
         <div>
           <h1 className="text-2xl font-black tracking-tight leading-none" style={{ color: brandColor }}>
@@ -64,7 +63,6 @@ function SurtidoView({ orders, brandColor }: { orders: Order[]; brandColor: stri
         </div>
       </div>
 
-      {/* Picking table */}
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b-2" style={{ borderColor: brandColor }}>
@@ -109,7 +107,6 @@ function SurtidoView({ orders, brandColor }: { orders: Order[]; brandColor: stri
         </tfoot>
       </table>
 
-      {/* Signature */}
       <div className="mt-10 pt-6 border-t border-gray-300 grid grid-cols-2 gap-10 text-xs">
         <div>
           <p className="text-gray-400 uppercase tracking-widest mb-8">Surtido por</p>
@@ -135,7 +132,6 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
         const items = (order.items ?? []) as OrderItem[]
         return (
           <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
-            {/* Ticket header */}
             <div className="px-5 py-4 text-white" style={{ backgroundColor: brandColor }}>
               <div className="flex items-start justify-between">
                 <div>
@@ -154,7 +150,6 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
               </div>
             </div>
 
-            {/* Customer + delivery */}
             <div className="grid grid-cols-2 gap-4 px-5 py-4 border-b border-gray-100 text-xs">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Cliente</p>
@@ -171,7 +166,6 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
               </div>
             </div>
 
-            {/* Items */}
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
@@ -196,7 +190,6 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
               </tbody>
             </table>
 
-            {/* Totals */}
             <div className="border-t border-gray-200 px-4 py-3 bg-gray-50/50 space-y-1 text-xs">
               <div className="flex justify-between text-gray-500">
                 <span>Subtotal</span>
@@ -224,7 +217,6 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-5 py-3 text-center border-t border-gray-100">
               <p className="text-[10px] text-gray-400">Gracias por tu compra · nurei.mx</p>
             </div>
@@ -235,18 +227,23 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
   )
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────
+// ── Modal ────────────────────────────────────────────────────────────────
 
-function PrintContent() {
-  const searchParams = useSearchParams()
-  const ids = searchParams.get('ids')?.split(',').filter(Boolean) ?? []
-  const type = (searchParams.get('type') ?? 'surtido') as 'surtido' | 'ticket'
-  const autoPrint = searchParams.get('autoprint') === '1'
+interface TicketSurtidoModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  orderIds: string[]
+  type: 'ticket' | 'surtido'
+  autoPrint?: boolean
+}
+
+export function TicketSurtidoModal({ open, onOpenChange, orderIds, type, autoPrint = false }: TicketSurtidoModalProps) {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [brandColor, setBrandColor] = useState('#111827')
 
   useEffect(() => {
+    if (!open) return
     fetch('/api/admin/settings')
       .then(r => r.json())
       .then(json => {
@@ -254,110 +251,107 @@ function PrintContent() {
         if (color) setBrandColor(color)
       })
       .catch(() => {})
-  }, [])
+  }, [open])
 
   useEffect(() => {
-    if (ids.length === 0) { setLoading(false); return }
+    if (!open || orderIds.length === 0) return
+    let cancelled = false
+    setLoading(true)
+    setOrders([])
     Promise.all(
-      ids.map(async (id) => {
+      orderIds.map(async (id) => {
         const res = await fetch(`/api/admin/orders/${id}`)
         const json = await res.json() as { data?: { order: Order } }
         const order = json.data?.order ?? null
         if (!order) return null
-        
-        // Enrich items missing SKU
+
         const productIds = order.items.filter(i => !i.sku).map(i => i.product_id)
         if (productIds.length > 0) {
-          const res = await fetch(`/api/products?ids=${productIds.join(',')}`)
-          const json = await res.json()
-          const productMap = new Map((json.data?.products ?? []).map((p: any) => [p.id, p.sku as string]))
+          const skuRes = await fetch(`/api/products?ids=${productIds.join(',')}`)
+          const skuJson = await skuRes.json()
+          const productMap = new Map(
+            (skuJson.data?.products ?? []).map((p: { id: string; sku: string }) => [p.id, p.sku])
+          )
           order.items = order.items.map(i => i.sku ? i : { ...i, sku: productMap.get(i.product_id) as string })
         }
         return order
       })
     ).then((results) => {
+      if (cancelled) return
       setOrders(results.filter(Boolean) as Order[])
       setLoading(false)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, orderIds.join(',')])
 
   useEffect(() => {
-    if (!loading && orders.length > 0 && autoPrint) {
+    if (open && !loading && orders.length > 0 && autoPrint) {
       const t = setTimeout(() => window.print(), 300)
       return () => clearTimeout(t)
     }
-  }, [loading, orders.length, autoPrint])
+  }, [open, loading, orders.length, autoPrint])
 
   const title = type === 'ticket'
-    ? `Ticket — ${ids.length} pedido${ids.length !== 1 ? 's' : ''}`
-    : `Surtido — ${ids.length} pedido${ids.length !== 1 ? 's' : ''}`
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Preparando {type === 'ticket' ? 'ticket' : 'hoja de surtido'}…</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (orders.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <p className="text-sm text-gray-500">No se encontraron pedidos.</p>
-      </div>
-    )
-  }
+    ? `Ticket — ${orderIds.length} pedido${orderIds.length !== 1 ? 's' : ''}`
+    : `Surtido — ${orderIds.length} pedido${orderIds.length !== 1 ? 's' : ''}`
 
   return (
-    <>
-      <style>{`
-        @media screen { .screen-overlay { position: fixed; inset: 0; z-index: 9999; background: white; overflow: auto; } }
-        @media print {
-          @page { size: letter; margin: 1.2cm; }
-          body * { visibility: hidden; }
-          .print-root, .print-root * { visibility: visible; }
-          .print-root { position: fixed !important; left: 0; top: 0; width: 100%; }
-          .no-print { display: none !important; }
-          .page-break { page-break-before: always; }
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-      `}</style>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="xl" showCloseButton={false} className="p-0 flex flex-col nurei-ticket-dialog">
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            .nurei-print-area, .nurei-print-area * { visibility: visible; }
+            .nurei-print-area {
+              position: fixed !important;
+              inset: 0 !important;
+              left: 0; top: 0; width: 100%; height: auto;
+              max-height: none !important;
+              overflow: visible !important;
+              background: white;
+            }
+            .no-print { display: none !important; }
+            @page { size: letter; margin: 1.2cm; }
+          }
+        `}</style>
 
-      <div className="screen-overlay print-root">
-        {/* Toolbar (screen only) */}
-        <div className="no-print sticky top-0 z-10 flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-6 py-3">
-          <button
-            onClick={() => history.back()}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
-          >
-            ← Cerrar
-          </button>
+        <div className="no-print flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-5 py-3 shrink-0">
           <span className="flex-1 text-sm font-semibold text-gray-700">{title}</span>
           <button
+            type="button"
             onClick={() => window.print()}
-            className="rounded-lg bg-gray-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-gray-800 transition"
+            disabled={loading || orders.length === 0}
+            className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-gray-800 transition disabled:opacity-50"
           >
-            Imprimir
+            <Printer className="h-3.5 w-3.5" /> Imprimir
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="flex items-center justify-center h-7 w-7 rounded-lg text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition"
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {type === 'ticket' ? (
-          <TicketView orders={orders} brandColor={brandColor} />
-        ) : (
-          <SurtidoView orders={orders} brandColor={brandColor} />
-        )}
-      </div>
-    </>
-  )
-}
-
-export default function PrintPage() {
-  return (
-    <Suspense>
-      <PrintContent />
-    </Suspense>
+        <div className="nurei-print-area flex-1 overflow-y-auto bg-white">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <p className="text-sm text-gray-500">No se encontraron pedidos.</p>
+            </div>
+          ) : type === 'ticket' ? (
+            <TicketView orders={orders} brandColor={brandColor} />
+          ) : (
+            <SurtidoView orders={orders} brandColor={brandColor} />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useCartStore } from '@/lib/stores/cart'
 import { useFavoritesStore } from '@/lib/stores/favorites'
+import { useAddToCartFlight } from '@/lib/hooks/useAddToCartFlight'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
 import type { Product } from '@/types'
 
@@ -63,6 +64,7 @@ interface MobileProductCardProps {
 export function MobileProductCard({ product, searchQuery = '' }: MobileProductCardProps) {
   const addItem = useCartStore((s) => s.addItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const launchFlight = useAddToCartFlight()
   const { isFavorite, toggleFavorite } = useFavoritesStore()
   const fav = isFavorite(product.id)
   const [added, setAdded] = useState(false)
@@ -78,9 +80,11 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
     s.items.find((i) => i.product.id === product.id && (i.variant_id ?? null) === (selectedVariant?.id ?? null))?.quantity ?? 0
   )
 
-  const handleAdd = async (e: React.MouseEvent) => {
+  const handleAdd = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
+    // Capture before any `await` — React nulls out event.currentTarget once the handler yields.
+    const sourceButton = e.currentTarget
     if (product.has_variants && activeVariants.length > 0 && !selectedVariant) {
       setVariantError(true)
       toast.error('Escoge una variante primero')
@@ -107,6 +111,7 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
       } : null)
       setAdded(true)
       setVariantError(false)
+      launchFlight({ sourceEl: sourceButton, quantity: 1 })
       toast.success(`${product.name}${selectedVariant ? ` - ${selectedVariant.name}` : ''} agregado`, { icon: '🍜', duration: 1500 })
       setTimeout(() => setAdded(false), 1200)
     } catch {

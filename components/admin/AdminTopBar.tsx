@@ -346,10 +346,14 @@ export function AdminTopBar() {
                           {
                             key: 'email_on_new_order' as const,
                             title: 'Correo de pedido nuevo',
-                            hint: settingsData?.has_pedidos_module
-                              ? 'Se enviará al correo de tu cuenta.'
-                              : 'Deshabilitado: tu rol no tiene módulo de Pedidos.',
-                            disabled: !settingsData?.has_pedidos_module,
+                            hint: !settingsData?.has_pedidos_module
+                              ? 'Deshabilitado: tu rol no tiene módulo de Pedidos.'
+                              : settingsData?.notification_prefs?.email_on_new_order
+                                ? 'Activado por un administrador — se envía a tu correo.'
+                                : 'Desactivado por un administrador para tu cuenta.',
+                            // Configured by an admin in Usuarios y Roles at creation/edit time —
+                            // not self-editable, so this row is informational only.
+                            disabled: true,
                           },
                         ]).map((item) => (
                           <div
