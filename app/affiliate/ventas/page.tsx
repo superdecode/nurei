@@ -5,7 +5,7 @@ import { Clock, X } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 
-type PayoutStatus = 'pending' | 'approved' | 'paid'
+type PayoutStatus = 'pending' | 'approved' | 'paid' | 'clawback_pending' | 'reversed'
 
 interface AttributionRow {
   id: string
@@ -15,16 +15,19 @@ interface AttributionRow {
   coupon_code: string | null
   commission_pct: number
   commission_amount_cents: number
+  refund_adjustment_cents: number
   payout_status: PayoutStatus
   paid_at: string | null
   created_at: string
-  orders: { short_id: string; total: number; created_at: string; status: string; payment_method: string | null } | null
+  orders: { short_id: string; total: number; created_at: string; status: string; payment_method: string | null; payment_status: string | null } | null
 }
 
 const PAYOUT_STATUS_CONFIG: Record<PayoutStatus, { label: string; className: string }> = {
-  pending:  { label: 'Pendiente de pago',      className: 'bg-gray-100 text-gray-600' },
-  approved: { label: 'Para pago al afiliado',  className: 'bg-blue-100 text-blue-700' },
-  paid:     { label: 'Pagado',                 className: 'bg-emerald-100 text-emerald-700' },
+  pending:          { label: 'Pendiente de pago',      className: 'bg-gray-100 text-gray-600' },
+  approved:         { label: 'Para pago al afiliado',  className: 'bg-blue-100 text-blue-700' },
+  paid:             { label: 'Pagado',                 className: 'bg-emerald-100 text-emerald-700' },
+  clawback_pending: { label: 'Recuperación pendiente',  className: 'bg-amber-100 text-amber-700' },
+  reversed:         { label: 'Cancelada',               className: 'bg-red-100 text-red-700' },
 }
 
 const PAGE_SIZE = 20
@@ -232,9 +235,12 @@ export default function AffiliateVentasPage() {
                   </td>
                   <td className="py-3.5 px-4">
                     <span className="font-bold text-primary-dark text-xs">
-                      {formatPrice(row.commission_amount_cents)}
+                      {formatPrice(row.commission_amount_cents - row.refund_adjustment_cents)}
                     </span>
                     <span className="text-gray-400 text-[10px] ml-1">({row.commission_pct}%)</span>
+                    {(row.orders?.status === 'refunded' || row.orders?.payment_status === 'partially_refunded') && (
+                      <p className="text-[10px] text-amber-600 font-semibold mt-0.5">⚠️ Pedido reembolsado — comisión ajustada</p>
+                    )}
                   </td>
                   <td className="py-3.5 px-4">
                     {(() => {

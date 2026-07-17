@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAffiliate } from '@/lib/server/require-affiliate'
 
-const VALID_PAYOUT_STATUSES = ['pending', 'approved', 'paid'] as const
+const VALID_PAYOUT_STATUSES = ['pending', 'approved', 'paid', 'clawback_pending', 'reversed'] as const
 
 export async function GET(request: NextRequest) {
   const guard = await requireAffiliate()
@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     .from('affiliate_attributions')
     .select(`
       id, order_id, attribution_type, coupon_id, coupon_code,
-      commission_pct, commission_amount_cents, payout_status, paid_at, created_at,
-      orders ( short_id, total, created_at, status, payment_method ),
+      commission_pct, commission_amount_cents, refund_adjustment_cents, payout_status, paid_at, created_at,
+      orders ( short_id, total, created_at, status, payment_method, payment_status ),
       coupons ( code )
     `)
     .eq('affiliate_id', affiliateId)
