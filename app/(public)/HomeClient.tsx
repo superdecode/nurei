@@ -10,6 +10,7 @@ import { Container } from '@/components/layout/Container'
 import { SPICE_LABELS } from '@/lib/utils/constants'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
 import { useCartStore } from '@/lib/stores/cart'
+import { useAddToCartFlight } from '@/lib/hooks/useAddToCartFlight'
 import { useStoreCheckout } from '@/components/providers/StoreCheckoutProvider'
 import type { Product } from '@/types'
 
@@ -30,14 +31,19 @@ function SpiceDots({ level }: { level: number }) {
 
 function ProductCard({ product, index }: { product: Product; index: number }) {
   const addItem = useCartStore((s) => s.addItem)
+  const launchFlight = useAddToCartFlight()
   const [added, setAdded] = useState(false)
 
   const isOutOfStock = product.stock_status === 'out_of_stock'
 
-  const handleAdd = () => {
+  const handleAdd = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
     if (isOutOfStock) return
+    const sourceButton = e.currentTarget
     addItem(product)
     setAdded(true)
+    launchFlight({ sourceEl: sourceButton, quantity: 1 })
     toast.success(`${product.name} agregado al carrito`, {
       icon: '🍜',
       description: '¡Buen provecho!',
@@ -51,179 +57,177 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
                 product.category === 'limited_edition' ? '🍵' : '🥤'
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={isOutOfStock ? {} : { y: -3, transition: { type: 'spring', stiffness: 300, damping: 28 } }}
-      className={`card-product group overflow-hidden flex flex-col ${
-        isOutOfStock ? 'ring-1 ring-amber-200/80' : ''
-      }`}
-    >
-      {/* Image area */}
-      <div className="relative aspect-square bg-yellow-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
-        {product.images && product.images.length > 0 ? (
-          <motion.img
-            src={product.images[product.primary_image_index ?? 0] || product.images[0]}
-            alt={product.name}
-            className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
-              isOutOfStock ? '' : 'group-hover:scale-110'
-            }`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
-          />
-        ) : (
-          <motion.span
-            className="text-6xl sm:text-7xl select-none opacity-40"
-            whileHover={isOutOfStock ? {} : { scale: 1.2, rotate: [0, -8, 8, 0] }}
-            transition={{ duration: 0.5 }}
-          >
-            {emoji}
-          </motion.span>
-        )}
+    <Link href={`/producto/${product.slug}`}>
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+        whileHover={isOutOfStock ? {} : { y: -3, transition: { type: 'spring', stiffness: 300, damping: 28 } }}
+        className={`card-product group overflow-hidden flex flex-col ${
+          isOutOfStock ? 'ring-1 ring-amber-200/80' : ''
+        }`}
+      >
+        {/* Image area */}
+        <div className="relative aspect-square bg-yellow-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
+          {product.images && product.images.length > 0 ? (
+            <motion.img
+              src={product.images[product.primary_image_index ?? 0] || product.images[0]}
+              alt={product.name}
+              className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                isOutOfStock ? '' : 'group-hover:scale-110'
+              }`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+            />
+          ) : (
+            <motion.span
+              className="text-6xl sm:text-7xl select-none opacity-40"
+              whileHover={isOutOfStock ? {} : { scale: 1.2, rotate: [0, -8, 8, 0] }}
+              transition={{ duration: 0.5 }}
+            >
+              {emoji}
+            </motion.span>
+          )}
 
-        {/* Out of stock — warm amber wash + pill */}
-        {isOutOfStock && (
-          <>
-            <div className="absolute inset-0 bg-[#FFF3CE]/65" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#FFF3CE] border border-amber-300/80 text-amber-800 text-[11px] font-bold uppercase tracking-widest shadow-sm">
-                <Ban className="w-3 h-3 shrink-0" />
-                Agotado
-              </span>
-            </div>
-          </>
-        )}
-
-        {/* Badges (hidden when out of stock) */}
-        {!isOutOfStock && (
-          <>
-            <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-              {product.is_limited && (
-                <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full shadow-lg">
-                  🔥 Edición Limitada
-                </span>
-              )}
-              {product.compare_at_price && product.compare_at_price > (product.base_price ?? product.price ?? 0) && (
-                <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-nurei-black rounded-full shadow-lg">
-                  Oferta
-                </span>
-              )}
-            </div>
-
-            {/* Origin flag */}
-            <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/70 backdrop-blur-md rounded-full border border-stone-200">
-              <span className="text-[10px] font-medium text-stone-500">
-                {product.origin}
-              </span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className={`p-4 sm:p-5 flex flex-col flex-1 transition-colors duration-300 ${isOutOfStock ? 'bg-amber-50/40' : ''}`}>
-        <h3 className={`text-[15px] font-black line-clamp-2 leading-snug transition-colors duration-300 ${
-          isOutOfStock ? 'text-amber-900/60' : 'text-gray-900 group-hover:text-nurei-cta'
-        }`}>
-          {product.name}
-        </h3>
-
-        <p className="mt-1.5 text-xs text-nurei-muted line-clamp-2 leading-relaxed">
-          {stripHtml(product.description)}
-        </p>
-
-        {/* Spice + Weight row */}
-        {!isOutOfStock && (
-          <div className="mt-3 flex items-center gap-3">
-            {product.spice_level > 0 && (
-              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-nurei-promo/10 rounded-full">
-                <SpiceDots level={product.spice_level} />
-                <span className="text-[10px] text-nurei-promo font-medium">
-                  {SPICE_LABELS[product.spice_level]}
+          {/* Out of stock — warm amber wash + pill */}
+          {isOutOfStock && (
+            <>
+              <div className="absolute inset-0 bg-[#FFF3CE]/65" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#FFF3CE] border border-amber-300/80 text-amber-800 text-[11px] font-bold uppercase tracking-widest shadow-sm">
+                  <Ban className="w-3 h-3 shrink-0" />
+                  Agotado
                 </span>
               </div>
-            )}
-            <span className="text-[10px] text-nurei-muted/70">{product.weight_g}g</span>
-          </div>
-        )}
+            </>
+          )}
 
-        {/* Price + CTA */}
-        <div className="mt-auto pt-4 flex items-end justify-between gap-3">
-          <div className="flex items-baseline gap-2">
-            {product.compare_at_price && product.compare_at_price > (product.base_price ?? product.price) && !product.has_variants && (
-              <span className="text-xs text-nurei-muted/50 line-through tabular-nums">
-                {formatPrice(product.compare_at_price)}
-              </span>
-            )}
-            <span className={`text-xl font-black tabular-nums tracking-tight transition-colors duration-300 ${
-              isOutOfStock ? 'text-amber-400' : 'text-gray-900'
-            }`}>
-              {product.has_variants ? (
-                <span className="text-base font-bold text-gray-500">Desde <span className="text-gray-900 font-black">{formatPrice(product.base_price ?? product.price)}</span></span>
-              ) : formatPrice(product.base_price ?? product.price)}
-            </span>
-          </div>
-
-          {isOutOfStock ? (
-            <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-              <Ban className="w-3 h-3 shrink-0" />
-              Sin stock
-            </span>
-          ) : product.has_variants ? (
-            <Link
-              href={`/producto/${product.slug}`}
-              className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-full bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/20"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Ver opciones
-              <ChevronRight className="w-3 h-3" />
-            </Link>
-          ) : (
-            <motion.button
-              whileTap={{ scale: 0.88 }}
-              whileHover={{ scale: 1.06 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-              onClick={handleAdd}
-              className={`flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold rounded-full transition-colors duration-300 shadow-lg ${
-                added
-                  ? 'bg-nurei-stock text-white shadow-nurei-stock/25'
-                  : 'bg-nurei-cta text-nurei-black shadow-nurei-cta/20'
-              }`}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {added ? (
-                  <motion.span
-                    key="added"
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.5, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                    className="flex items-center gap-1"
-                  >
-                    <Check className="w-3.5 h-3.5" /> ¡Listo!
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="add"
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.5, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar
-                  </motion.span>
+          {/* Badges (hidden when out of stock) */}
+          {!isOutOfStock && (
+            <>
+              <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                {product.is_limited && (
+                  <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-promo text-white rounded-full shadow-lg">
+                    🔥 Edición Limitada
+                  </span>
                 )}
-              </AnimatePresence>
-            </motion.button>
+                {product.compare_at_price && product.compare_at_price > (product.base_price ?? product.price ?? 0) && (
+                  <span className="px-2.5 py-1 text-[10px] font-bold uppercase bg-nurei-cta text-nurei-black rounded-full shadow-lg">
+                    Oferta
+                  </span>
+                )}
+              </div>
+
+              {/* Origin flag */}
+              <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/70 backdrop-blur-md rounded-full border border-stone-200">
+                <span className="text-[10px] font-medium text-stone-500">
+                  {product.origin}
+                </span>
+              </div>
+            </>
           )}
         </div>
-      </div>
-    </motion.div>
+
+        {/* Info */}
+        <div className={`p-4 sm:p-5 flex flex-col flex-1 transition-colors duration-300 ${isOutOfStock ? 'bg-amber-50/40' : ''}`}>
+          <h3 className={`text-[15px] font-black line-clamp-2 leading-snug transition-colors duration-300 ${
+            isOutOfStock ? 'text-amber-900/60' : 'text-gray-900 group-hover:text-nurei-cta'
+          }`}>
+            {product.name}
+          </h3>
+
+          <p className="mt-1.5 text-xs text-nurei-muted line-clamp-2 leading-relaxed">
+            {stripHtml(product.description)}
+          </p>
+
+          {/* Spice + Weight row */}
+          {!isOutOfStock && (
+            <div className="mt-3 flex items-center gap-3">
+              {product.spice_level > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-nurei-promo/10 rounded-full">
+                  <SpiceDots level={product.spice_level} />
+                  <span className="text-[10px] text-nurei-promo font-medium">
+                    {SPICE_LABELS[product.spice_level]}
+                  </span>
+                </div>
+              )}
+              <span className="text-[10px] text-nurei-muted/70">{product.weight_g}g</span>
+            </div>
+          )}
+
+          {/* Price + CTA */}
+          <div className="mt-auto pt-4 flex items-end justify-between gap-3">
+            <div className="flex items-baseline gap-2">
+              {product.compare_at_price && product.compare_at_price > (product.base_price ?? product.price) && !product.has_variants && (
+                <span className="text-xs text-nurei-muted/50 line-through tabular-nums">
+                  {formatPrice(product.compare_at_price)}
+                </span>
+              )}
+              <span className={`text-xl font-black tabular-nums tracking-tight transition-colors duration-300 ${
+                isOutOfStock ? 'text-amber-400' : 'text-gray-900'
+              }`}>
+                {product.has_variants ? (
+                  <span className="text-base font-bold text-gray-500">Desde <span className="text-gray-900 font-black">{formatPrice(product.base_price ?? product.price)}</span></span>
+                ) : formatPrice(product.base_price ?? product.price)}
+              </span>
+            </div>
+
+            {isOutOfStock ? (
+              <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-semibold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                <Ban className="w-3 h-3 shrink-0" />
+                Sin stock
+              </span>
+            ) : product.has_variants ? (
+              <span className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-full bg-nurei-cta text-gray-900 shadow-lg shadow-nurei-cta/20">
+                Ver opciones
+                <ChevronRight className="w-3 h-3" />
+              </span>
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.88 }}
+                whileHover={{ scale: 1.06 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                onClick={handleAdd}
+                className={`flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold rounded-full transition-colors duration-300 shadow-lg ${
+                  added
+                    ? 'bg-nurei-stock text-white shadow-nurei-stock/25'
+                    : 'bg-nurei-cta text-nurei-black shadow-nurei-cta/20'
+                }`}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {added ? (
+                    <motion.span
+                      key="added"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      className="flex items-center gap-1"
+                    >
+                      <Check className="w-3.5 h-3.5" /> ¡Listo!
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="add"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      className="flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Agregar
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </Link>
   )
 }
 
