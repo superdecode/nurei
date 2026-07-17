@@ -3,7 +3,20 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/server/require-admin'
 import { listCampaigns, createCampaign } from '@/lib/supabase/queries/marketing'
 import { validateCampaignDraft } from '@/lib/marketing/validate-campaign'
-import type { CampaignStatus } from '@/types'
+import type { CampaignContent, CampaignStatus } from '@/types'
+
+/** Defensively coerces an arbitrary client payload into a well-shaped CampaignContent before validation. */
+function normalizeCampaignContent(rawInput: unknown): CampaignContent {
+  const raw = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown>
+  return {
+    heading: String(raw.heading ?? ''),
+    body: String(raw.body ?? ''),
+    imageUrl: (raw.imageUrl as string | null | undefined) ?? null,
+    ctaLabel: String(raw.ctaLabel ?? ''),
+    ctaLink: (raw.ctaLink as CampaignContent['ctaLink']) ?? null,
+    couponCode: (raw.couponCode as string | null | undefined) ?? null,
+  }
+}
 
 export async function GET(request: NextRequest) {
   const guard = await requireAdmin()
@@ -25,23 +38,19 @@ export async function POST(request: NextRequest) {
   if (guard.error) return guard.error
   try {
     const body = await request.json()
-    const content = body.content ?? {
-      heading: '', body: '', imageUrl: null, ctaLabel: '', ctaLink: null, couponCode: null,
-    }
+    const name = String(body.name ?? '')
+    const subject = String(body.subject ?? '')
+    const content = normalizeCampaignContent(body.content)
 
-    const validation = validateCampaignDraft({
-      name: String(body.name ?? ''),
-      subject: String(body.subject ?? ''),
-      content,
-    })
+    const validation = validateCampaignDraft({ name, subject, content })
     if (!validation.valid) {
       return NextResponse.json({ error: validation.errors.join(' ') }, { status: 400 })
     }
 
     const supabase = createServiceClient()
     const campaign = await createCampaign(supabase, {
-      name: body.name,
-      subject: body.subject,
+      name,
+      subject,
       preheader: body.preheader ?? null,
       template_key: body.template_key ?? null,
       content,
