@@ -9,10 +9,9 @@ export async function POST(request: NextRequest) {
   if (guard.error) return guard.error
   try {
     const body = await request.json()
-    const filter = buildAudienceFilter({
-      segments: body.segments ?? [],
-      tags: body.tags ?? [],
-    })
+    const segments = Array.isArray(body.segments) ? body.segments : []
+    const tags = Array.isArray(body.tags) ? body.tags : []
+    const filter = buildAudienceFilter({ segments, tags })
     const supabase = createServiceClient()
     const audience = await resolveAudience(supabase, filter)
     return NextResponse.json({ data: { count: audience.length } })
