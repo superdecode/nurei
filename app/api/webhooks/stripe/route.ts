@@ -98,6 +98,23 @@ export async function POST(request: NextRequest) {
         }
         break
       }
+
+      case 'charge.refunded':
+      case 'refund.updated': {
+        const refund =
+          event.type === 'refund.updated'
+            ? (event.data.object as Stripe.Refund)
+            : (event.data.object as Stripe.Charge).refunds?.data?.[0]
+        if (!refund?.id) break
+
+        const dbStatus = refund.status === 'succeeded' ? 'succeeded' : refund.status === 'failed' ? 'failed' : 'pending'
+
+        await supabase
+          .from('order_refunds')
+          .update({ status: dbStatus })
+          .eq('stripe_refund_id', refund.id)
+        break
+      }
     }
 
     return NextResponse.json({ received: true })
