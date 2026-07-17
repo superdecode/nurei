@@ -43,8 +43,8 @@ export const VALID_STATUS_TRANSITIONS: Record<string, OrderStatus[]> = {
   preparing:       ['shipped', 'cancelled'],
   ready_to_ship:   ['shipped', 'cancelled'], // legacy compat
   shipped:         ['delivered', 'cancelled'],
-  delivered:       ['refunded'],
-  cancelled:       ['refunded'],
+  delivered:       [],
+  cancelled:       [],
   refunded:        [],
   // Legacy
   pending:   ['confirmed', 'cancelled'],
@@ -59,7 +59,6 @@ export const STATUS_PRIMARY_ACTION: Partial<Record<OrderStatus, string>> = {
   paid: 'Aceptar pedido',
   preparing: 'Marcar en camino',
   shipped: 'Marcar entregado',
-  delivered: 'Marcar reembolsado',
   pending: 'Confirmar pedido',
   confirmed: 'Marcar enviado',
 }

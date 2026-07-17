@@ -196,7 +196,6 @@ const DB_STATUS_MAP: Record<string, string> = {
   paid: 'confirmed',
   preparing: 'confirmed',
   ready_to_ship: 'confirmed',
-  refunded: 'cancelled',
 }
 
 function toDbStatus(status: string): string {
@@ -220,7 +219,6 @@ export async function updateOrderStatus(
     shipped: 'shipped_at',
     delivered: 'delivered_at',
     cancelled: 'cancelled_at',
-    refunded: 'cancelled_at',
   }
 
   const updatePayload: Record<string, unknown> = {
@@ -230,7 +228,6 @@ export async function updateOrderStatus(
   const tsField = timestampField[newStatus]
   if (tsField) updatePayload[tsField] = new Date().toISOString()
   if (newStatus === 'paid' || newStatus === 'confirmed') updatePayload.payment_status = 'paid'
-  if (newStatus === 'refunded') updatePayload.payment_status = 'refunded'
 
   const { error } = await supabase.from('orders').update(updatePayload).eq('id', orderId)
   if (error) throw new Error(`DB error: ${error.message}`)
