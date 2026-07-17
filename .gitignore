@@ -42,3 +42,6 @@ next-env.d.ts
 
 # supabase local state
 supabase/.temp/
+
+# superpowers brainstorm sessions
+.superpowers/
