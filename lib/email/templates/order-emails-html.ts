@@ -23,12 +23,12 @@ export type CustomerOrderEmailProps = {
   pendingPaymentNote?: string | null
 }
 
-const BRAND_BG = '#FFFBEB'
-const BRAND_AMBER = '#FFC107'
-const TEXT_DARK = '#111827'
-const TEXT_MUTED = '#6B7280'
-const GREEN = '#10B981'
-const CARD_BORDER = '#E5E7EB'
+export const BRAND_BG = '#FFFBEB'
+export const BRAND_AMBER = '#FFC107'
+export const TEXT_DARK = '#111827'
+export const TEXT_MUTED = '#6B7280'
+export const GREEN = '#10B981'
+export const CARD_BORDER = '#E5E7EB'
 
 /** Correo de confirmación al cliente: moderno, amable y con toque juguetón. */
 export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps): string {
