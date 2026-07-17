@@ -5,6 +5,9 @@ import { CartDrawer } from '@/components/carrito/CartDrawer'
 import { CartFlightLayer } from '@/components/carrito/CartFlightLayer'
 import { ReferralTracker } from '@/components/ReferralTracker'
 import { StoreCheckoutProvider } from '@/components/providers/StoreCheckoutProvider'
+import { ConsentProvider } from '@/components/consent/ConsentProvider'
+import { ConsentBanner } from '@/components/consent/ConsentBanner'
+import { TrackingScripts } from '@/components/tracking/TrackingScripts'
 
 export default function PublicLayout({
   children,
@@ -12,15 +15,19 @@ export default function PublicLayout({
   children: React.ReactNode
 }) {
   return (
-    <StoreCheckoutProvider>
-      <Suspense fallback={null}>
-        <ReferralTracker />
-      </Suspense>
-      <Header />
-      <main className="flex-1">{children}</main>
-      <ConditionalFooter />
-      <CartDrawer />
-      <CartFlightLayer />
-    </StoreCheckoutProvider>
+    <ConsentProvider>
+      <StoreCheckoutProvider>
+        <Suspense fallback={null}>
+          <ReferralTracker />
+        </Suspense>
+        <Header />
+        <main className="flex-1">{children}</main>
+        <ConditionalFooter />
+        <CartDrawer />
+        <CartFlightLayer />
+        <ConsentBanner />
+        <TrackingScripts />
+      </StoreCheckoutProvider>
+    </ConsentProvider>
   )
 }
