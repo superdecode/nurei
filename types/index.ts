@@ -21,7 +21,7 @@ export type OrderStatus =
   | 'confirmed'
   | 'failed'
 
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
 
 export type CouponType = 'percentage' | 'fixed' | 'conditional'
 export type CouponScopeType = 'global' | 'categories' | 'products'
@@ -42,13 +42,14 @@ export type AdminModule =
   | 'dashboard' | 'pedidos' | 'productos' | 'categorias'
   | 'inventario' | 'cupones' | 'multimedia' | 'clientes'
   | 'usuarios' | 'roles' | 'configuracion' | 'analytics' | 'pagos' | 'afiliados' | 'marketing'
+  | 'reembolsos'
 
 export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste' | 'venta' | 'devolucion'
 
 // ─── AFFILIATE ────────────────────────────────────────────────────────────────
 
 export type AffiliateAttributionType = 'coupon' | 'cookie'
-export type AffiliatePayoutStatus = 'pending' | 'paid'
+export type AffiliatePayoutStatus = 'pending' | 'approved' | 'paid' | 'clawback_pending' | 'reversed'
 
 export interface AffiliateProfile {
   id: string
@@ -58,6 +59,7 @@ export interface AffiliateProfile {
   commission_cookie_pct: number
   total_earned_cents: number
   pending_payout_cents: number
+  clawback_debt_cents: number
   is_active: boolean
   created_at: string
   updated_at: string
@@ -89,6 +91,7 @@ export interface AffiliateAttribution {
   coupon_id: string | null
   commission_pct: number
   commission_amount_cents: number
+  refund_adjustment_cents: number
   payout_status: AffiliatePayoutStatus
   paid_at: string | null
   created_at: string
@@ -249,6 +252,8 @@ export interface Order {
   stripe_payment_intent_id: string | null
   stripe_checkout_session_id: string | null
   payment_status: PaymentStatus
+  refunded_amount_cents: number
+  refunded_at: string | null
   paid_at: string | null
   cancellation_reason: string | null
   failure_reason: string | null
