@@ -27,6 +27,7 @@ import { formatPrice, formatDate, formatPhone } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 import { useAdminTabsStore } from '@/lib/stores/adminTabsStore'
 import { TicketSurtidoModal } from '@/components/admin/pedidos/TicketSurtidoModal'
+import { RefundModal } from '@/components/admin/pedidos/RefundModal'
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -142,6 +143,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const orderCopyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [printModalOpen, setPrintModalOpen] = useState(false)
+  const [refundModalOpen, setRefundModalOpen] = useState(false)
+  const [refunds, setRefunds] = useState<Array<{
+    id: string; amount_cents: number; reason: string | null; refund_method: string
+    status: string; notes: string | null; refunded_at: string
+  }>>([])
 
   const fetchOrder = useCallback(async () => {
     setLoading(true)
@@ -158,6 +164,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }, [id])
 
   useEffect(() => { fetchOrder() }, [fetchOrder])
+
+  const fetchRefunds = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/orders/${id}/refunds`)
+      const json = await res.json() as { data?: typeof refunds }
+      setRefunds(json.data ?? [])
+    } catch { /* refund history is supplementary — fail silently, page still works */ }
+  }, [id])
+
+  useEffect(() => { void fetchRefunds() }, [fetchRefunds])
 
   useEffect(() => {
     if (!order) return
@@ -308,6 +324,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     (s) => s !== 'cancelled' && s !== 'refunded'
   ) as OrderStatus[]
   const nextStatus = nextStatuses[0] ?? null
+  const remainingRefundableCents = order.total - (order.refunded_amount_cents ?? 0)
+  const canShowRefundButton = (order.payment_status === 'paid' || order.payment_status === 'partially_refunded') && remainingRefundableCents > 0
 
   const createdDate = new Date(order.created_at)
   const createdDateStr = createdDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -399,6 +417,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition"
                 >
                   <Ban className="h-4 w-4" /> Cancelar
+                </button>
+              )}
+
+              {canShowRefundButton && (
+                <button
+                  type="button"
+                  onClick={() => setRefundModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                >
+                  <RotateCcw className="h-4 w-4" /> Reembolsar
                 </button>
               )}
             </div>
@@ -647,6 +675,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </div>
+
+          {refunds.length > 0 && (
+            <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Historial de reembolsos</p>
+              <div className="space-y-2">
+                {refunds.map((r) => (
+                  <div key={r.id} className="rounded-lg bg-gray-50/70 border border-gray-100 p-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-800">{formatPrice(r.amount_cents)}</span>
+                      <span className="text-[10px] text-gray-400">{formatDate(r.refunded_at)}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{r.reason} · {PAYMENT_METHOD_LABELS[r.refund_method] ?? r.refund_method}</p>
+                    {r.notes && <p className="text-[10px] text-gray-400 mt-0.5">{r.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -687,6 +733,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         orderIds={[order.id]}
         type="ticket"
         autoPrint
+      />
+
+      <RefundModal
+        open={refundModalOpen}
+        onOpenChange={setRefundModalOpen}
+        order={order}
+        onSuccess={(updated) => { setOrder(updated); void fetchRefunds() }}
       />
     </div>
   )
