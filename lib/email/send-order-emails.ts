@@ -10,6 +10,7 @@ import {
   renderOrderPreparingHtml,
   renderOrderShippedHtml,
   renderOrderDeliveredHtml,
+  renderOrderRefundedHtml,
   type OrderEmailLineItem,
 } from '@/lib/email/templates/order-emails-html'
 
@@ -295,6 +296,54 @@ export async function sendOrderStatusEmail(
     return { sent: true }
   } catch (e) {
     console.error(`[email] Error enviando correo de estatus (${status}):`, e)
+    return { sent: false, reason: 'resend_failed' }
+  }
+}
+
+export async function sendOrderRefundEmail(
+  orderId: string,
+  details: { amountCents: number; reason: string; refundMethod: string }
+): Promise<{ sent: boolean; reason?: string }> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { sent: false, reason: 'no_api_key' }
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('orders')
+    .select('short_id, public_access_token, customer_email, customer_name, total, refunded_amount_cents')
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (error || !data?.customer_email) return { sent: false, reason: 'order_not_found' }
+
+  const brandName = process.env.NEXT_PUBLIC_APP_NAME ?? 'nurei'
+  const baseUrl = resolvePublicUrl()
+  const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}${data.public_access_token ? `?token=${encodeURIComponent(data.public_access_token)}` : ''}`)
+  const from = process.env.EMAIL_FROM ?? `${brandName} <onboarding@resend.dev>`
+
+  const resend = new Resend(apiKey)
+  const remainingCents = Math.max(0, (data.total ?? 0) - (data.refunded_amount_cents ?? 0))
+
+  const html = renderOrderRefundedHtml({
+    brandName,
+    shortId: data.short_id,
+    customerName: (data.customer_name ?? 'Cliente').trim() || 'Cliente',
+    orderUrl,
+    amountCents: details.amountCents,
+    reason: details.reason,
+    remainingCents,
+  })
+
+  try {
+    await resend.emails.send({
+      from,
+      to: [data.customer_email],
+      subject: `Reembolso procesado: pedido ${data.short_id}`,
+      html,
+    })
+    return { sent: true }
+  } catch (e) {
+    console.error('[email] Error enviando correo de reembolso:', e)
     return { sent: false, reason: 'resend_failed' }
   }
 }
