@@ -11,10 +11,11 @@ export interface ValidationResult {
   errors: string[]
 }
 
-function isValidHttpUrl(value: string): boolean {
+function isValidLinkTarget(value: string): boolean {
+  if (value.startsWith('/') && !value.startsWith('//')) return true
   try {
-    const url = new URL(value, value.startsWith('/') ? 'https://placeholder.local' : undefined)
-    return url.protocol === 'http:' || url.protocol === 'https:' || value.startsWith('/')
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
   } catch {
     return false
   }
@@ -30,7 +31,7 @@ export function validateCampaignDraft(input: CampaignDraftInput): ValidationResu
   }
 
   const cta = input.content.ctaLink
-  if (cta && cta.type === 'url' && !isValidHttpUrl(cta.value)) {
+  if (cta && cta.type === 'url' && !isValidLinkTarget(cta.value)) {
     errors.push('El enlace del botón debe ser una URL http(s) válida.')
   }
 

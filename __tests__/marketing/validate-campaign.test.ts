@@ -52,6 +52,15 @@ describe('validateCampaignDraft', () => {
     expect(result.errors).toContain('El enlace del botón debe ser una URL http(s) válida.')
   })
 
+  it('rejects a protocol-relative URL cta link (not a real internal path)', () => {
+    const result = validateCampaignDraft({
+      name: 'X', subject: 'Asunto',
+      content: { ...baseContent, ctaLink: { type: 'url', value: '//evil.com' } },
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('El enlace del botón debe ser una URL http(s) válida.')
+  })
+
   it('accepts a product cta link without URL validation', () => {
     const result = validateCampaignDraft({
       name: 'X', subject: 'Asunto',
