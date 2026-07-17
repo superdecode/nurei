@@ -61,8 +61,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // can never be set through this route. Status changes go through the dedicated
     // send route (Task 10) or a future dedicated status-change endpoint.
     const updates: Record<string, unknown> = {}
-    if (body.name !== undefined) updates.name = String(body.name)
-    if (body.subject !== undefined) updates.subject = String(body.subject)
+    if (body.name !== undefined) updates.name = String(body.name ?? '')
+    if (body.subject !== undefined) updates.subject = String(body.subject ?? '')
     if (body.preheader !== undefined) updates.preheader = body.preheader
     if (body.template_key !== undefined) updates.template_key = body.template_key
     if (body.content !== undefined) updates.content = normalizeCampaignContent(body.content)
