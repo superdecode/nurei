@@ -155,7 +155,7 @@ export interface Product {
   has_variants: boolean
   requires_spice_level: boolean
   status: ProductStatus
-  campaign: string | null
+  campaign: string | null // free-text promo tag, unrelated to MarketingCampaign
   image_url: string | null
   image_thumbnail_url: string | null
   images: string[]
@@ -458,6 +458,64 @@ export interface Notification {
   created_at: string
 }
 
+// ─── MARKETING CAMPAIGNS ────────────────────────────────────────────────────
+
+export type CampaignStatus = 'draft' | 'sending' | 'sent' | 'failed'
+export type CampaignTemplateKey = 'bienvenida' | 'winback' | 'promo' | 'blank'
+export type CtaLinkType = 'product' | 'category' | 'url'
+
+export interface CampaignCtaLink {
+  type: CtaLinkType
+  value: string // product slug, category slug, or a raw http(s) URL
+}
+
+export interface CampaignContent {
+  heading: string
+  body: string
+  imageUrl: string | null
+  ctaLabel: string
+  ctaLink: CampaignCtaLink | null
+  couponCode: string | null
+}
+
+export interface MarketingCampaign {
+  id: string
+  name: string
+  subject: string
+  preheader: string | null
+  status: CampaignStatus
+  template_key: CampaignTemplateKey | null
+  content: CampaignContent
+  audience_segments: string[]
+  audience_tags: string[]
+  coupon_code: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  sent_at: string | null
+}
+
+export interface CampaignRecipient {
+  id: string
+  campaign_id: string
+  customer_id: string | null
+  email: string
+  name: string | null
+  status: 'queued' | 'sent' | 'failed'
+  error_message: string | null
+  sent_at: string | null
+  opened_at: string | null
+  open_count: number
+}
+
+export interface CampaignMetrics {
+  recipients: number
+  sent: number
+  failed: number
+  opened: number
+  openRate: number // 0-100
+}
+
 // ============================================
 // CUSTOMERS (CRM)
 // ============================================
@@ -698,62 +756,4 @@ export interface CartState {
   getSubtotal: () => number
   getTotal: (shippingFee: number, discount?: number) => number
   getItemCount: () => number
-}
-
-// ─── MARKETING CAMPAIGNS ────────────────────────────────────────────────────
-
-export type CampaignStatus = 'draft' | 'sending' | 'sent' | 'failed'
-export type CampaignTemplateKey = 'bienvenida' | 'winback' | 'promo' | 'blank'
-export type CtaLinkType = 'product' | 'category' | 'url'
-
-export interface CampaignCtaLink {
-  type: CtaLinkType
-  value: string // product slug, category slug, or a raw http(s) URL
-}
-
-export interface CampaignContent {
-  heading: string
-  body: string
-  imageUrl: string | null
-  ctaLabel: string
-  ctaLink: CampaignCtaLink | null
-  couponCode: string | null
-}
-
-export interface MarketingCampaign {
-  id: string
-  name: string
-  subject: string
-  preheader: string | null
-  status: CampaignStatus
-  template_key: CampaignTemplateKey | null
-  content: CampaignContent
-  audience_segments: string[]
-  audience_tags: string[]
-  coupon_code: string | null
-  created_by: string | null
-  created_at: string
-  updated_at: string
-  sent_at: string | null
-}
-
-export interface CampaignRecipient {
-  id: string
-  campaign_id: string
-  customer_id: string | null
-  email: string
-  name: string | null
-  status: 'queued' | 'sent' | 'failed'
-  error_message: string | null
-  sent_at: string | null
-  opened_at: string | null
-  open_count: number
-}
-
-export interface CampaignMetrics {
-  recipients: number
-  sent: number
-  failed: number
-  opened: number
-  openRate: number // 0-100
 }
