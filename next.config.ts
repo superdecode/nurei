@@ -18,10 +18,10 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       // Next.js inline scripts and eval needed for hydration
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://va.vercel-scripts.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://va.vercel-scripts.com https://www.googletagmanager.com https://connect.facebook.net https://www.clarity.ms",
       "style-src 'self' 'unsafe-inline'",
-      // Supabase storage for images, Stripe iframes
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''} https://api.stripe.com wss://*.supabase.co`,
+      // Supabase storage for images, Stripe iframes, GA4/Meta/Clarity beacons
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''} https://api.stripe.com wss://*.supabase.co https://www.google-analytics.com https://www.facebook.com https://www.clarity.ms`,
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
