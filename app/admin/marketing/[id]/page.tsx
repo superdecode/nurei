@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { TemplateGallery } from '@/components/admin/marketing/TemplateGallery'
@@ -27,15 +27,20 @@ export default function CampaignEditorPage({ params }: { params: Promise<{ id: s
   const [preheader, setPreheader] = useState('')
   const [content, setContent] = useState<CampaignContent>(EMPTY_CONTENT)
   const [segments, setSegments] = useState<string[]>([])
+  // Tag-based audience targeting has no UI yet in v1 — always empty, segments-only for now.
   const [tags] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const hasLoadedRef = useRef(false)
 
   useEffect(() => {
-    if (isNew) return
+    if (isNew || hasLoadedRef.current) return
+    hasLoadedRef.current = true
     fetch(`/api/admin/marketing/campaigns/${id}`)
-      .then((r) => r.json())
-      .then((json) => {
+      .then(async (r) => {
+        if (!r.ok) { setLoadError(true); return }
+        const json = await r.json()
         const campaign = json.data as MarketingCampaign
         setCampaignId(campaign.id)
         setTemplateKey(campaign.template_key)
@@ -45,7 +50,7 @@ export default function CampaignEditorPage({ params }: { params: Promise<{ id: s
         setContent(campaign.content)
         setSegments(campaign.audience_segments)
       })
-      .catch(() => toast.error('No se pudo cargar la campaña'))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
   }, [id, isNew])
 
@@ -107,6 +112,14 @@ export default function CampaignEditorPage({ params }: { params: Promise<{ id: s
   }
 
   if (loading) return <div className="p-6 text-sm text-gray-400">Cargando…</div>
+
+  if (loadError) {
+    return (
+      <div className="p-6 text-sm text-red-600">
+        No se pudo cargar la campaña. Intenta recargar la página.
+      </div>
+    )
+  }
 
   if (!templateKey) {
     return (
