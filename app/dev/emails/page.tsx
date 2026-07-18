@@ -115,6 +115,8 @@ function createPreviews(): EmailPreview[] {
       html: renderAdminNewOrderHtml({
         brandName: 'Nurei',
         shortId: 'NUR-11001',
+        orderDate: '18 jul 2026',
+        orderTime: '08:53 a. m.',
         adminOrderUrl: 'http://localhost:3500/admin/pedidos/33909770-fcdb-4f64-ba02-5bc5f760b2b8',
         customerName: 'Elian Quiroga',
         customerEmail: 'cliente@example.com',

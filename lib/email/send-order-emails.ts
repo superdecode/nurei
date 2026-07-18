@@ -64,7 +64,23 @@ type NormalizedPayload = {
 function formatOrderDate(value: string | null | undefined): string {
   const date = value ? new Date(value) : new Date()
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
+  return new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'America/Mexico_City',
+  }).format(date)
+}
+
+function formatOrderTime(value: string | null | undefined): string {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'America/Mexico_City',
+  }).format(date)
 }
 
 async function getInternalRecipientsByPreference(supabase = createServiceClient()): Promise<string[]> {
@@ -249,6 +265,8 @@ export async function sendOrderConfirmationEmails(
     const adminHtml = renderAdminNewOrderHtml({
       brandName,
       shortId: payload.shortId,
+      orderDate: formatOrderDate(payload.createdAt),
+      orderTime: formatOrderTime(payload.createdAt),
       adminOrderUrl,
       customerName: payload.customerName,
       customerEmail: payload.customerEmail,

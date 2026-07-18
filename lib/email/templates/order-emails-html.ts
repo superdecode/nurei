@@ -137,6 +137,8 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
 export type AdminNewOrderEmailProps = {
   brandName: string
   shortId: string
+  orderDate: string
+  orderTime: string
   adminOrderUrl: string
   customerName: string
   customerEmail: string
@@ -215,28 +217,63 @@ export function renderOrderRefundedHtml(p: OrderRefundEmailProps): string {
 
 /** Correo corto para el equipo interno cuando entra un pedido nuevo. */
 export function renderAdminNewOrderHtml(p: AdminNewOrderEmailProps): string {
-  const lines = p.items
+  const productRows = p.items
     .slice(0, 12)
-    .map((it) => `<li style="margin-bottom:6px;"><strong>${escapeHtml(it.name)}</strong> × ${it.quantity} · ${formatPrice(it.subtotal)}</li>`)
+    .map((it) => `<tr>
+      <td style="padding:11px 12px;border-bottom:1px solid ${CARD_BORDER};font-size:13px;font-weight:700;color:${TEXT_DARK};">${escapeHtml(it.name)}</td>
+      <td align="center" style="padding:11px 8px;border-bottom:1px solid ${CARD_BORDER};font-size:13px;color:${TEXT_MUTED};">${it.quantity}</td>
+      <td align="right" style="padding:11px 12px;border-bottom:1px solid ${CARD_BORDER};font-size:13px;font-weight:700;color:${TEXT_DARK};">${formatPrice(it.subtotal)}</td>
+    </tr>`)
     .join('')
-  const more = p.items.length > 12 ? `<li style="color:${TEXT_MUTED};">… y ${p.items.length - 12} líneas más</li>` : ''
+  const more = p.items.length > 12
+    ? `<tr><td colspan="3" style="padding:10px 12px;text-align:center;font-size:12px;color:${TEXT_MUTED};">… y ${p.items.length - 12} productos más</td></tr>`
+    : ''
 
   return `<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:20px;${CANVAS_GRADIENT}font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:16px;border:1px solid ${CARD_BORDER};overflow:hidden;">
-    <tr><td style="${HEADER_GRADIENT}padding:14px 18px;font-weight:800;color:${TEXT_DARK};font-size:16px;">🛒 Nuevo pedido · ${escapeHtml(p.shortId)}</td></tr>
-    <tr><td style="padding:18px;font-size:14px;color:${TEXT_DARK};line-height:1.5;">
-      <p style="margin:0 0 12px;"><strong>${escapeHtml(p.customerName)}</strong><br/>
-      <a href="mailto:${escapeHtml(p.customerEmail)}" style="color:${TEXT_DARK};text-decoration:underline;">${escapeHtml(p.customerEmail)}</a><br/>
-      ${escapeHtml(p.customerPhone)}</p>
-      <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;color:${TEXT_MUTED};letter-spacing:0.06em;">Productos</p>
-      <ul style="margin:0;padding-left:18px;">${lines}${more}</ul>
-      <p style="margin:16px 0 8px;"><strong>Total:</strong> ${formatPrice(p.total)}</p>
-      <p style="margin:0;font-size:13px;color:${TEXT_MUTED};">${escapeHtml(p.deliveryAddress)}</p>
-      <p style="margin:20px 0 0;"><a href="${escapeHtml(p.adminOrderUrl)}" style="display:inline-block;padding:10px 18px;background:${TEXT_DARK};color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:700;font-size:13px;">Abrir en admin</a></p>
+<html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>Nuevo pedido ${escapeHtml(p.shortId)}</title></head>
+<body style="margin:0;padding:0;${CANVAS_GRADIENT}font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${CANVAS_GRADIENT}padding:24px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border-radius:22px;border:1px solid ${CARD_BORDER};overflow:hidden;box-shadow:0 14px 44px rgba(17,24,39,.10);">
+        <tr><td style="${HEADER_GRADIENT}padding:26px 24px;text-align:center;border-bottom:3px solid ${TEXT_DARK};">
+          <h1 style="margin:0;font-size:23px;line-height:1.25;font-weight:900;color:${TEXT_DARK};letter-spacing:-.02em;"><span style="display:inline-block;margin-right:8px;">🛒</span>Nuevo pedido recibido</h1>
+        </td></tr>
+
+        <tr><td style="padding:22px 22px 26px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border:1px solid ${CARD_BORDER};border-radius:14px;overflow:hidden;table-layout:fixed;">
+            <tr style="background:#FAFAFA;">
+              <td width="25%" style="padding:13px 8px;text-align:center;border-right:1px solid ${CARD_BORDER};vertical-align:top;"><p style="margin:0 0 4px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${TEXT_MUTED};">Pedido</p><p style="margin:0;font-family:ui-monospace,monospace;font-size:12px;font-weight:900;color:${TEXT_DARK};">${escapeHtml(p.shortId)}</p></td>
+              <td width="25%" style="padding:13px 8px;text-align:center;border-right:1px solid ${CARD_BORDER};vertical-align:top;"><p style="margin:0 0 4px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${TEXT_MUTED};">Fecha</p><p style="margin:0;font-size:11px;font-weight:800;color:${TEXT_DARK};">${escapeHtml(p.orderDate)}</p></td>
+              <td width="25%" style="padding:13px 8px;text-align:center;border-right:1px solid ${CARD_BORDER};vertical-align:top;"><p style="margin:0 0 4px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${TEXT_MUTED};">Hora</p><p style="margin:0;font-size:11px;font-weight:800;color:${TEXT_DARK};">${escapeHtml(p.orderTime)}</p></td>
+              <td width="25%" style="padding:13px 8px;text-align:center;vertical-align:top;"><p style="margin:0 0 4px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${TEXT_MUTED};">Total</p><p style="margin:0;font-size:12px;font-weight:900;color:${TEXT_DARK};">${formatPrice(p.total)}</p></td>
+            </tr>
+          </table>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;border:1px solid #FDE68A;border-radius:14px;overflow:hidden;background-color:${BRAND_BG};background-image:linear-gradient(135deg,#FFFBEB 0%,#FFFFFF 100%);">
+            <tr><td style="padding:10px 14px;border-bottom:1px solid #FDE68A;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${TEXT_DARK};">Cliente</td></tr>
+            <tr><td style="padding:14px;">
+              <p style="margin:0 0 7px;font-size:15px;font-weight:900;color:${TEXT_DARK};">${escapeHtml(p.customerName)}</p>
+              <p style="margin:0 0 5px;font-size:13px;color:${TEXT_MUTED};"><strong style="color:${TEXT_DARK};">Correo:</strong> <a href="mailto:${escapeHtml(p.customerEmail)}" style="color:${TEXT_DARK};text-decoration:underline;">${escapeHtml(p.customerEmail)}</a></p>
+              <p style="margin:0;font-size:13px;color:${TEXT_MUTED};"><strong style="color:${TEXT_DARK};">Teléfono:</strong> ${escapeHtml(p.customerPhone)}</p>
+            </td></tr>
+          </table>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border:1px solid ${CARD_BORDER};border-radius:14px;overflow:hidden;">
+            <tr><td style="padding:10px 14px;border-bottom:1px solid ${CARD_BORDER};background:#FAFAFA;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${TEXT_DARK};">Datos de entrega</td></tr>
+            <tr><td style="padding:14px;font-size:13px;line-height:1.6;color:${TEXT_DARK};">${escapeHtml(p.deliveryAddress)}</td></tr>
+          </table>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border:1px solid ${CARD_BORDER};border-radius:14px;overflow:hidden;">
+            <thead><tr style="background:#FAFAFA;"><th align="left" style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:${TEXT_MUTED};">Productos</th><th style="padding:10px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:${TEXT_MUTED};">Cant.</th><th align="right" style="padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:${TEXT_MUTED};">Importe</th></tr></thead>
+            <tbody>${productRows}${more}</tbody>
+            <tfoot><tr><td colspan="2" style="padding:13px 12px;background:${BRAND_BG};font-size:14px;font-weight:900;color:${TEXT_DARK};">Total del pedido</td><td align="right" style="padding:13px 12px;background:${BRAND_BG};font-size:16px;font-weight:900;color:${TEXT_DARK};">${formatPrice(p.total)}</td></tr></tfoot>
+          </table>
+
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px auto 0;"><tr><td align="center" bgcolor="${BRAND_AMBER}" style="border-radius:14px;"><a href="${escapeHtml(p.adminOrderUrl)}" style="display:inline-block;padding:14px 30px;background-color:${BRAND_AMBER};background-image:linear-gradient(135deg,#FFC107 0%,#FFD75A 100%);box-shadow:0 9px 24px rgba(255,193,7,.38);color:${TEXT_DARK};text-decoration:none;border:none;border-radius:14px;font-weight:900;font-size:14px;">Abrir pedido en admin</a></td></tr></table>
+        </td></tr>
+        <tr><td style="padding:14px 24px;background:#FAFAFA;border-top:1px solid ${CARD_BORDER};text-align:center;font-size:11px;color:${TEXT_MUTED};">Notificación interna · ${escapeHtml(p.brandName)}</td></tr>
+      </table>
     </td></tr>
   </table>
-  <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:12px;">${escapeHtml(p.brandName)}</p>
 </body></html>`
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   renderCustomerOrderConfirmationHtml,
+  renderAdminNewOrderHtml,
   renderOrderDeliveredHtml,
   renderOrderPreparingHtml,
   renderOrderShippedHtml,
@@ -76,6 +77,30 @@ describe('renderOrderShippedHtml', () => {
     expect(confirmation).toContain('padding:8px 12px 8px 0;text-align:right')
     expect(confirmation).toContain('padding:12px 12px 8px 0;border-top:2px')
     expect(confirmation).not.toContain('colspan="2"')
+  })
+
+  it('renders the internal order email with clear operational sections and time', () => {
+    const internal = renderAdminNewOrderHtml({
+      brandName: 'nurei',
+      shortId: 'NUR-11001',
+      orderDate: '18 jul 2026',
+      orderTime: '08:53 a. m.',
+      adminOrderUrl: 'https://nurei.mx/admin/pedidos/order-id',
+      customerName: 'María López',
+      customerEmail: 'maria@example.com',
+      customerPhone: '+52 55 1234 5678',
+      items: [{ name: 'Pocky Matcha', quantity: 2, subtotal: 25800 }],
+      total: 25800,
+      deliveryAddress: 'Roma Norte, CDMX',
+    })
+
+    expect(internal).toContain('Nuevo pedido recibido')
+    expect(internal).toContain('18 jul 2026')
+    expect(internal).toContain('08:53 a. m.')
+    expect(internal).toContain('>Cliente</td>')
+    expect(internal).toContain('>Datos de entrega</td>')
+    expect(internal).toContain('>Productos</th>')
+    expect(internal).toContain('Abrir pedido en admin')
   })
 
   it('renders every status template as a complete email document', () => {
