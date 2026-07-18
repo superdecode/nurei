@@ -3,6 +3,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { clearShippingDraft } from '@/lib/checkout-shipping-cache'
+import { trackAddToCart as trackGa4AddToCart } from '@/lib/tracking/ga4'
+import { trackAddToCart as trackMetaAddToCart } from '@/lib/tracking/meta-pixel'
 import type { Product, CartItem, ProductVariant } from '@/types'
 
 interface CartStore {
@@ -33,6 +35,10 @@ export const useCartStore = create<CartStore>()(
       items: [],
 
       addItem: (product: Product, variant?: Pick<ProductVariant, 'id' | 'name' | 'image' | 'price'> | null) => {
+        const priceCentavos = variant?.price ?? product.base_price ?? product.price
+        trackGa4AddToCart({ id: product.id, name: product.name, category: product.category }, priceCentavos)
+        trackMetaAddToCart({ id: product.id, name: product.name }, priceCentavos)
+
         set((state) => {
           const existing = state.items.find((item) =>
             itemMatches(item, product.id, variant?.id)
