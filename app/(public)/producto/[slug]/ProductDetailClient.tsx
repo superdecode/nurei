@@ -25,6 +25,8 @@ import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { countryToFlag } from '@/lib/utils/country-flag'
+import { trackViewItem } from '@/lib/tracking/ga4'
+import { trackViewContent } from '@/lib/tracking/meta-pixel'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -236,6 +238,14 @@ export function ProductDetailClient({
       }
     }
   }, [selectedVariant, allImages])
+
+  useEffect(() => {
+    if (!product) return
+    const priceCentavos = product.base_price ?? product.price
+    trackViewItem({ id: product.id, name: product.name, category: product.category }, priceCentavos)
+    trackViewContent({ id: product.id, name: product.name }, priceCentavos)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per product page view
+  }, [product?.id])
 
   if (loading) {
     return (
