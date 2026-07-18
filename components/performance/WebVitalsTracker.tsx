@@ -14,6 +14,8 @@ const RATING_THRESHOLDS: Record<string, [number, number]> = {
 
 // Cap error reports per session so a broken page in a loop can't flood the API
 const MAX_ERRORS_PER_SESSION = 10
+const GOOD_VITAL_SAMPLE_RATE = 0.1
+const NEEDS_IMPROVEMENT_SAMPLE_RATE = 0.5
 
 function getRating(name: string, value: number): 'good' | 'needs-improvement' | 'poor' {
   const [good, poor] = RATING_THRESHOLDS[name] ?? [0, 0]
@@ -96,10 +98,19 @@ function flushVitals() {
 }
 
 function queueVital(metric: Metric, path: string) {
+  const rating = getRating(metric.name, metric.value)
+  const sampleRate =
+    rating === 'good'
+      ? GOOD_VITAL_SAMPLE_RATE
+      : rating === 'needs-improvement'
+        ? NEEDS_IMPROVEMENT_SAMPLE_RATE
+        : 1
+  if (sampleRate < 1 && Math.random() > sampleRate) return
+
   vitalsQueue.push({
     metric_name: metric.name,
     metric_value: metric.value,
-    rating: getRating(metric.name, metric.value),
+    rating,
     page_path: path,
     session_id: sessionId(),
     user_agent: navigator.userAgent.slice(0, 300),
@@ -133,12 +144,16 @@ function sendError(
     user_agent: navigator.userAgent.slice(0, 300),
   })
   try {
-    fetch('/api/performance/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-      keepalive: true,
-    }).catch(() => {})
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/performance/track', new Blob([body], { type: 'application/json' }))
+    } else {
+      fetch('/api/performance/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      }).catch(() => {})
+    }
   } catch {
     // never block the page for analytics
   }

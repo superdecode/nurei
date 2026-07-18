@@ -4,7 +4,7 @@ import { listCategories } from '@/lib/supabase/queries/categories'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { HomeClient, type HomeCategory } from './HomeClient'
 
-export const revalidate = 60
+export const revalidate = 300
 
 export default async function LandingPage() {
   // Service client (no cookies()) keeps this page ISR-cacheable — reading

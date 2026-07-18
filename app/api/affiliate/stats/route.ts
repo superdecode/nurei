@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const [profileRes, linkRes, attributionsRes, totalOrdersRes] = await Promise.all([
     supabase
       .from('affiliate_profiles')
-      .select('total_earned_cents, pending_payout_cents')
+      .select('total_earned_cents, pending_payout_cents, clawback_debt_cents')
       .eq('id', affiliateId)
       .single(),
     supabase
@@ -107,6 +107,7 @@ export async function GET(request: NextRequest) {
     data: {
       total_earned_cents: profile?.total_earned_cents ?? 0,
       pending_payout_cents: profile?.pending_payout_cents ?? 0,
+      clawback_debt_cents: profile?.clawback_debt_cents ?? 0,
       total_commission_period: totalCommission,
       pending_commission_period: pendingCommission,
       total_orders: totalOrders,

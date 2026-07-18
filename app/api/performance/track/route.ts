@@ -6,7 +6,7 @@ import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 const RETENTION_DAYS = 30
 // Probability of running the retention cleanup on any given insert —
 // keeps the tables capped without a cron dependency.
-const CLEANUP_PROBABILITY = 0.005
+const CLEANUP_PROBABILITY = 0.001
 
 const vitalEventSchema = z.object({
   metric_name: z.enum(['LCP', 'CLS', 'INP', 'FCP', 'TTFB']),

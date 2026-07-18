@@ -5,10 +5,10 @@ import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 import { ProductDetailClient } from './ProductDetailClient'
 import type { Product, ProductVariant } from '@/types'
 
-export const revalidate = 60
+export const revalidate = 300
 
 // Empty list + revalidate enables ISR for product pages: each slug is
-// rendered on first request, then served from cache for 60s (Vercel cost).
+// rendered on first request, then served from cache for 5 minutes.
 export async function generateStaticParams() {
   return []
 }

@@ -177,6 +177,7 @@ export async function sendOrderConfirmationEmails(
 
   const resend = new Resend(apiKey)
   const from = process.env.EMAIL_FROM ?? `${brandName} <onboarding@resend.dev>`
+  const replyTo = process.env.EMAIL_REPLY_TO?.trim() || undefined
 
   const customerHtml = renderCustomerOrderConfirmationHtml({
     brandName,
@@ -197,6 +198,7 @@ export async function sendOrderConfirmationEmails(
     await resend.emails.send({
       from,
       to: [payload.customerEmail],
+      replyTo,
       subject: `¡Tu pedido ${payload.shortId} está en marcha!`,
       html: customerHtml,
     })
@@ -224,6 +226,7 @@ export async function sendOrderConfirmationEmails(
       await resend.emails.send({
         from,
         to: notifyRecipients,
+        replyTo,
         subject: `[${brandName}] Nuevo pedido ${payload.shortId} · ${formatPrice(payload.total)}`,
         html: adminHtml,
       })
@@ -261,6 +264,7 @@ export async function sendOrderStatusEmail(
   const baseUrl = resolvePublicUrl()
   const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}${data.public_access_token ? `?token=${encodeURIComponent(data.public_access_token)}` : ''}`)
   const from = process.env.EMAIL_FROM ?? `${brandName} <onboarding@resend.dev>`
+  const replyTo = process.env.EMAIL_REPLY_TO?.trim() || undefined
 
   const resend = new Resend(apiKey)
 
@@ -292,7 +296,7 @@ export async function sendOrderStatusEmail(
   const { subject, html } = templates[status]
 
   try {
-    await resend.emails.send({ from, to: [data.customer_email], subject, html })
+    await resend.emails.send({ from, to: [data.customer_email], replyTo, subject, html })
     return { sent: true }
   } catch (e) {
     console.error(`[email] Error enviando correo de estatus (${status}):`, e)
@@ -320,6 +324,7 @@ export async function sendOrderRefundEmail(
   const baseUrl = resolvePublicUrl()
   const orderUrl = safeAttrUrl(`${baseUrl}/pedido/${orderId}${data.public_access_token ? `?token=${encodeURIComponent(data.public_access_token)}` : ''}`)
   const from = process.env.EMAIL_FROM ?? `${brandName} <onboarding@resend.dev>`
+  const replyTo = process.env.EMAIL_REPLY_TO?.trim() || undefined
 
   const resend = new Resend(apiKey)
   const remainingCents = Math.max(0, (data.total ?? 0) - (data.refunded_amount_cents ?? 0))
@@ -338,6 +343,7 @@ export async function sendOrderRefundEmail(
     await resend.emails.send({
       from,
       to: [data.customer_email],
+      replyTo,
       subject: `Reembolso procesado: pedido ${data.short_id}`,
       html,
     })

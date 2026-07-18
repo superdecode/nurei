@@ -3,7 +3,7 @@ import { listProducts } from '@/lib/supabase/queries/products'
 import { listCategories } from '@/lib/supabase/queries/categories'
 import { MenuClient, type MenuCategoryMeta } from './MenuClient'
 
-export const revalidate = 60
+export const revalidate = 300
 
 export const metadata = {
   title: 'Menú | nurei',

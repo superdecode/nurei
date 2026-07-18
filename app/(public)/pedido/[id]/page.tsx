@@ -254,7 +254,7 @@ export default function TrackingPage() {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const qs = accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''
-          const res = await fetch(`/api/orders/${params.id}${qs}`, { cache: 'no-store' })
+          const res = await fetch(`/api/orders/${params.id}${qs}`, { cache: isSuccess ? 'no-store' : 'default' })
           if (res.ok) {
             const { data } = await res.json()
             const nextOrder = data.order ?? data
@@ -294,7 +294,7 @@ export default function TrackingPage() {
   useEffect(() => {
     ;(async () => {
       try {
-        const res = await fetch('/api/store/info')
+        const res = await fetch('/api/store/info', { cache: 'force-cache' })
         if (!res.ok) return
         const json = await res.json()
         setStoreInfo((json.data ?? null) as StoreInfoResponse | null)

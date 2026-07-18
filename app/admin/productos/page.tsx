@@ -71,6 +71,7 @@ const STATUS_LABELS: Record<string, string> = {
 const PAGE_SIZE_OPTIONS = [10, 14, 24, 50] as const
 const PAGE_STORAGE_KEY = 'nurei-admin-productos-page'
 const PAGE_SIZE_STORAGE_KEY = 'nurei-admin-productos-page-size'
+const TABLE_HEADER_TEXT_CLASS = 'text-[10px] font-bold uppercase tracking-wider font-sans'
 
 
 
@@ -378,10 +379,8 @@ export default function ProductosAdminPage() {
     }
     result.sort((a, b) => {
       let cmp = 0
-      const effectiveField = viewMode === 'table' ? 'created_at' : sortField
-      const effectiveDir = viewMode === 'table' ? 'desc' : sortDir
 
-      switch (effectiveField) {
+      switch (sortField) {
         case 'display_order': {
           const categoryDiff = (categoryRank.get(a.category) ?? MAX_ORDER) - (categoryRank.get(b.category) ?? MAX_ORDER)
           cmp = categoryDiff !== 0 ? categoryDiff : compareManualOrder(a, b)
@@ -394,10 +393,10 @@ export default function ProductosAdminPage() {
         case 'status': cmp = (a.status ?? '').localeCompare(b.status ?? ''); break
         case 'created_at': cmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break
       }
-      return effectiveDir === 'asc' ? cmp : -cmp
+      return sortDir === 'asc' ? cmp : -cmp
     })
     return result
-  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter, categoryRank, viewMode])
+  }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter, categoryRank])
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize
@@ -826,7 +825,8 @@ export default function ProductosAdminPage() {
       <button
         onClick={() => handleSort(field)}
         className={cn(
-          'flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors',
+          TABLE_HEADER_TEXT_CLASS,
+          'flex items-center gap-1 transition-colors',
           active ? 'text-primary' : 'text-gray-500 hover:text-gray-700'
         )}
       >
@@ -1115,24 +1115,24 @@ export default function ProductosAdminPage() {
                     </button>
                   </TableHead>
                   <TableHead className="w-[6%] min-w-0 py-2 pl-2 pr-4" />
-                  <TableHead className="w-[27%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                  <TableHead className={cn('w-[27%] min-w-0 whitespace-normal p-1.5', TABLE_HEADER_TEXT_CLASS)}>
                     <SortHeader field="name">Nombre</SortHeader>
                   </TableHead>
-                  <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                  <TableHead className={cn('w-[12%] min-w-0 whitespace-normal p-1.5', TABLE_HEADER_TEXT_CLASS)}>
                     <SortHeader field="category">Categoria</SortHeader>
                   </TableHead>
-                  <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                  <TableHead className={cn('w-[10%] min-w-0 whitespace-normal p-1.5', TABLE_HEADER_TEXT_CLASS)}>
                     <SortHeader field="country">País</SortHeader>
                   </TableHead>
-                  <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                  <TableHead className={cn('w-[10%] min-w-0 whitespace-normal p-1.5', TABLE_HEADER_TEXT_CLASS)}>
                     <SortHeader field="price">Precio</SortHeader>
                   </TableHead>
-                  <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-[10px]">
+                  <TableHead className={cn('w-[10%] min-w-0 whitespace-normal p-1.5', TABLE_HEADER_TEXT_CLASS)}>
                     <SortHeader field="status">Estado</SortHeader>
                   </TableHead>
-                  <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">Stock</TableHead>
-                  <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">Favorito</TableHead>
-                  <TableHead className="w-[15%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Acciones</TableHead>
+                  <TableHead className={cn('w-[8%] min-w-0 whitespace-normal p-1.5 text-center text-gray-500', TABLE_HEADER_TEXT_CLASS)}>Stock</TableHead>
+                  <TableHead className={cn('w-[8%] min-w-0 whitespace-normal p-1.5 text-center text-gray-500', TABLE_HEADER_TEXT_CLASS)}>Favorito</TableHead>
+                  <TableHead className={cn('w-[15%] min-w-0 whitespace-normal p-1.5 text-right text-gray-500', TABLE_HEADER_TEXT_CLASS)}>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

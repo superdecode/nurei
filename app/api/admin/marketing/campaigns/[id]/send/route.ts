@@ -65,6 +65,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const resend = new Resend(apiKey)
     const from = process.env.EMAIL_FROM ?? 'nurei <onboarding@resend.dev>'
+    const replyTo = process.env.EMAIL_REPLY_TO?.trim() || undefined
     let sentCount = 0
     let failedCount = 0
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             content: campaign.content, resolvedCtaUrl, trackingPixelUrl,
             preheader: campaign.preheader ?? undefined,
           })
-          return resend.emails.send({ from, to: [recipient.email], subject: campaign.subject, html })
+          return resend.emails.send({ from, to: [recipient.email], replyTo, subject: campaign.subject, html })
         })
       )
 

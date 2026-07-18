@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/server/require-admin'
 import { createServiceClient } from '@/lib/supabase/server'
 
+const PRIVATE_ANALYTICS_CACHE = {
+  'Cache-Control': 'private, max-age=300, stale-while-revalidate=900',
+}
+
 export async function GET() {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
@@ -67,5 +71,5 @@ export async function GET() {
         { label: 'Metadata y JSON-LD por producto', passed: true, value: 'Activo' },
       ],
     },
-  })
+  }, { headers: PRIVATE_ANALYTICS_CACHE })
 }

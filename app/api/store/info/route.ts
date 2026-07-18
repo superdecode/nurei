@@ -26,7 +26,9 @@ export async function GET() {
           : '',
     }
 
-    return NextResponse.json({ data: { store_info, shipping } })
+    const response = NextResponse.json({ data: { store_info, shipping } })
+    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600')
+    return response
   } catch {
     return NextResponse.json({ data: null, error: 'No se pudo cargar configuración pública' }, { status: 500 })
   }

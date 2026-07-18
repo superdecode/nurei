@@ -18,7 +18,9 @@ export async function GET(
 
     const supabase = createServiceClient()
     const updates = await getOrderUpdates(supabase, id)
-    return NextResponse.json({ data: { order, updates } })
+    const response = NextResponse.json({ data: { order, updates } })
+    response.headers.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=60')
+    return response
   } catch {
     return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 })
   }

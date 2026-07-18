@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     if (slug) {
       const product = await getProductBySlug(slug)
       const res = NextResponse.json({ data: { products: [product], total: 1 } })
-      res.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300')
+      res.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600')
       return res
     }
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     // Only cache public, non-filtered reads (admin search/filter results must not be cached publicly)
     if (!search && !hasVariants && (status === 'active' || status === undefined)) {
-      res.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300')
+      res.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600')
     } else {
       res.headers.set('Cache-Control', 'private, no-store')
     }

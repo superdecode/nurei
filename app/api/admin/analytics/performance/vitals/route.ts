@@ -16,6 +16,10 @@ const METRIC_THRESHOLDS: Record<string, { good: number; poor: number; unit: stri
   TTFB: { good: 800,  poor: 1800, unit: 'ms' },
 }
 
+const PRIVATE_ANALYTICS_CACHE = {
+  'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
+}
+
 export async function GET(request: NextRequest) {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
@@ -92,5 +96,5 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.lcp_p75 - a.lcp_p75)
     .slice(0, 10)
 
-  return NextResponse.json({ data: { summary, trend, slow_pages: slowPages } })
+  return NextResponse.json({ data: { summary, trend, slow_pages: slowPages } }, { headers: PRIVATE_ANALYTICS_CACHE })
 }

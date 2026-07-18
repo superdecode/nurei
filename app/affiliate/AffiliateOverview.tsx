@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 interface StatsData {
   total_earned_cents: number
   pending_payout_cents: number
+  clawback_debt_cents: number
   total_orders: number
   total_clicks: number
   conversion_rate: number
