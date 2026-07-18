@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Package, BarChart3, LogOut, ShoppingBag, FolderTree,
   Image as ImageIcon, Settings, Menu, X, ChevronRight, Ticket,
   Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff, Boxes, UserCheck, Users2,
-  KanbanSquare,
+  KanbanSquare, Megaphone,
 } from 'lucide-react'
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell'
 import { AdminTopBar } from '@/components/admin/AdminTopBar'
@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { href: '/admin/categorias', label: 'Categorias', icon: FolderTree },
   { href: '/admin/media', label: 'Multimedia', icon: ImageIcon },
   { href: '/admin/cupones', label: 'Cupones', icon: Ticket },
+  { href: '/admin/marketing', label: 'Marketing', icon: Megaphone },
   { href: '/admin/affiliates', label: 'Afiliados', icon: Users2 },
   { href: '/admin/pagos', label: 'Pagos', icon: CreditCard },
   { href: '/admin/clientes', label: 'Clientes', icon: UserCheck },
