@@ -5,11 +5,11 @@ import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
 import { getAccessibleOrder } from '@/lib/server/order-access'
 import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 
-function notifyOrderEmails(
+async function notifyOrderEmails(
   orderId: string,
   method: string,
   meta?: { reference?: string; expiresAt?: string; bank?: string }
-) {
+): Promise<{ sent: boolean; reason?: string }> {
   let pendingPaymentNote: string | undefined
   if (method === 'oxxo' && meta?.reference) {
     const exp = meta.expiresAt
@@ -21,9 +21,15 @@ function notifyOrderEmails(
     pendingPaymentNote = `Transfiere usando la referencia ${meta.reference}.${meta.bank ? ` Datos: ${meta.bank}.` : ''} Te avisaremos al acreditar.`
   }
 
-  void sendOrderConfirmationEmails(orderId, { pendingPaymentNote }).catch((err) =>
-    console.error('[email] notifyOrderEmails:', err)
-  )
+  const result = await sendOrderConfirmationEmails(orderId, { pendingPaymentNote })
+  if (!result.sent) {
+    console.error('[email] No se envió confirmación de pedido', {
+      orderId,
+      method,
+      reason: result.reason,
+    })
+  }
+  return result
 }
 
 function isCardExpired(expiry: string) {
@@ -194,7 +200,7 @@ export async function POST(request: NextRequest) {
         metadata: { event: 'manual_card_submitted', method, last4: cardLast4, brand: cardBrand },
       })
 
-      notifyOrderEmails(orderId, method)
+      const emailDelivery = await notifyOrderEmails(orderId, method)
 
       return NextResponse.json({
         data: {
@@ -202,6 +208,7 @@ export async function POST(request: NextRequest) {
           method,
           cardType: cardBrand,
           cardLast4,
+          emailDelivery,
         },
       })
     }
@@ -209,7 +216,7 @@ export async function POST(request: NextRequest) {
     if (method === 'oxxo') {
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
       const reference = `98${Date.now().toString().slice(-10)}`
-      notifyOrderEmails(orderId, 'oxxo', { reference, expiresAt })
+      const emailDelivery = await notifyOrderEmails(orderId, 'oxxo', { reference, expiresAt })
 
       return NextResponse.json({
         data: {
@@ -217,6 +224,7 @@ export async function POST(request: NextRequest) {
           method: 'oxxo',
           reference,
           expiresAt,
+          emailDelivery,
         },
       })
     }
@@ -224,7 +232,7 @@ export async function POST(request: NextRequest) {
     if (method === 'transfer' || method === 'bank_transfer') {
       const reference = `TR-${orderId.slice(-6).toUpperCase()}`
       const bank = 'Banco Nurei Demo'
-      notifyOrderEmails(orderId, method, { reference, bank })
+      const emailDelivery = await notifyOrderEmails(orderId, method, { reference, bank })
 
       return NextResponse.json({
         data: {
@@ -232,6 +240,7 @@ export async function POST(request: NextRequest) {
           method,
           reference,
           bank,
+          emailDelivery,
         },
       })
     }
@@ -239,12 +248,13 @@ export async function POST(request: NextRequest) {
     // Efectivo / otros métodos en tienda: el pago se recibe en la entrega, NO al crear la orden.
     // No llamar markOrderAsPaid — el admin confirma manualmente cuando cobra el efectivo.
     // La atribución de afiliado se dispara cuando el admin confirma el pedido (vía admin orders API).
-    notifyOrderEmails(orderId, method)
+    const emailDelivery = await notifyOrderEmails(orderId, method)
 
     return NextResponse.json({
       data: {
         status: 'pending',
         method,
+        emailDelivery,
       },
     })
   } catch {

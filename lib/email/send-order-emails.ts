@@ -41,6 +41,8 @@ function safeAttrUrl(url: string): string {
 export type OrderEmailOptions = {
   /** Nota extra si pago OXXO / transferencia aún pendiente. */
   pendingPaymentNote?: string | null
+  /** Permite reintentar únicamente el correo del cliente sin duplicar avisos internos. */
+  notifyInternal?: boolean
 }
 
 type NormalizedPayload = {
@@ -227,7 +229,9 @@ export async function sendOrderConfirmationEmails(
       replyTo,
       subject: `¡Tu pedido ${payload.shortId} está en marcha!`,
       html: customerHtml,
-    }, 'confirmación al cliente')
+    }, 'confirmación al cliente', {
+      idempotencyKey: `order-confirmation-${orderId}-customer`,
+    })
     if (!result.ok) return { sent: false, reason: 'resend_customer_failed' }
   } catch (e) {
     console.error('[email] Error enviando correo al cliente:', e)
@@ -235,8 +239,12 @@ export async function sendOrderConfirmationEmails(
   }
 
   const envAdminEmail = process.env.ORDERS_NOTIFY_EMAIL?.trim().toLowerCase()
-  const preferredRecipients = await getInternalRecipientsByPreference()
-  const notifyRecipients = Array.from(new Set([...(envAdminEmail ? [envAdminEmail] : []), ...preferredRecipients]))
+  const preferredRecipients = options?.notifyInternal === false
+    ? []
+    : await getInternalRecipientsByPreference()
+  const notifyRecipients = options?.notifyInternal === false
+    ? []
+    : Array.from(new Set([...(envAdminEmail ? [envAdminEmail] : []), ...preferredRecipients]))
   if (notifyRecipients.length > 0) {
     const adminHtml = renderAdminNewOrderHtml({
       brandName,
@@ -256,7 +264,9 @@ export async function sendOrderConfirmationEmails(
         replyTo,
         subject: `[${brandName}] Nuevo pedido ${payload.shortId} · ${formatPrice(payload.total)}`,
         html: adminHtml,
-      }, 'aviso interno de pedido')
+      }, 'aviso interno de pedido', {
+        idempotencyKey: `order-confirmation-${orderId}-internal`,
+      })
     } catch (e) {
       console.error('[email] Error enviando correo interno:', e)
     }

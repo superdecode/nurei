@@ -6,6 +6,7 @@ import { claimCouponForPaidOrder } from '@/lib/server/coupons/engine'
 import { sendMetaPurchaseEvent } from '@/lib/server/meta-capi'
 import { centavosToPesos } from '@/lib/tracking/currency'
 import { mapStripeRefundStatus } from '@/lib/server/process-refund'
+import { sendOrderConfirmationEmails } from '@/lib/email/send-order-emails'
 
 /** Lazy-init: avoid instantiating Stripe at module load (breaks build when STRIPE_SECRET_KEY is unset). */
 function getStripe() {
@@ -96,6 +97,19 @@ export async function POST(request: NextRequest) {
               clientUserAgent: session.metadata?.client_ua ?? undefined,
             },
           }).catch(() => {})
+        }
+
+        // Submit the confirmation before acknowledging the webhook. Vercel can
+        // freeze fire-and-forget work as soon as the response is returned.
+        // The email sender uses an order-scoped idempotency key, so Stripe
+        // webhook retries cannot generate duplicate confirmations.
+        const emailDelivery = await sendOrderConfirmationEmails(orderId)
+        if (!emailDelivery.sent) {
+          console.error('[email] Stripe payment confirmed but email was not sent', {
+            orderId,
+            eventId: event.id,
+            reason: emailDelivery.reason,
+          })
         }
         break
       }
