@@ -21,7 +21,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://va.vercel-scripts.com https://www.googletagmanager.com https://connect.facebook.net https://www.clarity.ms",
       "style-src 'self' 'unsafe-inline'",
       // Supabase storage for images, Stripe iframes, GA4/Meta/Clarity beacons
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''} https://api.stripe.com wss://*.supabase.co https://www.google-analytics.com https://www.facebook.com https://www.clarity.ms`,
+      `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''} https://api.stripe.com wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.facebook.com https://*.clarity.ms`,
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
