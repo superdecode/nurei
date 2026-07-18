@@ -48,34 +48,34 @@ export async function sendMetaPurchaseEvent(
 
   const { orderId, eventId, eventSourceUrl, valuePesos, currency, contentIds, userData } = input
 
-  const user_data: Record<string, unknown> = {}
-  if (userData.email) user_data.em = [hashEmail(userData.email)]
-  if (userData.phone) user_data.ph = [hashPhone(userData.phone)]
-  if (userData.clientIpAddress) user_data.client_ip_address = userData.clientIpAddress
-  if (userData.clientUserAgent) user_data.client_user_agent = userData.clientUserAgent
-  if (userData.fbp) user_data.fbp = userData.fbp
-  if (userData.fbc) user_data.fbc = userData.fbc
-
-  const body = {
-    data: [
-      {
-        event_name: 'Purchase',
-        event_time: Math.floor(Date.now() / 1000),
-        event_id: eventId,
-        event_source_url: eventSourceUrl,
-        action_source: 'website',
-        user_data,
-        custom_data: {
-          currency,
-          value: valuePesos,
-          content_ids: contentIds,
-          order_id: orderId,
-        },
-      },
-    ],
-  }
-
   try {
+    const user_data: Record<string, unknown> = {}
+    if (userData.email) user_data.em = [hashEmail(userData.email)]
+    if (userData.phone) user_data.ph = [hashPhone(userData.phone)]
+    if (userData.clientIpAddress) user_data.client_ip_address = userData.clientIpAddress
+    if (userData.clientUserAgent) user_data.client_user_agent = userData.clientUserAgent
+    if (userData.fbp) user_data.fbp = userData.fbp
+    if (userData.fbc) user_data.fbc = userData.fbc
+
+    const body = {
+      data: [
+        {
+          event_name: 'Purchase',
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: eventId,
+          event_source_url: eventSourceUrl,
+          action_source: 'website',
+          user_data,
+          custom_data: {
+            currency,
+            value: valuePesos,
+            content_ids: contentIds,
+            order_id: orderId,
+          },
+        },
+      ],
+    }
+
     const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${pixelId}/events?access_token=${encodeURIComponent(accessToken)}`
     const response = await fetch(url, {
       method: 'POST',
