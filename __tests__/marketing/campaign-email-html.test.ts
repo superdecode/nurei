@@ -28,6 +28,9 @@ describe('renderCampaignEmailHtml', () => {
     const html = renderCampaignEmailHtml({ content, resolvedCtaUrl: 'https://nurei.mx/menu' })
     expect(html).toContain('href="https://nurei.mx/menu"')
     expect(html).toContain('Comprar')
+    expect(html).toContain('border:none;border-radius:14px')
+    expect(html).toContain('box-shadow:0 9px 24px rgba(255,193,7,.38)')
+    expect(html).not.toContain('border:2px solid #111827')
   })
 
   it('includes the image when present', () => {

@@ -60,7 +60,7 @@ export function renderCampaignEmailHtml(p: CampaignEmailProps): string {
               ${bodyParagraphs}
               ${couponBlock}
               <div style="text-align:center;margin-top:24px;">
-                <a href="${escapeHtml(p.resolvedCtaUrl)}" style="display:inline-block;background:${BRAND_AMBER};color:${TEXT_DARK};text-decoration:none;padding:13px 28px;border:2px solid ${TEXT_DARK};border-radius:12px;font-weight:800;font-size:14px;">${escapeHtml(p.content.ctaLabel)}</a>
+                <a href="${escapeHtml(p.resolvedCtaUrl)}" style="display:inline-block;background-color:${BRAND_AMBER};background-image:linear-gradient(135deg,#FFC107 0%,#FFD75A 100%);color:${TEXT_DARK};text-decoration:none;padding:14px 30px;border:none;border-radius:14px;box-shadow:0 9px 24px rgba(255,193,7,.38);font-weight:800;font-size:14px;">${escapeHtml(p.content.ctaLabel)}</a>
               </div>
             </td>
           </tr>
