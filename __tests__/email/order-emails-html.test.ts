@@ -37,6 +37,9 @@ describe('renderOrderShippedHtml', () => {
     expect((html.match(/🚚/g) ?? [])).toHaveLength(1)
     expect(html).toContain('href="https://www.nurei.mx/pedido/order-id?token=access-token"')
     expect(html).toContain('>Ver mi pedido</a>')
+    expect(html).toContain('border:none;border-radius:14px')
+    expect(html).toContain('box-shadow:0 9px 24px rgba(255,193,7,.38)')
+    expect(html).not.toContain('padding:14px 28px;border:2px solid #111827')
   })
 
   it('does not use flex layout for the status card', () => {
