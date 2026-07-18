@@ -6,5 +6,6 @@ export async function reserveWeeklyOrderFolio(supabase: SupabaseClient): Promise
   if (error || !data) {
     throw new Error(error?.message || 'No se pudo reservar el folio del pedido.')
   }
-  return data
+  const folio = String(data)
+  return folio.toUpperCase().startsWith('NUR-') ? folio : `NUR-${folio}`
 }

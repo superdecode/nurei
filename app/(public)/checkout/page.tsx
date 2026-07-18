@@ -5,11 +5,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   CheckCircle2,
   ChevronRight,
   CreditCard,
+  Eye,
   Loader2,
   Minus,
   Plus,
@@ -328,12 +330,13 @@ export default function CheckoutPage() {
       setViewerCounts((prev) => {
         const next = { ...prev }
         for (const key of Object.keys(next)) {
-          const delta = (Math.random() < 0.5 ? 1 : 2) * (Math.random() < 0.5 ? 1 : -1)
+          // Refresh once per minute with a subtle, bounded ±1 variation.
+          const delta = Math.random() < 0.5 ? -1 : 1
           next[key] = Math.min(15, Math.max(1, (next[key] ?? 5) + delta))
         }
         return next
       })
-    }, 30_000)
+    }, 60_000)
     return () => clearInterval(id)
   }, [])
 
@@ -1158,12 +1161,14 @@ export default function CheckoutPage() {
 
                               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                 {lowStock && (
-                                  <span className="whitespace-nowrap text-[10px] uppercase tracking-wide font-bold rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-red-600">
+                                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-wide font-bold rounded-full border border-red-200 bg-gradient-to-r from-red-50 via-red-100 to-red-50 bg-[length:200%_100%] px-2 py-0.5 text-red-600 shadow-[0_0_10px_rgba(239,68,68,0.18)] animate-[shimmer_1.8s_linear_infinite]">
+                                    <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                                     Últimas unidades
                                   </span>
                                 )}
                                 {showViewers && (
-                                  <span className="whitespace-nowrap text-[10px] uppercase tracking-wide font-semibold rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+                                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-wide font-semibold rounded-full border border-amber-200 bg-gradient-to-r from-amber-50 via-amber-100 to-amber-50 bg-[length:200%_100%] px-2 py-0.5 text-amber-700 shadow-[0_0_10px_rgba(245,158,11,0.22)] animate-[shimmer_1.8s_linear_infinite]">
+                                    <Eye className="h-3 w-3" aria-hidden="true" />
                                     {viewerCount} viendo ahora
                                   </span>
                                 )}

@@ -1,5 +1,5 @@
 -- ============================================
--- InBreve MVP - Initial Schema
+-- Nurei MVP - Initial Schema
 -- ============================================
 
 -- PRODUCTOS

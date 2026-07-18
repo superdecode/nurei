@@ -17,7 +17,6 @@ import { useFavoritesStore } from '@/lib/stores/favorites'
 import { formatPrice, formatDate } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
-import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
 import type { Order, OrderStatus, OrderUpdate, Address, UserCoupon } from '@/types'
 
 const STATUS_ICON_MAP: Partial<Record<OrderStatus, React.ElementType>> = {
@@ -163,9 +162,14 @@ function OrderDetail({ order, onClose }: { order: Order; onClose: () => void }) 
           <ArrowLeft className="w-4 h-4 text-gray-500" />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="group/order-id flex items-center gap-2">
             <h2 className="text-base font-black text-gray-900">{order.short_id}</h2>
-            <button onClick={copyShortId} className="text-gray-300 hover:text-gray-500 transition-colors">
+            <button
+              onClick={copyShortId}
+              className="rounded-md p-1 text-gray-300 opacity-100 transition-colors hover:bg-gray-100 hover:text-gray-500 sm:opacity-0 sm:group-hover/order-id:opacity-100"
+              title="Copiar número de pedido"
+              aria-label="Copiar número de pedido"
+            >
               <Copy className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -393,8 +397,28 @@ function TabPedidos({
 
   return (
     <div className="relative">
+      {loading && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 space-y-3" role="status" aria-label="Cargando pedidos">
+          <span className="sr-only">Cargando pedidos</span>
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="h-32 rounded-2xl border border-gray-100 bg-white p-4 animate-pulse">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-2">
+                  <div className="h-4 w-24 rounded bg-gray-200" />
+                  <div className="h-3 w-32 rounded bg-gray-100" />
+                </div>
+                <div className="h-6 w-24 rounded-full bg-gray-100" />
+              </div>
+              <div className="mt-5 flex gap-2">
+                <div className="h-6 w-32 rounded-lg bg-gray-100" />
+                <div className="h-6 w-24 rounded-lg bg-gray-100" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {/* Status filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-hide">
+      <div className={`flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-hide ${loading ? 'opacity-0' : ''}`}>
         {STATUS_TAB_ITEMS.map((tab) => {
           const count = tab.value === 'all'
             ? orders.length
@@ -421,6 +445,7 @@ function TabPedidos({
       </div>
 
       {/* Orders list */}
+      <div className={loading ? 'invisible' : ''}>
       {filtered.length === 0 ? (
         <div className="text-center py-14">
           <ShoppingBag className="w-10 h-10 text-gray-200 mx-auto mb-3" />
@@ -488,6 +513,7 @@ function TabPedidos({
           })}
         </div>
       )}
+      </div>
 
       {/* Mobile: full-screen drawer */}
       <AnimatePresence>
@@ -1247,6 +1273,46 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'cuenta', label: 'Cuenta', icon: <User className="w-4 h-4" /> },
 ]
 
+function ProfileSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50 animate-pulse" role="status" aria-label="Cargando perfil">
+      <span className="sr-only">Cargando perfil</span>
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gray-200 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-5 w-40 rounded bg-gray-200" />
+              <div className="h-3 w-52 rounded bg-gray-100" />
+            </div>
+            <div className="h-8 w-24 rounded-lg bg-gray-100" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-5">
+            <div className="h-16 rounded-2xl bg-gray-100" />
+            <div className="h-16 rounded-2xl bg-gray-100" />
+          </div>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6">
+          <div className="flex gap-8 border-b border-gray-100">
+            {[0, 1, 2, 3].map((tab) => <div key={tab} className="h-12 w-20 rounded-t bg-gray-100" />)}
+          </div>
+        </div>
+      </div>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="h-32 rounded-2xl border border-gray-100 bg-white p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-2"><div className="h-4 w-24 rounded bg-gray-200" /><div className="h-3 w-32 rounded bg-gray-100" /></div>
+              <div className="h-6 w-24 rounded-full bg-gray-100" />
+            </div>
+            <div className="mt-5 flex gap-2"><div className="h-6 w-32 rounded-lg bg-gray-100" /><div className="h-6 w-20 rounded-lg bg-gray-100" /></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function PerfilPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1317,11 +1383,7 @@ function PerfilPageContent() {
   }, [mounted, isAuthenticated, isLoading, router, refreshUser, loadAddresses, loadOrders])
 
   if (!mounted || isLoading || !isAuthenticated || !user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-16">
-        <SnackWaitAnimation stage="profile" />
-      </div>
-    )
+    return <ProfileSkeleton />
   }
 
   const pendingOrders = activeOrderCount

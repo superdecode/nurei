@@ -115,12 +115,12 @@ export function CartItem({ item, onRemove }: CartItemProps) {
                 whileTap={{ scale: 0.8 }}
                 transition={springConfig}
                 onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.variant_id)}
-                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
+                className="w-[35px] h-[35px] min-w-0 min-h-0 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-nurei-cta hover:border-nurei-cta hover:text-gray-900 active:bg-nurei-cta/80 transition-colors text-gray-400"
               >
-                <Minus className="w-3.5 h-3.5" />
+                <Minus className="w-3 h-3" />
               </motion.button>
 
-              <div className="w-7 h-7 flex items-center justify-center overflow-hidden">
+              <div className="w-7 h-[35px] flex items-center justify-center overflow-hidden">
                 <AnimatePresence mode="popLayout">
                   <motion.span
                     key={item.quantity}
@@ -139,9 +139,9 @@ export function CartItem({ item, onRemove }: CartItemProps) {
                 whileTap={{ scale: 0.8 }}
                 transition={springConfig}
                 onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.variant_id)}
-                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target text-gray-400"
+                className="w-[35px] h-[35px] min-w-0 min-h-0 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-nurei-cta hover:border-nurei-cta hover:text-gray-900 active:bg-nurei-cta/80 transition-colors text-gray-400"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3" />
               </motion.button>
             </div>
 

@@ -181,6 +181,7 @@ export default function PedidosAdminPage() {
   const [drawerOrder, setDrawerOrder] = useState<Order | null>(null)
   const [drawerNote, setDrawerNote] = useState('')
   const [drawerNoteLoading, setDrawerNoteLoading] = useState(false)
+  const [drawerOrderCopied, setDrawerOrderCopied] = useState(false)
   // Invalidates an in-flight detail request when another order is opened/closed.
   // This prevents a slower previous response from painting stale details.
   const drawerRequestRef = useRef(0)
@@ -306,6 +307,7 @@ export default function PedidosAdminPage() {
     setDrawerOpen(false)
     setDrawerOrder(null)
     setDrawerNote('')
+    setDrawerOrderCopied(false)
   }
 
   const openDrawer = async (order: Order) => {
@@ -314,6 +316,7 @@ export default function PedidosAdminPage() {
     // Never retain the previous order while the new detail is loading.
     setDrawerOrder(null)
     setDrawerNote('')
+    setDrawerOrderCopied(false)
     try {
       const res = await fetch(`/api/admin/orders/${order.id}`)
       const json = await res.json() as { data?: { order: Order } }
@@ -324,6 +327,14 @@ export default function PedidosAdminPage() {
       // list data. The next explicit selection can try again safely.
       if (requestId === drawerRequestRef.current) setDrawerOrder(null)
     }
+  }
+
+  const copyDrawerOrderNumber = async () => {
+    if (!drawerOrder) return
+    await navigator.clipboard.writeText(drawerOrder.short_id)
+    setDrawerOrderCopied(true)
+    toast.success('Número de pedido copiado')
+    window.setTimeout(() => setDrawerOrderCopied(false), 1600)
   }
 
   const addDrawerNote = async () => {
@@ -806,9 +817,23 @@ export default function PedidosAdminPage() {
               <div className="flex items-start justify-between border-b border-gray-100 px-5 py-3.5">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Pedido</p>
-                  <p className="text-xl font-black text-primary-dark font-mono leading-tight mt-0.5">
-                    {drawerOrder?.short_id ?? '—'}
-                  </p>
+                  <div className="group/order-id mt-0.5 flex items-center gap-1.5">
+                    <p className="text-xl font-black text-primary-dark font-mono leading-tight">
+                      {drawerOrder?.short_id ?? '—'}
+                    </p>
+                    {drawerOrder && (
+                      <button
+                        type="button"
+                        onClick={copyDrawerOrderNumber}
+                        className="rounded-md p-1 text-gray-300 opacity-100 transition hover:bg-gray-100 hover:text-gray-700 sm:opacity-0 sm:group-hover/order-id:opacity-100"
+                        title="Copiar número de pedido"
+                        aria-label="Copiar número de pedido"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {drawerOrderCopied && <span className="text-[10px] font-semibold text-emerald-600">Copiado</span>}
+                  </div>
                   {drawerOrder && (
                     <div className="mt-1.5">
                       <StatusBadge status={drawerOrder.status} />
@@ -849,7 +874,47 @@ export default function PedidosAdminPage() {
               {/* Drawer body */}
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
                 {!drawerOrder ? (
-                  <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+                  <div className="animate-pulse space-y-5" aria-label="Cargando detalles del pedido" role="status">
+                    <span className="sr-only">Cargando detalles del pedido</span>
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <div className="h-9 flex-1 rounded-xl bg-gray-100" />
+                      <div className="h-9 w-28 rounded-xl bg-gray-100" />
+                    </div>
+                    {/* Customer card */}
+                    <div className="rounded-xl border border-gray-100 p-4 space-y-3">
+                      <div className="h-3 w-16 rounded bg-gray-100" />
+                      <div className="h-4 w-40 rounded bg-gray-200" />
+                      <div className="h-3 w-52 rounded bg-gray-100" />
+                      <div className="h-3 w-36 rounded bg-gray-100" />
+                    </div>
+                    {/* Products */}
+                    <div className="space-y-3">
+                      <div className="h-3 w-20 rounded bg-gray-100" />
+                      {[0, 1, 2].map((item) => (
+                        <div key={item} className="flex items-center gap-3">
+                          <div className="h-9 w-9 shrink-0 rounded-lg bg-gray-100" />
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="h-3 w-3/4 rounded bg-gray-200" />
+                            <div className="h-2.5 w-1/2 rounded bg-gray-100" />
+                          </div>
+                          <div className="h-3 w-14 rounded bg-gray-100" />
+                        </div>
+                      ))}
+                    </div>
+                    {/* Totals and shipping cards */}
+                    <div className="rounded-xl border border-gray-100 p-4 space-y-3">
+                      <div className="h-3 w-full rounded bg-gray-100" />
+                      <div className="h-3 w-4/5 rounded bg-gray-100" />
+                      <div className="h-px w-full bg-gray-100" />
+                      <div className="h-4 w-2/3 rounded bg-gray-200" />
+                    </div>
+                    <div className="rounded-xl border border-gray-100 p-4 space-y-2">
+                      <div className="h-3 w-14 rounded bg-gray-100" />
+                      <div className="h-3 w-full rounded bg-gray-100" />
+                      <div className="h-3 w-4/5 rounded bg-gray-100" />
+                    </div>
+                  </div>
                 ) : (
                   <>
                     {/* Action buttons — always side-by-side */}

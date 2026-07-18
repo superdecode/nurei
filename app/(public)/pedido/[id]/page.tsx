@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ChevronDown, MessageCircle, Mail, MapPin, Package, PartyPopper,
+  ChevronDown, MessageCircle, Mail, MapPin, Package,
   Clock, CreditCard, CheckCircle2, Truck, Send, XCircle, RotateCcw, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -374,13 +374,18 @@ export default function TrackingPage() {
   const shippingEstimate = `Entrega estimada: ${formatEstimatedDate(
     addBusinessDays(new Date(order.created_at), shippingDays),
   )}`
+  // Older orders may contain a numeric short_id. Keep the public confirmation
+  // page consistent with the Nurei folio format without mutating stored data.
+  const orderNumber = order.short_id.toUpperCase().startsWith('NUR')
+    ? order.short_id
+    : `NUR-${order.short_id}`
   const supportWhatsapp = normalizeWhatsApp(storeInfo?.store_info?.whatsapp)
   const supportHref = supportWhatsapp
-    ? `https://wa.me/${supportWhatsapp}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido #${order.short_id}`)}`
+    ? `https://wa.me/${supportWhatsapp}?text=${encodeURIComponent(`Hola, necesito ayuda con mi pedido #${orderNumber}`)}`
     : null
   const supportEmail = storeInfo?.store_info?.email?.trim() || null
   const supportEmailHref = supportEmail
-    ? `mailto:${supportEmail}?subject=${encodeURIComponent(`Ayuda con pedido #${order.short_id}`)}`
+    ? `mailto:${supportEmail}?subject=${encodeURIComponent(`Ayuda con pedido #${orderNumber}`)}`
     : null
   const displayStatusInfo = ORDER_STATUS_MAP[displayStatus]
   const displayStatusText = paymentIsConfirmed
@@ -395,30 +400,6 @@ export default function TrackingPage() {
       transition={{ duration: 0.5, ease: 'easeOut' }}
     >
       <Container className="max-w-2xl px-4 sm:px-6">
-        {/* Success banner */}
-        <AnimatePresence>
-          {isSuccess && (
-            <motion.div
-              className="relative mb-6 bg-success/10 border border-success/20 rounded-xl p-4 text-center overflow-hidden"
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={{ duration: 0.5, type: 'spring', stiffness: 200, damping: 20 }}
-            >
-              {showConfetti && <ConfettiParticles />}
-              <motion.p
-                className="text-success font-semibold text-base relative z-10"
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
-              >
-                <PartyPopper className="inline-block w-5 h-5 mr-1.5 -mt-0.5" />
-                Pago confirmado!
-              </motion.p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Status header */}
         <motion.div
           className="text-center mb-6 sm:mb-8"
@@ -438,13 +419,19 @@ export default function TrackingPage() {
           </motion.h1>
 
           <motion.div
-            className="mt-2"
+            className="mt-4 flex flex-col items-center gap-1.5"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.35 }}
           >
-            <Badge variant="secondary" className="text-xs tracking-wide font-mono">
-              {order.short_id}
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">
+              Número de pedido
+            </p>
+            <Badge
+              variant="secondary"
+              className="rounded-full bg-nurei-warm px-4 py-1.5 text-sm font-black tracking-wider text-primary-dark shadow-sm ring-1 ring-nurei-cta/20"
+            >
+              {orderNumber}
             </Badge>
           </motion.div>
         </motion.div>
@@ -460,6 +447,7 @@ export default function TrackingPage() {
               exit={{ opacity: 0, scale: 0.92 }}
               transition={{ delay: 0.2, duration: 0.5, type: 'spring', stiffness: 200, damping: 22 }}
             >
+              {isSuccess && showConfetti && <ConfettiParticles />}
               {/* Ambient glow blobs, slowly drifting */}
               <motion.div
                 className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-nurei-cta/40 blur-3xl"

@@ -484,11 +484,6 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                   🔥 Popular
                 </span>
               )}
-              {needsVariantSelection && stockFeedback && (
-                <span className="px-2.5 py-1 text-[10px] font-black uppercase bg-red-500 text-white rounded-full shadow-lg">
-                  Elige variante
-                </span>
-              )}
             </div>
           )}
 
@@ -533,6 +528,10 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
           }`}>
             <HighlightText text={product.name} query={searchQuery} />
           </h3>
+
+          {needsVariantSelection && stockFeedback && (
+            <p className="mt-1 text-[10px] font-bold text-red-500">Escoge una variante</p>
+          )}
 
           {!compact && product.description && (
             <p className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">

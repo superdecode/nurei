@@ -11,7 +11,8 @@ export function ConsentBanner() {
     <div className="fixed bottom-0 inset-x-0 z-50 border-t border-gray-200 bg-white px-4 py-4 sm:px-6 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
       <div className="mx-auto max-w-4xl flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
         <p className="text-sm text-gray-600 flex-1">
-          Usamos cookies para analizar el uso del sitio y medir el desempeño de nuestra publicidad. Puedes aceptar o rechazar.
+          Ayúdanos a mejorar tu experiencia en Nurei. Usamos cookies para recordar tus preferencias,
+          entender qué productos te interesan y ofrecerte una navegación más rápida y relevante.
         </p>
         <div className="flex gap-2 shrink-0">
           <button
