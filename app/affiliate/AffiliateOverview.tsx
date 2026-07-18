@@ -85,6 +85,16 @@ export default function AffiliateOverview() {
           </div>
         </div>
 
+        {stats.clawback_debt_cents > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-amber-800">Saldo a favor de la tienda</p>
+              <p className="text-xs text-amber-700 mt-0.5">Por un reembolso previo — se descontará de tu próximo pago.</p>
+            </div>
+            <p className="text-lg font-black text-amber-800">{formatPrice(stats.clawback_debt_cents)}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-2">
