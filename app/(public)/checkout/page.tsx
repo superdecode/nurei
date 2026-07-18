@@ -45,6 +45,8 @@ import {
 import { SearchableSelect } from '@/components/forms/SearchableSelect'
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton'
 import { SnackWaitAnimation } from '@/components/checkout/SnackWaitAnimation'
+import { trackBeginCheckout, buildGa4Item } from '@/lib/tracking/ga4'
+import { trackInitiateCheckout } from '@/lib/tracking/meta-pixel'
 
 type CheckoutStep = 1 | 2 | 3 | 4
 type Direction = 'forward' | 'backward'
@@ -700,6 +702,15 @@ export default function CheckoutPage() {
         triggerPanelShake()
         return
       }
+      const ga4Items = items.map((item) =>
+        buildGa4Item(
+          { id: item.product.id, name: item.product.name, category: item.product.category },
+          item.variant_price ?? item.product.base_price ?? item.product.price,
+          item.quantity
+        )
+      )
+      trackBeginCheckout(ga4Items, subtotal)
+      trackInitiateCheckout(items.map((item) => item.product.id), subtotal)
       goToStep(3)
       return
     }
