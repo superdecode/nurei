@@ -3,6 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
 import { claimCouponForPaidOrder } from '@/lib/server/coupons/engine'
+import { sendMetaPurchaseEvent } from '@/lib/server/meta-capi'
+import { centavosToPesos } from '@/lib/tracking/currency'
 
 /** Lazy-init: avoid instantiating Stripe at module load (breaks build when STRIPE_SECRET_KEY is unset). */
 function getStripe() {
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
 
         const { data: order } = await supabase
           .from('orders')
-          .select('total, coupon_code')
+          .select('total, coupon_code, customer_email, customer_phone, items')
           .eq('id', orderId)
           .single()
 
@@ -73,6 +75,25 @@ export async function POST(request: NextRequest) {
             cookieHeader: session.metadata?.referral_link_id
               ? `_nurei_ref=${session.metadata.referral_link_id}`
               : null,
+          }).catch(() => {})
+
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+          const orderItems = (order.items as Array<{ product_id: string }>) ?? []
+          void sendMetaPurchaseEvent({
+            orderId,
+            eventId: `purchase_${orderId}`,
+            eventSourceUrl: `${appUrl}/pedido/${orderId}`,
+            valuePesos: centavosToPesos(order.total),
+            currency: 'MXN',
+            contentIds: orderItems.map((item) => item.product_id),
+            userData: {
+              email: order.customer_email ?? undefined,
+              phone: order.customer_phone ?? undefined,
+              fbp: session.metadata?.fbp ?? undefined,
+              fbc: session.metadata?.fbc ?? undefined,
+              clientIpAddress: session.metadata?.client_ip ?? undefined,
+              clientUserAgent: session.metadata?.client_ua ?? undefined,
+            },
           }).catch(() => {})
         }
         break
