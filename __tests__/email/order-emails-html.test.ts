@@ -69,6 +69,9 @@ describe('renderOrderShippedHtml', () => {
     expect(confirmation).toContain('table-layout:fixed')
     expect(confirmation).toContain('Subtotal</td><td width="40%" align="right"')
     expect(confirmation).toContain('Envío</td><td width="40%" align="right"')
+    expect(confirmation).toContain('padding:6px 12px 6px 0;text-align:right')
+    expect(confirmation).toContain('padding:8px 12px 8px 0;text-align:right')
+    expect(confirmation).toContain('padding:12px 12px 8px 0;border-top:2px')
     expect(confirmation).not.toContain('colspan="2"')
   })
 
