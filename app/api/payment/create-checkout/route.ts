@@ -62,6 +62,16 @@ export async function POST(request: NextRequest) {
     // Forward referral cookie so webhook can attribute the order
     const referralLinkId = request.cookies.get('_nurei_ref')?.value ?? null
 
+    // Meta Pixel sets these first-party cookies automatically once loaded (consent-gated).
+    // Forwarded to the webhook so server-side Conversions API can match/dedupe with the browser pixel.
+    const fbp = request.cookies.get('_fbp')?.value ?? ''
+    const fbc = request.cookies.get('_fbc')?.value ?? ''
+    const clientIp =
+      request.headers.get('x-real-ip') ??
+      request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ??
+      ''
+    const clientUa = request.headers.get('user-agent') ?? ''
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -73,6 +83,10 @@ export async function POST(request: NextRequest) {
           short_id: order.short_id,
           customer_name: order.customer_name ?? '',
           ...(referralLinkId ? { referral_link_id: referralLinkId } : {}),
+          ...(fbp ? { fbp } : {}),
+          ...(fbc ? { fbc } : {}),
+          ...(clientIp ? { client_ip: clientIp } : {}),
+          ...(clientUa ? { client_ua: clientUa } : {}),
         },
       },
       ...(order.coupon_discount > 0
@@ -91,6 +105,10 @@ export async function POST(request: NextRequest) {
         short_id: order.short_id,
         customer_name: order.customer_name,
         ...(referralLinkId ? { referral_link_id: referralLinkId } : {}),
+        ...(fbp ? { fbp } : {}),
+        ...(fbc ? { fbc } : {}),
+        ...(clientIp ? { client_ip: clientIp } : {}),
+        ...(clientUa ? { client_ua: clientUa } : {}),
       },
     })
 
