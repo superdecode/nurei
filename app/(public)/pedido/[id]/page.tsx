@@ -17,6 +17,8 @@ import { useCartStore } from '@/lib/stores/cart'
 import { formatPrice } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import type { Order, OrderStatus } from '@/types'
+import { trackPurchase as trackGa4Purchase, buildGa4Item } from '@/lib/tracking/ga4'
+import { trackPurchase as trackMetaPurchase } from '@/lib/tracking/meta-pixel'
 
 type StoreInfoResponse = {
   store_info: {
@@ -290,6 +292,27 @@ export default function TrackingPage() {
     clearCart()
     sessionStorage.setItem(flagKey, '1')
   }, [isSuccess, order, clearCart])
+
+  // Fire client-side purchase tracking once per order, the moment it's confirmed
+  // paid — covers every payment method that lands here with payment_status='paid',
+  // not just the Stripe success=true redirect. Deduplicated server-side against
+  // Meta CAPI (Stripe path only) via the shared event_id.
+  useEffect(() => {
+    if (!order || order.payment_status !== 'paid') return
+    const flagKey = `nurei-purchase-tracked-${order.id}`
+    if (sessionStorage.getItem(flagKey)) return
+    sessionStorage.setItem(flagKey, '1')
+
+    const ga4Items = order.items.map((item) =>
+      buildGa4Item({ id: item.product_id, name: item.name, category: '' }, item.unit_price, item.quantity)
+    )
+    trackGa4Purchase({ transactionId: order.id, valueCentavos: order.total, items: ga4Items })
+    trackMetaPurchase({
+      eventId: `purchase_${order.id}`,
+      contentIds: order.items.map((item) => item.product_id),
+      valueCentavos: order.total,
+    })
+  }, [order])
 
   useEffect(() => {
     ;(async () => {
