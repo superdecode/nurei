@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { unstable_cache } from 'next/cache'
+import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/react'
 import { Toaster } from '@/components/ui/sonner'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -97,8 +98,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const clarityId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID?.trim()
+
   return (
     <html lang="es" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`} data-scroll-behavior="smooth" suppressHydrationWarning>
+      <head>
+        {clarityId ? (
+          <Script id="clarity-init" strategy="beforeInteractive">
+            {`(function(c,l,a,r,i,t,y){
+              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "${clarityId}");`}
+          </Script>
+        ) : null}
+      </head>
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground" suppressHydrationWarning>
         {children}
         <Toaster position="top-center" richColors theme="light" />
