@@ -30,6 +30,8 @@ export const TEXT_DARK = '#111827'
 export const TEXT_MUTED = '#6B7280'
 export const GREEN = '#10B981'
 export const CARD_BORDER = '#E5E7EB'
+const HEADER_GRADIENT = `background-color:${BRAND_AMBER};background-image:linear-gradient(135deg,#FFC107 0%,#FFD75A 58%,#FFF0A6 100%);`
+const CANVAS_GRADIENT = 'background-color:#F3F4F6;background-image:linear-gradient(180deg,#F8F7F2 0%,#ECEAE3 100%);'
 
 /** Correo de confirmación al cliente: moderno, amable y con toque juguetón. */
 export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps): string {
@@ -47,7 +49,7 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
   const couponRow =
     p.couponDiscount > 0
       ? `<tr>
-          <td colspan="2" style="padding:8px;font-size:13px;color:${GREEN};font-weight:600;">Cupón ${escapeHtml(p.couponCode ?? '')}</td>
+          <td style="padding:8px 0;font-size:13px;color:${GREEN};font-weight:600;">Cupón ${escapeHtml(p.couponCode ?? '')}</td>
           <td style="padding:8px;text-align:right;font-size:14px;color:${GREEN};font-weight:600;">-${formatPrice(p.couponDiscount)}</td>
         </tr>`
       : ''
@@ -65,14 +67,14 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
   return `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>Pedido ${escapeHtml(p.shortId)}</title></head>
-<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 16px;">
+<body style="margin:0;padding:0;${CANVAS_GRADIENT}font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${CANVAS_GRADIENT}padding:24px 16px;">
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(17,24,39,0.08);border:1px solid ${CARD_BORDER};">
 
         <!-- Encabezado: únicamente el mensaje principal -->
-        <tr><td style="background:${BRAND_AMBER};padding:28px 24px;text-align:center;border-bottom:3px solid ${TEXT_DARK};">
-          <h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:900;color:${TEXT_DARK};letter-spacing:-0.02em;">¡Recibimos tu pedido!</h1>
+        <tr><td style="${HEADER_GRADIENT}padding:28px 24px;text-align:center;border-bottom:3px solid ${TEXT_DARK};">
+          <h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:900;color:${TEXT_DARK};letter-spacing:-0.02em;"><span style="display:inline-block;margin-right:8px;">📦</span>¡Recibimos tu pedido!</h1>
         </td></tr>
 
         <tr><td style="padding:24px;">
@@ -96,11 +98,11 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
             <tbody>${rows}</tbody>
           </table>
 
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:${TEXT_DARK};">
-            <tr><td style="padding:6px 0;color:${TEXT_MUTED};">Subtotal</td><td align="right" style="padding:6px 0;font-weight:600;">${formatPrice(p.subtotal)}</td></tr>
-            <tr><td style="padding:6px 0;color:${TEXT_MUTED};">Envío</td><td align="right" style="padding:6px 0;font-weight:600;">${p.shippingFee === 0 ? '<span style="color:' + GREEN + ';">¡Gratis!</span>' : formatPrice(p.shippingFee)}</td></tr>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;font-size:14px;color:${TEXT_DARK};">
+            <tr><td width="60%" style="padding:6px 0;color:${TEXT_MUTED};">Subtotal</td><td width="40%" align="right" style="padding:6px 0;text-align:right;font-weight:600;">${formatPrice(p.subtotal)}</td></tr>
+            <tr><td width="60%" style="padding:6px 0;color:${TEXT_MUTED};">Envío</td><td width="40%" align="right" style="padding:6px 0;text-align:right;font-weight:600;">${p.shippingFee === 0 ? '<span style="color:' + GREEN + ';">¡Gratis!</span>' : formatPrice(p.shippingFee)}</td></tr>
             ${couponRow}
-            <tr><td colspan="2" style="padding:12px 0 8px;border-top:2px solid ${CARD_BORDER};font-size:16px;font-weight:800;color:${TEXT_DARK};">Total</td><td align="right" style="padding:12px 0 8px;border-top:2px solid ${CARD_BORDER};font-size:18px;font-weight:800;color:${TEXT_DARK};">${formatPrice(p.total)}</td></tr>
+            <tr><td style="padding:12px 0 8px;border-top:2px solid ${CARD_BORDER};font-size:16px;font-weight:800;color:${TEXT_DARK};">Total</td><td align="right" style="padding:12px 0 8px;border-top:2px solid ${CARD_BORDER};text-align:right;font-size:18px;font-weight:800;color:${TEXT_DARK};">${formatPrice(p.total)}</td></tr>
           </table>
 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;background:${BRAND_BG};border-radius:16px;border:1px solid #FDE68A;">
@@ -167,29 +169,29 @@ function renderOrderSummary(shortId: string, orderDate: string, total: number): 
   </table>`
 }
 
-function renderOrderStatusHtml(p: OrderStatusEmailProps, content: { title: string; message: string; status: string; details?: string }): string {
+function renderOrderStatusHtml(p: OrderStatusEmailProps, content: { icon: string; title: string; message: string; status: string; details?: string }): string {
   const address = p.deliveryAddress
     ? `<tr><td style="padding:13px 16px;border-top:1px solid ${CARD_BORDER};"><p style="margin:0;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${TEXT_MUTED};">Dirección de entrega</p><p style="margin:5px 0 0;font-size:13px;line-height:1.5;color:${TEXT_DARK};">${escapeHtml(p.deliveryAddress)}</p></td></tr>`
     : ''
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>${escapeHtml(content.title)} · ${escapeHtml(p.shortId)}</title></head>
-<body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border:1px solid ${CARD_BORDER};border-radius:20px;overflow:hidden;">
-<tr><td style="padding:28px 24px;text-align:center;background:${BRAND_AMBER};border-bottom:3px solid ${TEXT_DARK};"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:900;letter-spacing:-.02em;color:${TEXT_DARK};">${escapeHtml(content.title)}</h1></td></tr>
-<tr><td style="padding:24px;"><p style="margin:0 0 8px;font-size:16px;line-height:1.55;color:${TEXT_DARK};">Hola <strong>${escapeHtml(p.customerName)}</strong>,</p><p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${TEXT_MUTED};">${escapeHtml(content.message)}</p>${renderOrderSummary(p.shortId, p.orderDate, p.total)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #FDE68A;border-left:4px solid ${BRAND_AMBER};border-radius:12px;overflow:hidden;background:${BRAND_BG};"><tr><td style="padding:14px 16px;background:${BRAND_BG};"><p style="margin:0;font-size:14px;font-weight:800;color:${TEXT_DARK};">${escapeHtml(content.status)}</p>${content.details ?? ''}</td></tr>${address}</table><table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td align="center" bgcolor="${BRAND_AMBER}" style="border-radius:12px;"><a href="${escapeHtml(p.orderUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;border:2px solid ${TEXT_DARK};border-radius:12px;background:${BRAND_AMBER};color:${TEXT_DARK};font-size:15px;font-weight:800;text-decoration:none;">Ver mi pedido</a></td></tr></table><p style="margin:26px 0 0;text-align:center;font-size:13px;line-height:1.6;color:${TEXT_MUTED};">¿Tienes dudas? Estamos para ayudarte.<br/>El equipo de <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong></p></td></tr>
+<body style="margin:0;padding:0;${CANVAS_GRADIENT}font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${CANVAS_GRADIENT}padding:24px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border:1px solid ${CARD_BORDER};border-radius:20px;overflow:hidden;box-shadow:0 14px 44px rgba(17,24,39,.10);">
+<tr><td style="${HEADER_GRADIENT}padding:28px 24px;text-align:center;border-bottom:3px solid ${TEXT_DARK};"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:900;letter-spacing:-.02em;color:${TEXT_DARK};"><span style="display:inline-block;margin-right:8px;">${content.icon}</span>${escapeHtml(content.title)}</h1></td></tr>
+<tr><td style="padding:24px;"><p style="margin:0 0 8px;font-size:16px;line-height:1.55;color:${TEXT_DARK};">Hola <strong>${escapeHtml(p.customerName)}</strong>,</p><p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${TEXT_MUTED};">${escapeHtml(content.message)}</p>${renderOrderSummary(p.shortId, p.orderDate, p.total)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #FDE68A;border-left:4px solid ${BRAND_AMBER};border-radius:12px;overflow:hidden;background-color:${BRAND_BG};background-image:linear-gradient(135deg,#FFFBEB 0%,#FFFFFF 100%);"><tr><td style="padding:14px 16px;background-color:${BRAND_BG};background-image:linear-gradient(135deg,#FFFBEB 0%,#FFFFFF 100%);"><p style="margin:0;font-size:14px;font-weight:800;color:${TEXT_DARK};">${escapeHtml(content.status)}</p>${content.details ?? ''}</td></tr>${address}</table><table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td align="center" bgcolor="${BRAND_AMBER}" style="border-radius:12px;"><a href="${escapeHtml(p.orderUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;border:2px solid ${TEXT_DARK};border-radius:12px;background-color:${BRAND_AMBER};background-image:linear-gradient(135deg,#FFC107 0%,#FFD75A 100%);color:${TEXT_DARK};font-size:15px;font-weight:800;text-decoration:none;">Ver mi pedido</a></td></tr></table><p style="margin:26px 0 0;text-align:center;font-size:13px;line-height:1.6;color:${TEXT_MUTED};">¿Tienes dudas? Estamos para ayudarte.<br/>El equipo de <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong></p></td></tr>
 <tr><td style="padding:14px 24px;background:#FAFAFA;border-top:1px solid ${CARD_BORDER};text-align:center;font-size:11px;color:${TEXT_MUTED};">© ${new Date().getFullYear()} ${escapeHtml(p.brandName)}</td></tr></table></td></tr></table></body></html>`
 }
 
 /** Notificaciones de pedido con una jerarquía uniforme y segura para clientes de correo. */
 export function renderOrderPreparingHtml(p: OrderStatusEmailProps): string {
-  return renderOrderStatusHtml(p, { title: 'Tu pedido está en preparación', message: 'Ya estamos alistando tus productos con cuidado. Te avisaremos en cuanto salgan rumbo a tu dirección.', status: 'Estamos preparando tu pedido', details: p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : undefined })
+  return renderOrderStatusHtml(p, { icon: '🍜', title: 'Tu pedido está en preparación', message: 'Ya estamos alistando tus productos con cuidado. Te avisaremos en cuanto salgan rumbo a tu dirección.', status: 'Estamos preparando tu pedido', details: p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : undefined })
 }
 
 export function renderOrderShippedHtml(p: OrderStatusEmailProps): string {
   const guide = p.trackingNumber ? `Guía: <strong style="color:${TEXT_DARK};">${escapeHtml(p.trackingNumber)}</strong>${p.carrier ? ` · ${escapeHtml(p.carrier)}` : ''}` : 'Tu pedido ya salió rumbo a tu dirección.'
-  return renderOrderStatusHtml(p, { title: 'Tu pedido va en camino', message: 'Tus productos ya salieron y avanzan rumbo a la dirección registrada en tu pedido.', status: 'En camino', details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">${guide}</p>${p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : ''}` })
+  return renderOrderStatusHtml(p, { icon: '🚚', title: 'Tu pedido va en camino', message: 'Tus productos ya salieron y avanzan rumbo a la dirección registrada en tu pedido.', status: 'En camino', details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">${guide}</p>${p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : ''}` })
 }
 
 export function renderOrderDeliveredHtml(p: OrderStatusEmailProps): string {
-  return renderOrderStatusHtml(p, { title: 'Tu pedido fue entregado', message: 'La entrega quedó registrada correctamente. Esperamos que disfrutes mucho tus snacks.', status: 'Pedido entregado', details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${GREEN};">Gracias por elegirnos. ¡Buen provecho!</p>` })
+  return renderOrderStatusHtml(p, { icon: '✅', title: 'Tu pedido fue entregado', message: 'La entrega quedó registrada correctamente. Esperamos que disfrutes mucho tus snacks.', status: 'Pedido entregado', details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${GREEN};">Gracias por elegirnos. ¡Buen provecho!</p>` })
 }
 
 export type OrderRefundEmailProps = OrderStatusEmailProps & {
@@ -203,6 +205,7 @@ export function renderOrderRefundedHtml(p: OrderRefundEmailProps): string {
   const isPartial = p.remainingCents > 0
   const amountLabel = formatPrice(p.amountCents)
   return renderOrderStatusHtml(p, {
+    icon: '↩️',
     title: isPartial ? 'Reembolso parcial procesado' : 'Reembolso procesado',
     message: 'Procesamos correctamente el reembolso asociado con tu pedido. A continuación encontrarás el detalle.',
     status: `Monto reembolsado: ${amountLabel}`,
@@ -220,9 +223,9 @@ export function renderAdminNewOrderHtml(p: AdminNewOrderEmailProps): string {
 
   return `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:20px;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<body style="margin:0;padding:20px;${CANVAS_GRADIENT}font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:16px;border:1px solid ${CARD_BORDER};overflow:hidden;">
-    <tr><td style="background:${BRAND_AMBER};padding:14px 18px;font-weight:800;color:${TEXT_DARK};font-size:16px;">🛒 Nuevo pedido · ${escapeHtml(p.shortId)}</td></tr>
+    <tr><td style="${HEADER_GRADIENT}padding:14px 18px;font-weight:800;color:${TEXT_DARK};font-size:16px;">🛒 Nuevo pedido · ${escapeHtml(p.shortId)}</td></tr>
     <tr><td style="padding:18px;font-size:14px;color:${TEXT_DARK};line-height:1.5;">
       <p style="margin:0 0 12px;"><strong>${escapeHtml(p.customerName)}</strong><br/>
       <a href="mailto:${escapeHtml(p.customerEmail)}" style="color:${TEXT_DARK};text-decoration:underline;">${escapeHtml(p.customerEmail)}</a><br/>

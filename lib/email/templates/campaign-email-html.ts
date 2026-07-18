@@ -44,13 +44,13 @@ export function renderCampaignEmailHtml(p: CampaignEmailProps): string {
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>${escapeHtml(p.content.heading)}</title></head>
 <body style="margin:0;padding:0;background:${BRAND_BG};font-family:Arial,Helvetica,sans-serif;">
   ${preheaderBlock}
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND_BG};padding:24px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND_BG};background-image:linear-gradient(180deg,#FFFBEB 0%,#F5F1E6 100%);padding:24px 0;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FFFFFF;border-radius:24px;border:1px solid ${CARD_BORDER};overflow:hidden;box-shadow:0 10px 40px rgba(17,24,39,0.08);">
           <tr>
-            <td style="background:${BRAND_AMBER};padding:20px;text-align:center;">
-              <span style="font-size:22px;font-weight:900;color:${TEXT_DARK};letter-spacing:-0.5px;">nurei</span>
+            <td style="background-color:${BRAND_AMBER};background-image:linear-gradient(135deg,#FFC107 0%,#FFD75A 58%,#FFF0A6 100%);padding:20px;text-align:center;border-bottom:3px solid ${TEXT_DARK};">
+              <span style="display:inline-block;margin-right:8px;font-size:20px;">✦</span><span style="font-size:22px;font-weight:900;color:${TEXT_DARK};letter-spacing:-0.5px;">nurei</span>
             </td>
           </tr>
           <tr>

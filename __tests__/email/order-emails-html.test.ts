@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  renderCustomerOrderConfirmationHtml,
   renderOrderDeliveredHtml,
   renderOrderPreparingHtml,
   renderOrderShippedHtml,
@@ -33,7 +34,7 @@ describe('renderOrderShippedHtml', () => {
     expect(titleIndex).toBeGreaterThan(-1)
     expect(headerCloseIndex).toBeGreaterThan(titleIndex)
     expect(greetingIndex).toBeGreaterThan(headerCloseIndex)
-    expect(html).not.toContain('📦')
+    expect((html.match(/🚚/g) ?? [])).toHaveLength(1)
     expect(html).toContain('href="https://www.nurei.mx/pedido/order-id?token=access-token"')
     expect(html).toContain('>Ver mi pedido</a>')
   })
@@ -47,6 +48,28 @@ describe('renderOrderShippedHtml', () => {
     expect(html).toContain('#FFFBEB')
     expect(html).not.toContain('#0284C7')
     expect(html).not.toContain('#F0F9FF')
+  })
+
+  it('keeps confirmation totals in two columns aligned to the right edge', () => {
+    const confirmation = renderCustomerOrderConfirmationHtml({
+      brandName: 'nurei',
+      shortId: 'NR-1042',
+      customerName: 'María',
+      orderUrl: 'https://www.nurei.mx/pedido/order-id',
+      orderDate: '18 jul 2026',
+      items: [{ name: 'Pocky', quantity: 1, subtotal: 12900 }],
+      subtotal: 12900,
+      shippingFee: 9900,
+      couponDiscount: 1000,
+      couponCode: 'NUREI10',
+      total: 21800,
+      deliveryAddress: 'Roma Norte, CDMX',
+    })
+
+    expect(confirmation).toContain('table-layout:fixed')
+    expect(confirmation).toContain('Subtotal</td><td width="40%" align="right"')
+    expect(confirmation).toContain('Envío</td><td width="40%" align="right"')
+    expect(confirmation).not.toContain('colspan="2"')
   })
 
   it('renders every status template as a complete email document', () => {
