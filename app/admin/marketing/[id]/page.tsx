@@ -35,8 +35,13 @@ export default function CampaignEditorPage({ params }: { params: Promise<{ id: s
   const hasLoadedRef = useRef(false)
 
   useEffect(() => {
-    if (isNew || hasLoadedRef.current) return
+    // Flip the guard on the very first effect run regardless of `isNew`, so that a
+    // later `router.replace` from /nueva to the real id (which changes both `id` and
+    // `isNew` and re-triggers this effect on the same component instance) does not
+    // kick off a redundant refetch that could clobber in-flight edits.
+    if (hasLoadedRef.current) return
     hasLoadedRef.current = true
+    if (isNew) return
     fetch(`/api/admin/marketing/campaigns/${id}`)
       .then(async (r) => {
         if (!r.ok) { setLoadError(true); return }
