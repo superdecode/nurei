@@ -5,6 +5,7 @@ import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
 import { claimCouponForPaidOrder } from '@/lib/server/coupons/engine'
 import { sendMetaPurchaseEvent } from '@/lib/server/meta-capi'
 import { centavosToPesos } from '@/lib/tracking/currency'
+import { mapStripeRefundStatus } from '@/lib/server/process-refund'
 
 /** Lazy-init: avoid instantiating Stripe at module load (breaks build when STRIPE_SECRET_KEY is unset). */
 function getStripe() {
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
             : (event.data.object as Stripe.Charge).refunds?.data?.[0]
         if (!refund?.id) break
 
-        const dbStatus = refund.status === 'succeeded' ? 'succeeded' : refund.status === 'failed' ? 'failed' : 'pending'
+        const dbStatus = mapStripeRefundStatus(refund.status)
 
         if (dbStatus === 'failed') {
           // Reverse the ledger effects (order status/refunded amount, affiliate

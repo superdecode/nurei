@@ -23,7 +23,7 @@ export interface ProcessRefundResult {
  * (per the CHECK constraint in supabase/migrations/051_refund_system.sql).
  * 'requires_action' and 'null' are treated as non-final, same as 'pending'.
  */
-function mapStripeRefundStatus(
+export function mapStripeRefundStatus(
   status: Stripe.Refund['status']
 ): 'pending' | 'succeeded' | 'failed' {
   if (status === 'succeeded') return 'succeeded'
