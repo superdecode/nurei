@@ -94,9 +94,12 @@ export async function POST(req: NextRequest, { params }: Params) {
   const supabase = createServiceClient()
 
   try {
+    // Only need id/created_at to derive the period range — the RPC does its own
+    // internal fetch (and its own filtering to payout_status = 'approved') for
+    // the amounts.
     const { data: attributions, error: attrErr } = await supabase
       .from('affiliate_attributions')
-      .select('id, commission_amount_cents, refund_adjustment_cents, payout_status, created_at')
+      .select('id, created_at')
       .eq('affiliate_id', id)
       .in('id', attribution_ids)
 
@@ -104,87 +107,64 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'No se encontraron las atribuciones seleccionadas' }, { status: 404 })
     }
 
-    const grossAmount = attributions.reduce(
-      (sum, a) => sum + Math.max(0, (a.commission_amount_cents ?? 0) - (a.refund_adjustment_cents ?? 0)),
-      0
-    )
-
-    if (grossAmount <= 0) {
-      return NextResponse.json({ error: 'El monto total debe ser mayor a 0' }, { status: 400 })
-    }
-
-    const { data: affiliateProfile } = await supabase
-      .from('affiliate_profiles')
-      .select('clawback_debt_cents')
-      .eq('id', id)
-      .single()
-
-    const clawbackDebt = affiliateProfile?.clawback_debt_cents ?? 0
-    const debtDeducted = Math.min(grossAmount, clawbackDebt)
-    const totalAmount = grossAmount - debtDeducted
-
     const dates = attributions.map((a) => new Date(a.created_at))
-    const periodFrom = new Date(Math.min(...dates.map((d) => d.getTime())))
-    const periodTo = new Date(Math.max(...dates.map((d) => d.getTime())))
+    const periodFrom = new Date(Math.min(...dates.map((d) => d.getTime()))).toISOString().slice(0, 10)
+    const periodTo = new Date(Math.max(...dates.map((d) => d.getTime()))).toISOString().slice(0, 10)
 
-    const debtNote = debtDeducted > 0
-      ? `Se descontaron $${(debtDeducted / 100).toFixed(2)} MXN de deuda por reembolso previo.`
-      : null
+    // Atomic, row-locked RPC: fetches/filters attributions, nets out clawback
+    // debt, inserts the commission_payments row, marks attributions paid, and
+    // updates the affiliate profile balances — all in one transaction.
+    const { data: amountPaid, error: rpcErr } = await supabase.rpc('process_affiliate_payout_atomic', {
+      p_affiliate_id: id,
+      p_attribution_ids: attribution_ids,
+      p_period_from: periodFrom,
+      p_period_to: periodTo,
+      p_paid_by: guard.userId,
+      p_notes: notes || null,
+      p_payment_type: payment_type,
+      p_reference_number: reference_number || null,
+    })
 
-    const { data: paymentData, error: insertErr } = await supabase
+    if (rpcErr) {
+      console.error('[payments API] Error calling process_affiliate_payout_atomic:', rpcErr)
+      return NextResponse.json({ error: 'Error al procesar pago' }, { status: 500 })
+    }
+
+    if (!amountPaid || amountPaid === 0) {
+      return NextResponse.json({ error: 'No se procesó ningún pago' }, { status: 400 })
+    }
+
+    // The RPC returns only the net amount paid, not the row it inserted. Correlate
+    // back to the exact row it just created using the values we know precisely:
+    // affiliate_id, the net amount (from the RPC's own return value), the period
+    // range, payment_type and paid_by — all supplied by/derived from this same
+    // call, ordered by paid_at desc as a tiebreaker for the (practically
+    // impossible) case of two identical payments landing at the same instant.
+    let paymentQuery = supabase
       .from('commission_payments')
-      .insert({
-        affiliate_id: id,
-        amount_cents: totalAmount,
-        period_from: periodFrom.toISOString().slice(0, 10),
-        period_to: periodTo.toISOString().slice(0, 10),
-        attribution_ids,
-        notes: [notes, debtNote].filter(Boolean).join(' — ') || null,
-        payment_type: payment_type ?? 'transferencia',
-        reference_number: reference_number || null,
-        paid_by: guard.userId,
-        paid_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (insertErr) {
-      console.error('[payments API] Error inserting payment:', insertErr)
-      return NextResponse.json({ error: 'Error al registrar pago' }, { status: 500 })
-    }
-
-    const { error: updateErr } = await supabase
-      .from('affiliate_attributions')
-      .update({ payout_status: 'paid' })
-      .in('id', attribution_ids)
+      .select('id, amount_cents, period_from, period_to, attribution_ids, notes, paid_at, payment_type, reference_number')
       .eq('affiliate_id', id)
+      .eq('amount_cents', amountPaid)
+      .eq('period_from', periodFrom)
+      .eq('period_to', periodTo)
+      .eq('payment_type', payment_type)
+      .eq('paid_by', guard.userId)
 
-    if (updateErr) {
-      console.error('[payments API] Error updating attribution status:', updateErr)
-      return NextResponse.json({ error: 'Pago registrado pero hubo error al actualizar estados' }, { status: 500 })
-    }
+    paymentQuery = reference_number
+      ? paymentQuery.eq('reference_number', reference_number)
+      : paymentQuery.is('reference_number', null)
 
-    const { data: remainingAttrs } = await supabase
-      .from('affiliate_attributions')
-      .select('commission_amount_cents, refund_adjustment_cents')
-      .eq('affiliate_id', id)
-      .in('payout_status', ['pending', 'approved'])
+    const { data: paymentData, error: fetchPaymentErr } = await paymentQuery
+      .order('paid_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    const newPending = (remainingAttrs ?? []).reduce(
-      (sum, a) => sum + Math.max(0, (a.commission_amount_cents ?? 0) - (a.refund_adjustment_cents ?? 0)),
-      0
-    )
-
-    const { error: profileErr } = await supabase
-      .from('affiliate_profiles')
-      .update({
-        pending_payout_cents: newPending,
-        clawback_debt_cents: Math.max(0, clawbackDebt - debtDeducted),
-      })
-      .eq('id', id)
-
-    if (profileErr) {
-      console.error('[payments API] Error updating profile pending amount:', profileErr)
+    if (fetchPaymentErr || !paymentData) {
+      // Payment already succeeded atomically via the RPC — this only affects
+      // the response payload, not the money movement, so don't surface it as
+      // a failed payment to the admin.
+      console.error('[payments API] Payment processed but could not fetch back the created row:', fetchPaymentErr)
+      return NextResponse.json({ data: null })
     }
 
     return NextResponse.json({ data: paymentData })
