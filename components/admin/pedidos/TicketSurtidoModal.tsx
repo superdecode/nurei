@@ -169,10 +169,10 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-2 text-gray-400 font-semibold">Artículo</th>
-                  <th className="text-center px-3 py-2 text-gray-400 font-semibold w-12">Cant.</th>
-                  <th className="text-right px-3 py-2 text-gray-400 font-semibold w-20">Precio</th>
-                  <th className="text-right px-4 py-2 text-gray-400 font-semibold w-20">Subtotal</th>
+                  <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Artículo</th>
+                  <th className="text-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 w-12">Cant.</th>
+                  <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 w-20">Precio</th>
+                  <th className="text-right px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 w-20">Subtotal</th>
                 </tr>
               </thead>
               <tbody>

@@ -14,6 +14,22 @@ import {
   type OrderEmailLineItem,
 } from '@/lib/email/templates/order-emails-html'
 
+async function sendResendEmail(
+  resend: Resend,
+  message: Parameters<Resend['emails']['send']>[0],
+  context: string,
+  options?: Parameters<Resend['emails']['send']>[1],
+): Promise<{ ok: boolean }> {
+  const { error } = await resend.emails.send(message, options)
+  if (error) {
+    // Resend reports API rejections in its result instead of throwing. Treat
+    // them as failures so a bad sender/template is visible in function logs.
+    console.error(`[email] Resend rechazó ${context}:`, error)
+    return { ok: false }
+  }
+  return { ok: true }
+}
+
 function safeAttrUrl(url: string): string {
   try {
     return new URL(url).href
@@ -39,7 +55,14 @@ type NormalizedPayload = {
   couponDiscount: number
   couponCode: string | null
   total: number
+  createdAt: string
   items: OrderEmailLineItem[]
+}
+
+function formatOrderDate(value: string | null | undefined): string {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }).format(date)
 }
 
 async function getInternalRecipientsByPreference(supabase = createServiceClient()): Promise<string[]> {
@@ -83,7 +106,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
       const { data, error } = await supabase
         .from('orders')
         .select(
-          'short_id, public_access_token, customer_email, customer_name, customer_phone, delivery_address, subtotal, shipping_fee, coupon_discount, coupon_code, total, items'
+          'short_id, public_access_token, customer_email, customer_name, customer_phone, delivery_address, subtotal, shipping_fee, coupon_discount, coupon_code, total, created_at, items'
         )
         .eq('id', orderId)
         .maybeSingle()
@@ -102,6 +125,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
           couponDiscount: data.coupon_discount ?? 0,
           couponCode: data.coupon_code,
           total: data.total,
+          createdAt: data.created_at,
           items: raw.map((i) => ({
             name: i.name,
             quantity: i.quantity,
@@ -141,6 +165,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
     couponDiscount: cached.couponDiscount,
     couponCode: cached.couponCode,
     total: cached.total,
+    createdAt: new Date().toISOString(),
     items: cached.items.map((i) => ({
       name: i.name,
       quantity: i.quantity,
@@ -190,18 +215,20 @@ export async function sendOrderConfirmationEmails(
     couponDiscount: payload.couponDiscount,
     couponCode: payload.couponCode,
     total: payload.total,
+    orderDate: formatOrderDate(payload.createdAt),
     deliveryAddress: payload.deliveryAddress,
     pendingPaymentNote: options?.pendingPaymentNote ?? null,
   })
 
   try {
-    await resend.emails.send({
+    const result = await sendResendEmail(resend, {
       from,
       to: [payload.customerEmail],
       replyTo,
       subject: `¡Tu pedido ${payload.shortId} está en marcha!`,
       html: customerHtml,
-    })
+    }, 'confirmación al cliente')
+    if (!result.ok) return { sent: false, reason: 'resend_customer_failed' }
   } catch (e) {
     console.error('[email] Error enviando correo al cliente:', e)
     return { sent: false, reason: 'resend_customer_failed' }
@@ -223,13 +250,13 @@ export async function sendOrderConfirmationEmails(
       deliveryAddress: payload.deliveryAddress,
     })
     try {
-      await resend.emails.send({
+      await sendResendEmail(resend, {
         from,
         to: notifyRecipients,
         replyTo,
         subject: `[${brandName}] Nuevo pedido ${payload.shortId} · ${formatPrice(payload.total)}`,
         html: adminHtml,
-      })
+      }, 'aviso interno de pedido')
     } catch (e) {
       console.error('[email] Error enviando correo interno:', e)
     }
@@ -254,7 +281,7 @@ export async function sendOrderStatusEmail(
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('orders')
-    .select('short_id, public_access_token, customer_email, customer_name, delivery_address, tracking_number, carrier')
+    .select('short_id, public_access_token, customer_email, customer_name, delivery_address, tracking_number, carrier, total, created_at')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -273,6 +300,8 @@ export async function sendOrderStatusEmail(
     shortId: data.short_id,
     customerName: (data.customer_name ?? 'Cliente').trim() || 'Cliente',
     orderUrl,
+    orderDate: formatOrderDate(data.created_at),
+    total: data.total ?? 0,
     deliveryAddress: data.delivery_address ?? undefined,
     trackingNumber: data.tracking_number ?? null,
     carrier: data.carrier ?? null,
@@ -296,8 +325,15 @@ export async function sendOrderStatusEmail(
   const { subject, html } = templates[status]
 
   try {
-    await resend.emails.send({ from, to: [data.customer_email], replyTo, subject, html })
-    return { sent: true }
+    const result = await sendResendEmail(
+      resend,
+      { from, to: [data.customer_email], replyTo, subject, html },
+      `actualización de estatus (${status})`,
+      // A double click or concurrent retry must not send the same lifecycle
+      // notification twice. Resend keeps idempotency keys for safe retries.
+      { idempotencyKey: `order-status-${orderId}-${status}` },
+    )
+    return result.ok ? { sent: true } : { sent: false, reason: 'resend_failed' }
   } catch (e) {
     console.error(`[email] Error enviando correo de estatus (${status}):`, e)
     return { sent: false, reason: 'resend_failed' }
@@ -314,7 +350,7 @@ export async function sendOrderRefundEmail(
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('orders')
-    .select('short_id, public_access_token, customer_email, customer_name, total, refunded_amount_cents')
+    .select('short_id, public_access_token, customer_email, customer_name, total, refunded_amount_cents, created_at')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -334,20 +370,22 @@ export async function sendOrderRefundEmail(
     shortId: data.short_id,
     customerName: (data.customer_name ?? 'Cliente').trim() || 'Cliente',
     orderUrl,
+    orderDate: formatOrderDate(data.created_at),
+    total: data.total ?? 0,
     amountCents: details.amountCents,
     reason: details.reason,
     remainingCents,
   })
 
   try {
-    await resend.emails.send({
+    const result = await sendResendEmail(resend, {
       from,
       to: [data.customer_email],
       replyTo,
       subject: `Reembolso procesado: pedido ${data.short_id}`,
       html,
-    })
-    return { sent: true }
+    }, 'reembolso')
+    return result.ok ? { sent: true } : { sent: false, reason: 'resend_failed' }
   } catch (e) {
     console.error('[email] Error enviando correo de reembolso:', e)
     return { sent: false, reason: 'resend_failed' }

@@ -304,6 +304,7 @@ export default function ProductosAdminPage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
+      params.set('admin', '1')
       if (statusFilter !== 'all') params.set('status', statusFilter)
       if (categoryFilter !== 'all') params.set('category', categoryFilter)
       if (search) params.set('search', search)
@@ -1825,12 +1826,12 @@ export default function ProductosAdminPage() {
                   <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs">SKU</TableHead>
-                        <TableHead className="text-xs">Nombre</TableHead>
-                        <TableHead className="text-xs">Cat.</TableHead>
-                        <TableHead className="text-xs">Precio</TableHead>
-                        <TableHead className="text-xs">Stock</TableHead>
-                        <TableHead className="text-xs">Acción</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">SKU</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Nombre</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Cat.</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Precio</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Stock</TableHead>
+                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

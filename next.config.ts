@@ -43,6 +43,11 @@ function supabaseStorageHostname(): string | null {
 const supabaseHostname = supabaseStorageHostname()
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    // The repository is nested under a home directory with another lockfile.
+    // Pinning the root avoids scanning that broader workspace on every build.
+    root: process.cwd(),
+  },
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   images: {
     remotePatterns: supabaseHostname
@@ -55,6 +60,12 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: securityHeaders,
+      },
+      // These pages are useful to visitors but have no search intent. Unlike a
+      // robots.txt disallow, noindex can be fetched and honored by search engines.
+      {
+        source: '/:path(checkout|favoritos|login|registro|perfil|pedido|affiliates)/:rest*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
       },
     ]
   },

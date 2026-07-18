@@ -418,7 +418,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!oos) setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
                             className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${oos ? 'opacity-35 cursor-not-allowed' : ''} ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
                           >
-                            <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
+                            <img src={img} alt="" className="w-full h-full object-cover" draggable={false} loading="lazy" decoding="async" />
                           </motion.button>
                         )
                       })}
@@ -438,7 +438,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVariantOffset(v => v - 1) }}
                         className="w-3.5 h-7 rounded-r-full overflow-hidden border-2 border-white shadow-md bg-gray-100 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
                       >
-                        <img src={variantThumbs[variantOffset - 1]} alt="" className="w-full h-full object-cover" draggable={false} />
+                        <img src={variantThumbs[variantOffset - 1]} alt="" className="w-full h-full object-cover" draggable={false} loading="lazy" decoding="async" />
                       </button>
                     )}
                     {fullThumbs.map((img, i) => {
@@ -453,7 +453,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!oos) setSelectedVariantIdx(selectedVariantIdx === activeIdx ? null : activeIdx) }}
                           className={`w-7 h-7 rounded-full overflow-hidden border-2 shadow-md bg-gray-100 shrink-0 transition-all duration-150 ${oos ? 'opacity-35 cursor-not-allowed' : ''} ${selectedVariantIdx === activeIdx ? 'border-nurei-cta scale-110 shadow-nurei-cta/40' : 'border-white hover:border-nurei-cta/60'}`}
                         >
-                          <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
+                          <img src={img} alt="" className="w-full h-full object-cover" draggable={false} loading="lazy" decoding="async" />
                         </motion.button>
                       )
                     })}
@@ -463,7 +463,7 @@ export function ProductCard({ product, searchQuery = '', compact = false }: Prod
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVariantOffset(v => v + 1) }}
                         className="w-3.5 h-7 rounded-l-full overflow-hidden border-2 border-white shadow-md bg-gray-100 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
                       >
-                        <img src={variantThumbs[fullStart + fullCount]} alt="" className="w-7 h-7 object-cover" draggable={false} />
+                        <img src={variantThumbs[fullStart + fullCount]} alt="" className="w-7 h-7 object-cover" draggable={false} loading="lazy" decoding="async" />
                       </button>
                     )}
                   </div>

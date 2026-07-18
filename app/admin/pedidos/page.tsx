@@ -181,6 +181,9 @@ export default function PedidosAdminPage() {
   const [drawerOrder, setDrawerOrder] = useState<Order | null>(null)
   const [drawerNote, setDrawerNote] = useState('')
   const [drawerNoteLoading, setDrawerNoteLoading] = useState(false)
+  // Invalidates an in-flight detail request when another order is opened/closed.
+  // This prevents a slower previous response from painting stale details.
+  const drawerRequestRef = useRef(0)
 
   // Status change confirm modal
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -298,15 +301,28 @@ export default function PedidosAdminPage() {
 
   // ── Drawer ────────────────────────────────────────────────────────
 
+  const closeDrawer = () => {
+    drawerRequestRef.current += 1
+    setDrawerOpen(false)
+    setDrawerOrder(null)
+    setDrawerNote('')
+  }
+
   const openDrawer = async (order: Order) => {
+    const requestId = ++drawerRequestRef.current
     setDrawerOpen(true)
+    // Never retain the previous order while the new detail is loading.
+    setDrawerOrder(null)
     setDrawerNote('')
     try {
       const res = await fetch(`/api/admin/orders/${order.id}`)
       const json = await res.json() as { data?: { order: Order } }
-      setDrawerOrder(json.data?.order ?? order)
+      if (requestId !== drawerRequestRef.current) return
+      setDrawerOrder(json.data?.order ?? null)
     } catch {
-      setDrawerOrder(order)
+      // Keep the empty loading state instead of falling back to stale/partial
+      // list data. The next explicit selection can try again safely.
+      if (requestId === drawerRequestRef.current) setDrawerOrder(null)
     }
   }
 
@@ -637,7 +653,7 @@ export default function PedidosAdminPage() {
               </TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500"><SortHeader col="short_id">Orden</SortHeader></TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500"><SortHeader col="created_at">Fecha</SortHeader></TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Cliente</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Cliente</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500"><SortHeader col="total">Total</SortHeader></TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pago</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Estatus</TableHead>
@@ -777,7 +793,7 @@ export default function PedidosAdminPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[60] bg-black/40"
-              onClick={() => setDrawerOpen(false)}
+              onClick={closeDrawer}
             />
             <motion.div
               initial={{ x: '100%' }}
@@ -822,7 +838,7 @@ export default function PedidosAdminPage() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setDrawerOpen(false)}
+                    onClick={closeDrawer}
                     className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition ml-1"
                   >
                     <X className="h-4 w-4" />

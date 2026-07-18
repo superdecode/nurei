@@ -6,6 +6,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireAdmin()
+  if (guard.error) return guard.error
+
   try {
     const { id } = await params
     const variants = await listVariants(id)

@@ -139,7 +139,7 @@ function SortHeader({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors',
+        'flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors',
         active ? 'text-primary-cyan' : 'text-gray-500 hover:text-gray-700'
       )}
     >
@@ -967,25 +967,25 @@ export default function InventoryAdminPage() {
                 </button>
               </TableHead>
               <TableHead className="w-[5%] min-w-0 py-2 pl-2 pr-4" />
-              <TableHead className="w-[30%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <TableHead className="w-[30%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Producto
               </TableHead>
-              <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Categoría
               </TableHead>
-              <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <TableHead className="w-[10%] min-w-0 whitespace-normal p-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Stock
               </TableHead>
-              <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <TableHead className="w-[11%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Estado
               </TableHead>
-              <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Alerta
               </TableHead>
-              <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <TableHead className="w-[8%] min-w-0 whitespace-normal p-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Vendidos 30d
               </TableHead>
-              <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <TableHead className="w-[12%] min-w-0 whitespace-normal p-1.5 text-right text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Acciones
               </TableHead>
             </TableRow>
@@ -1529,11 +1529,11 @@ export default function InventoryAdminPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">SKU</TableHead>
-                      <TableHead className="text-xs">Nombre</TableHead>
-                      <TableHead className="text-xs">Stock</TableHead>
-                      <TableHead className="text-xs">Precio</TableHead>
-                      <TableHead className="text-xs">Alerta</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">SKU</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Nombre</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Stock</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Precio</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Alerta</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1662,8 +1662,8 @@ export default function InventoryAdminPage() {
                           Cant.
                         </SortHeader>
                       </TableHead>
-                      <TableHead className="py-2.5 text-xs font-semibold text-gray-500">Detalle</TableHead>
-                      <TableHead className="py-2.5 text-xs font-semibold text-gray-500">Referencia</TableHead>
+                      <TableHead className="py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">Detalle</TableHead>
+                      <TableHead className="py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">Referencia</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

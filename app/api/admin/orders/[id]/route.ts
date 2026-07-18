@@ -129,16 +129,31 @@ export async function PATCH(
       })()
     }
 
-    if (newStatus === 'preparing') {
-      void sendOrderStatusEmail(id, 'preparing')
-    } else if (newStatus === 'ready_to_ship' || newStatus === 'shipped') {
-      void sendOrderStatusEmail(id, 'shipped')
-    } else if (newStatus === 'delivered') {
-      void sendOrderStatusEmail(id, 'delivered')
+    const emailStatus =
+      newStatus === 'preparing'
+        ? 'preparing'
+        : newStatus === 'ready_to_ship' || newStatus === 'shipped'
+          ? 'shipped'
+          : newStatus === 'delivered'
+            ? 'delivered'
+            : null
+
+    let emailDelivery: { sent: boolean; reason?: string } | null = null
+    if (emailStatus) {
+      // Await submission before this serverless invocation returns. Fire-and-
+      // forget work is routinely dropped once Vercel freezes the function.
+      emailDelivery = await sendOrderStatusEmail(id, emailStatus)
+      if (!emailDelivery.sent) {
+        console.error('[email] No se envió actualización de estatus', {
+          orderId: id,
+          status: emailStatus,
+          reason: emailDelivery.reason,
+        })
+      }
     }
 
     const order = await getOrderDetail(supabase, id)
-    return NextResponse.json({ data: { order } })
+    return NextResponse.json({ data: { order, emailDelivery } })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al actualizar pedido'
     return NextResponse.json({ error: message }, { status: 400 })

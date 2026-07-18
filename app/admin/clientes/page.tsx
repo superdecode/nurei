@@ -8,7 +8,7 @@ import {
   AlertTriangle, TrendingUp, Building2, Mail, Phone,
   ToggleLeft, ToggleRight, Trash2, Edit2, Eye,
   DollarSign, Check, Loader2, ChevronLeft, ChevronRight, Users2,
-  Filter, X, ChevronDown, LayoutGrid, List,
+  Filter, X, ChevronDown, ChevronUp, ChevronsUpDown, LayoutGrid, List, Minus, Tag,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { customerDisplayName, customerToFirstLast } from '@/lib/utils/customer-display'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
+import { TagPickerModal } from '@/components/admin/clientes/TagPickerModal'
 import { toast } from 'sonner'
 import type {
   Customer, CustomerSegment, CustomerStats, CustomerType,
@@ -116,6 +117,38 @@ function customerToForm(c: Customer): CustomerForm {
   }
 }
 
+// ─── Sortable column header ──────────────────────────────────────────────────
+
+function SortableHead({
+  label, field, active, order, onSort, align = 'left',
+}: {
+  label: string
+  field: string
+  active: boolean
+  order: 'asc' | 'desc'
+  onSort: (field: string) => void
+  align?: 'left' | 'right'
+}) {
+  return (
+    <TableHead className={cn('text-[10px] font-bold uppercase tracking-wider text-gray-500', align === 'right' && 'text-right')}>
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={cn(
+          'inline-flex items-center gap-1 uppercase hover:text-gray-700 transition-colors',
+          align === 'right' && 'flex-row-reverse',
+          active && 'text-primary-dark'
+        )}
+      >
+        {label}
+        {active
+          ? (order === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)
+          : <ChevronsUpDown className="h-3 w-3 opacity-40" />}
+      </button>
+    </TableHead>
+  )
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ClientesPage() {
@@ -133,6 +166,14 @@ export default function ClientesPage() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('active')
   const [marketingFilter, setMarketingFilter] = useState<boolean | null>(null)
   const [minSpentFilter, setMinSpentFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState<string>('all')
+
+  // Tag catalog (shared with /admin/cupones) — used by the filter panel and bulk tag picker
+  const [tagCatalog, setTagCatalog] = useState<string[]>([])
+
+  // Bulk selection + tag actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [tagPickerMode, setTagPickerMode] = useState<'add' | 'remove' | null>(null)
 
   // Smart filter panel
   const [filterOpen, setFilterOpen] = useState(false)
@@ -153,6 +194,17 @@ export default function ClientesPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 50
+
+  // Sorting — backend already supports these via customerListQuerySchema
+  type SortField = 'full_name' | 'created_at' | 'last_order_at' | 'total_spent_cents' | 'orders_count'
+  const [sortField, setSortField] = useState<SortField>('created_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))
+    else { setSortField(field); setSortOrder('asc') }
+    setPage(1)
+  }
 
   // Dialogs
   const [editorOpen, setEditorOpen] = useState(false)
@@ -176,6 +228,9 @@ export default function ClientesPage() {
       if (minSpentFilter && Number(minSpentFilter) > 0) {
         params.set('min_spent_cents', String(Math.round(Number(minSpentFilter) * 100)))
       }
+      if (tagFilter !== 'all') params.set('tag', tagFilter)
+      params.set('sort', sortField)
+      params.set('order', sortOrder)
       params.set('page', String(page))
       params.set('limit', String(limit))
 
@@ -184,12 +239,21 @@ export default function ClientesPage() {
       if (!res.ok) throw new Error(json.error ?? 'Error')
       setCustomers(json.data ?? [])
       setTotal(json.meta?.total ?? 0)
+      setSelectedIds(new Set())
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al cargar clientes')
     } finally {
       setLoading(false)
     }
-  }, [search, segmentFilter, typeFilter, hasOrdersFilter, activeFilter, marketingFilter, minSpentFilter, page])
+  }, [search, segmentFilter, typeFilter, hasOrdersFilter, activeFilter, marketingFilter, minSpentFilter, tagFilter, sortField, sortOrder, page])
+
+  // Tag catalog for the filter panel + bulk tag picker (same catalog /admin/cupones uses)
+  useEffect(() => {
+    fetchWithCredentials('/api/admin/customers/tags')
+      .then((r) => r.json())
+      .then((json) => setTagCatalog(json.data?.tags ?? []))
+      .catch(() => setTagCatalog([]))
+  }, [])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -325,8 +389,9 @@ export default function ClientesPage() {
     if (activeFilter !== 'all') f.push({ id: 'active', label: activeFilter === 'active' ? 'Activos' : 'Inactivos', onRemove: () => { setActiveFilter('all'); setPage(1) } })
     if (marketingFilter !== null) f.push({ id: 'mkt', label: marketingFilter ? 'Acepta marketing' : 'No acepta marketing', onRemove: () => { setMarketingFilter(null); setPage(1) } })
     if (minSpentFilter && Number(minSpentFilter) > 0) f.push({ id: 'spent', label: `Min. $${minSpentFilter}`, onRemove: () => { setMinSpentFilter(''); setPage(1) } })
+    if (tagFilter !== 'all') f.push({ id: 'tag', label: `#${tagFilter}`, onRemove: () => { setTagFilter('all'); setPage(1) } })
     return f
-  }, [segmentFilter, typeFilter, hasOrdersFilter, activeFilter, marketingFilter, minSpentFilter])
+  }, [segmentFilter, typeFilter, hasOrdersFilter, activeFilter, marketingFilter, minSpentFilter, tagFilter])
 
   const clearAllFilters = () => {
     setSegmentFilter('all')
@@ -335,8 +400,93 @@ export default function ClientesPage() {
     setActiveFilter('all')
     setMarketingFilter(null)
     setMinSpentFilter('')
+    setTagFilter('all')
     setPage(1)
     setFilterOpen(false)
+  }
+
+  // ── Bulk selection + tag actions ────────────────────────────────────────
+
+  const allPageSelected = customers.length > 0 && customers.every((c) => selectedIds.has(c.id))
+  const somePageSelected = !allPageSelected && customers.some((c) => selectedIds.has(c.id))
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+
+  const toggleSelectAll = () => {
+    if (allPageSelected) setSelectedIds(new Set())
+    else setSelectedIds(new Set(customers.map((c) => c.id)))
+  }
+
+  const [selectingAllMatches, setSelectingAllMatches] = useState(false)
+
+  // Selects every customer matching the current filters, not just the current page
+  // (capped at 200 — the API's max page size — since bulk tag ops don't need pagination beyond that).
+  const selectAllMatchingFilters = async () => {
+    setSelectingAllMatches(true)
+    try {
+      const params = new URLSearchParams()
+      if (search.trim()) params.set('search', search.trim())
+      if (segmentFilter !== 'all') params.set('segment', segmentFilter)
+      if (typeFilter !== 'all') params.set('type', typeFilter)
+      if (hasOrdersFilter === 'with') params.set('has_orders', 'true')
+      if (hasOrdersFilter === 'without') params.set('has_orders', 'false')
+      if (activeFilter !== 'all') params.set('is_active', activeFilter === 'active' ? 'true' : 'false')
+      if (marketingFilter !== null) params.set('accepts_marketing', String(marketingFilter))
+      if (minSpentFilter && Number(minSpentFilter) > 0) {
+        params.set('min_spent_cents', String(Math.round(Number(minSpentFilter) * 100)))
+      }
+      if (tagFilter !== 'all') params.set('tag', tagFilter)
+      params.set('page', '1')
+      params.set('limit', '200')
+
+      const res = await fetchWithCredentials(`/api/admin/customers?${params.toString()}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Error')
+      const ids: string[] = (json.data ?? []).map((c: Customer) => c.id)
+      setSelectedIds(new Set(ids))
+      if (total > ids.length) {
+        toast.success(`Se seleccionaron los primeros ${ids.length} de ${total} clientes que coinciden`)
+      }
+    } catch {
+      toast.error('No se pudo seleccionar todos los clientes')
+    } finally {
+      setSelectingAllMatches(false)
+    }
+  }
+
+  const handleBulkTagConfirm = async (tag: string) => {
+    const action = tagPickerMode
+    if (!action) return
+    const ids = Array.from(selectedIds)
+    try {
+      const res = await fetchWithCredentials('/api/admin/customers/bulk-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_ids: ids, tag, action }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Error')
+
+      setCustomers((prev) => prev.map((c) => {
+        if (!selectedIds.has(c.id)) return c
+        const next = action === 'add'
+          ? Array.from(new Set([...(c.tags ?? []), tag]))
+          : (c.tags ?? []).filter((t) => t !== tag)
+        return { ...c, tags: next }
+      }))
+      setTagCatalog((prev) => (action === 'add' && !prev.includes(tag) ? [...prev, tag].sort() : prev))
+
+      toast.success(
+        action === 'add'
+          ? `Etiqueta "${tag}" agregada a ${json.data.updated} cliente${json.data.updated !== 1 ? 's' : ''}`
+          : `Etiqueta "${tag}" quitada de ${json.data.updated} cliente${json.data.updated !== 1 ? 's' : ''}`
+      )
+      setTagPickerMode(null)
+      setSelectedIds(new Set())
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar la etiqueta')
+    }
   }
 
   const statCards = useMemo(() => ([
@@ -655,6 +805,34 @@ export default function ClientesPage() {
                     </div>
                   </div>
 
+                  {/* Etiqueta */}
+                  {tagCatalog.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Etiqueta</p>
+                      <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                        {tagCatalog.map((t) => {
+                          const active = tagFilter === t
+                          return (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => { setTagFilter(active ? 'all' : t); setPage(1) }}
+                              className={cn(
+                                'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
+                                active
+                                  ? 'bg-primary-cyan/10 border-primary-cyan/60 text-primary-dark'
+                                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
+                              )}
+                            >
+                              {t}
+                              {active && <Check className="h-2.5 w-2.5 ml-0.5" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {activeFilters.length > 0 && (
                     <button
                       type="button"
@@ -687,6 +865,38 @@ export default function ClientesPage() {
           </div>
         )}
 
+        {selectedIds.size > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => (allPageSelected ? setSelectedIds(new Set()) : toggleSelectAll())}
+            className="gap-1.5 h-8 rounded-full text-xs font-semibold shrink-0"
+          >
+            {allPageSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+          </Button>
+        )}
+
+        {selectedIds.size > 0 && (
+          <div className="flex gap-1.5 shrink-0">
+            <Button variant="outline" onClick={() => setTagPickerMode('add')} className="gap-1.5 h-8 rounded-full text-xs font-semibold">
+              <Tag className="h-3.5 w-3.5" /> Agregar etiqueta ({selectedIds.size})
+            </Button>
+            <Button variant="outline" onClick={() => setTagPickerMode('remove')} className="gap-1.5 h-8 rounded-full text-xs font-semibold">
+              <Tag className="h-3.5 w-3.5" /> Quitar etiqueta ({selectedIds.size})
+            </Button>
+          </div>
+        )}
+
+        {allPageSelected && total > customers.length && (
+          <button
+            type="button"
+            onClick={selectAllMatchingFilters}
+            disabled={selectingAllMatches}
+            className="text-xs font-semibold text-primary-dark hover:underline disabled:opacity-60 shrink-0"
+          >
+            {selectingAllMatches ? 'Seleccionando…' : `Seleccionar los ${Math.min(total, 200)} que coinciden con el filtro`}
+          </button>
+        )}
+
         <div className="ml-auto flex gap-1 bg-white rounded-xl p-1 border border-gray-200 shadow-sm shrink-0">
           <button
             type="button"
@@ -712,27 +922,34 @@ export default function ClientesPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/50">
-              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Cliente</TableHead>
+              <TableHead className="w-10">
+                <button type="button" onClick={toggleSelectAll} className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors', allPageSelected ? 'bg-primary-cyan border-primary-cyan' : somePageSelected ? 'bg-primary-cyan/20 border-primary-cyan/60' : 'border-gray-300 hover:border-gray-400')}>
+                  {allPageSelected && <Check className="w-3 h-3 text-primary-dark" />}
+                  {somePageSelected && <Minus className="w-3 h-3 text-primary-dark/70" />}
+                </button>
+              </TableHead>
+              <SortableHead label="Cliente" field="full_name" active={sortField === 'full_name'} order={sortOrder} onSort={(f) => toggleSort(f as SortField)} />
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Contacto</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Tipo</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Segmento</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Pedidos</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">LTV</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Último pedido</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Etiquetas</TableHead>
+              <SortableHead label="Pedidos" field="orders_count" active={sortField === 'orders_count'} order={sortOrder} onSort={(f) => toggleSort(f as SortField)} align="right" />
+              <SortableHead label="LTV" field="total_spent_cents" active={sortField === 'total_spent_cents'} order={sortOrder} onSort={(f) => toggleSort(f as SortField)} align="right" />
+              <SortableHead label="Último pedido" field="last_order_at" active={sortField === 'last_order_at'} order={sortOrder} onSort={(f) => toggleSort(f as SortField)} />
               <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-gray-400 py-12">
+                <TableCell colSpan={10} className="text-center text-gray-400 py-12">
                   <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
                   Cargando clientes…
                 </TableCell>
               </TableRow>
             ) : customers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-gray-400 py-12">
+                <TableCell colSpan={10} className="text-center text-gray-400 py-12">
                   No se encontraron clientes
                 </TableCell>
               </TableRow>
@@ -745,6 +962,11 @@ export default function ClientesPage() {
                   transition={{ delay: Math.min(i * 0.02, 0.3) }}
                   className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
                 >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <button type="button" onClick={() => toggleSelect(c.id)} className={cn('w-4 h-4 rounded border-2 flex items-center justify-center transition-colors', selectedIds.has(c.id) ? 'bg-primary-cyan border-primary-cyan' : 'border-gray-300 hover:border-gray-400')}>
+                      {selectedIds.has(c.id) && <Check className="w-3 h-3 text-primary-dark" />}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-cyan/30 to-primary-cyan/10 flex items-center justify-center text-[11px] font-bold text-primary-dark">
@@ -807,6 +1029,19 @@ export default function ClientesPage() {
                     <Badge variant="outline" className={cn('text-[11px] font-medium border', SEGMENT_STYLE[c.segment])}>
                       {SEGMENT_LABEL[c.segment]}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {c.tags && c.tags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 max-w-[180px]">
+                        {c.tags.map((t) => (
+                          <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 text-gray-600 px-1.5 py-0.5 text-[10px] font-medium">
+                            <Tag className="w-2.5 h-2.5" />{t}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm text-gray-700">
                     {c.orders_count ?? 0}
@@ -1194,6 +1429,14 @@ export default function ClientesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <TagPickerModal
+        open={tagPickerMode !== null}
+        mode={tagPickerMode ?? 'add'}
+        count={selectedIds.size}
+        onClose={() => setTagPickerMode(null)}
+        onConfirm={handleBulkTagConfirm}
+      />
     </div>
   )
 }

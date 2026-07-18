@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getProductBySlug, listProducts, listVariants } from '@/lib/supabase/queries/products'
+import { getPublicProductBySlug, listProducts, listPublicVariants } from '@/lib/supabase/queries/products'
 import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 import { ProductDetailClient } from './ProductDetailClient'
 import type { Product, ProductVariant } from '@/types'
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params
   let product: Product
   try {
-    product = await getProductBySlug(slug)
+    product = await getPublicProductBySlug(slug)
   } catch {
     return { title: 'Producto no encontrado' }
   }
@@ -57,7 +57,7 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
 
   let product: Product
   try {
-    product = await getProductBySlug(slug)
+    product = await getPublicProductBySlug(slug)
   } catch {
     notFound()
   }
@@ -66,7 +66,7 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
   let variantsError = false
   if (product.has_variants) {
     try {
-      variants = await listVariants(product.id)
+      variants = await listPublicVariants(product.id)
     } catch {
       variantsError = true
     }

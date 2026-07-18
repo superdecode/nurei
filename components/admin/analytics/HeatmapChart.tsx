@@ -41,9 +41,9 @@ export function HeatmapChart({
       <table className="text-xs border-collapse w-full">
         <thead>
           <tr>
-            <th className="p-1.5 text-left text-gray-500 font-medium w-24">Cohorte</th>
+            <th className="p-1.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 w-24">Cohorte</th>
             {colLabels.map((label) => (
-              <th key={label} className="p-1.5 text-center text-gray-500 font-medium min-w-[48px]">
+              <th key={label} className="p-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 min-w-[48px]">
                 {label}
               </th>
             ))}

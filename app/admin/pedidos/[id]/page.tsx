@@ -197,9 +197,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
       })
-      const json = await res.json() as { error?: string; data?: { order: Order } }
+      const json = await res.json() as {
+        error?: string
+        data?: { order: Order; emailDelivery?: { sent: boolean; reason?: string } | null }
+      }
       if (!res.ok) { toast.error(json.error ?? 'Error'); return }
       toast.success(`Pedido actualizado: ${sMeta(nextStatus).label}`)
+      if (json.data?.emailDelivery?.sent === false) {
+        const reason = json.data.emailDelivery.reason
+        const detail = reason === 'no_api_key'
+          ? 'Falta configurar RESEND_API_KEY.'
+          : reason === 'order_not_found'
+            ? 'El pedido no tiene un correo de cliente válido.'
+            : 'Resend rechazó o no pudo procesar el envío. Revisa los logs de Vercel/Resend.'
+        toast.warning(`El estado cambió, pero el correo no se envió. ${detail}`, { duration: 8000 })
+      }
       playSuccessSound()
       if (json.data?.order) setOrder(json.data.order)
     } catch { toast.error('Error') }
@@ -450,10 +462,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <TableHeader>
                 <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
                   <TableHead className="w-12" />
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Producto</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500 text-center">Cant.</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">Precio</TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500 text-right">Subtotal</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Producto</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">Cant.</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Precio</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-right">Subtotal</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

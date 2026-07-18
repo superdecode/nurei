@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { getPaymentMethods } from '@/lib/supabase/queries/paymentMethods'
 import {
@@ -9,7 +9,10 @@ import {
 
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient()
+    // This payload contains only public storefront configuration. Avoid the
+    // cookie-aware client so Vercel can serve the same CDN response to every
+    // visitor instead of invoking a function and Supabase on each page load.
+    const supabase = createServiceClient()
     const raw = await getSettings(supabase)
 
     const shipping = normalizeShippingFromConfig(raw.shipping)
@@ -31,7 +34,9 @@ export async function GET() {
       payment_methods,
     }
 
-    return NextResponse.json({ data: payload })
+    const response = NextResponse.json({ data: payload })
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600')
+    return response
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al cargar la tienda'
     return NextResponse.json({ error: message }, { status: 500 })

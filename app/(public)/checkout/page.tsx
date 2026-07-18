@@ -92,6 +92,15 @@ type OrderConfirmation = {
   }
 }
 
+type DuplicateOrder = {
+  id: string
+  shortId: string
+  createdAt: string
+  ageSeconds: number
+  severity: 'immediate' | 'recent' | 'warning'
+  can_open: boolean
+}
+
 const STEP_META: Array<{ id: CheckoutStep; title: string; short: string }> = [
   { id: 1, title: 'Productos', short: 'Carrito' },
   { id: 2, title: 'Envío', short: 'Datos de envío' },
@@ -267,6 +276,8 @@ export default function CheckoutPage() {
   const [orderId, setOrderId] = useState('')
   const [cartLastUpdatedAt, setCartLastUpdatedAt] = useState(new Date().toISOString())
   const [stockConflict, setStockConflict] = useState<Array<{ product_id: string; product_name: string }>>([])
+  const [duplicateOrder, setDuplicateOrder] = useState<DuplicateOrder | null>(null)
+  const [duplicateAccessToken, setDuplicateAccessToken] = useState<string | null>(null)
 
   const [loginOpen, setLoginOpen] = useState(false)
   const [loginEmail, setLoginEmail] = useState('')
@@ -676,7 +687,7 @@ export default function CheckoutPage() {
     return Object.keys(nextErrors).length === 0
   }
 
-  const handleContinue = async () => {
+  const handleContinue = async (confirmDuplicate = false) => {
     if (activeStep === 1) {
       if (!checkoutConfigReady) {
         toast.error('Espera un momento mientras cargamos la configuración de la tienda.')
@@ -758,6 +769,7 @@ export default function CheckoutPage() {
             estimated_date: selectedMethod.estimatedDate,
           },
           payment_method: paymentMethod,
+          confirm_duplicate: confirmDuplicate || undefined,
         }),
       })
 
@@ -767,6 +779,10 @@ export default function CheckoutPage() {
           setStockConflict(createPayload?.products ?? [])
           goToStep(1)
           toast.error('Algunos productos se agotaron. Puedes removerlos y continuar.')
+        } else if (createPayload?.error === 'duplicate_order' && createPayload?.duplicate) {
+          const duplicate = createPayload.duplicate as DuplicateOrder
+          setDuplicateOrder(duplicate)
+          setDuplicateAccessToken(sessionStorage.getItem(`nurei-order-access:${duplicate.id}`))
         } else {
           toast.error(createPayload?.error ?? 'No se pudo crear la orden.')
         }
@@ -776,6 +792,9 @@ export default function CheckoutPage() {
 
       const nextOrderId = createPayload.data.order_id as string
       const publicAccessToken = (createPayload.data.public_access_token as string | undefined) ?? null
+      if (publicAccessToken) {
+        sessionStorage.setItem(`nurei-order-access:${nextOrderId}`, publicAccessToken)
+      }
       setOrderId(nextOrderId)
 
       setProcessingStage('paying')
@@ -1702,7 +1721,7 @@ export default function CheckoutPage() {
                       )}
                   <Button
                     type="button"
-                    onClick={handleContinue}
+                    onClick={() => void handleContinue()}
                     disabled={
                       storeCheckoutLoading ||
                       (activeStep === 3 && (storeBootstrap?.payment_methods ?? []).length === 0) ||
@@ -1905,6 +1924,80 @@ export default function CheckoutPage() {
             </AnimatePresence>
           </div>
         )}
+
+        <Dialog
+          open={Boolean(duplicateOrder)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDuplicateOrder(null)
+              setDuplicateAccessToken(null)
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[440px] max-w-[calc(100vw-2rem)] border-0 bg-transparent p-0 shadow-none overflow-hidden">
+            {duplicateOrder && (
+              <div className="relative rounded-3xl border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-1 shadow-[0_24px_80px_-12px_rgba(120,53,15,0.24)]">
+                <div className="rounded-[1.35rem] bg-white/95 px-6 pt-7 pb-6 backdrop-blur-sm">
+                  <DialogHeader className="space-y-2 text-center sm:text-center">
+                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 ring-1 ring-amber-200">
+                      <ShoppingBag className="h-6 w-6" />
+                    </div>
+                    <DialogTitle className="text-xl font-bold tracking-tight text-primary-dark">
+                      {duplicateOrder.severity === 'warning' ? '¿Quieres repetir este pedido?' : 'Encontramos un pedido igual'}
+                    </DialogTitle>
+                    <p className="text-sm text-gray-600 leading-relaxed px-1">
+                      El pedido <span className="font-bold text-primary-dark">{duplicateOrder.shortId}</span> tiene los mismos productos y total, y se creó hace{' '}
+                      <span className="font-semibold text-primary-dark">
+                        {duplicateOrder.ageSeconds < 60
+                          ? 'menos de un minuto'
+                          : `${Math.max(1, Math.floor(duplicateOrder.ageSeconds / 60))} min`}
+                      </span>.
+                    </p>
+                  </DialogHeader>
+                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-relaxed text-amber-900">
+                    {duplicateOrder.severity === 'warning'
+                      ? 'Es una alerta para evitar una compra repetida por accidente. Revisa el pedido anterior antes de continuar.'
+                      : 'Para evitar cobros o envíos duplicados, revisa el pedido anterior o confirma de forma explícita que deseas crear otro.'}
+                  </div>
+                  <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => {
+                        setDuplicateOrder(null)
+                        setDuplicateAccessToken(null)
+                      }}
+                    >
+                      Volver a revisar
+                    </Button>
+                    {(duplicateOrder.can_open || duplicateAccessToken) && (
+                      <Link
+                        href={`/pedido/${duplicateOrder.id}${duplicateAccessToken ? `?token=${encodeURIComponent(duplicateAccessToken)}` : ''}`}
+                        className="inline-flex"
+                      >
+                        <Button type="button" variant="outline" className="w-full rounded-xl border-primary-cyan/40 text-primary-dark hover:bg-primary-cyan/10">
+                          Ver pedido anterior
+                        </Button>
+                      </Link>
+                    )}
+                    <Button
+                      type="button"
+                      className="rounded-xl bg-amber-500 text-white hover:bg-amber-600"
+                      onClick={() => {
+                        setDuplicateOrder(null)
+                        setDuplicateAccessToken(null)
+                        void handleContinue(true)
+                      }}
+                    >
+                      Sí, crear otro
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
           <DialogContent className="sm:max-w-[420px] max-w-[calc(100vw-2rem)] border-0 bg-transparent p-0 shadow-none overflow-hidden">

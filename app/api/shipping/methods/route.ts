@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { normalizeShippingFromConfig } from '@/lib/store/normalize-checkout-settings'
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const state = (searchParams.get('state') ?? '').toLowerCase()
     const subtotal = Number(searchParams.get('subtotal') ?? 0)
 
-    const supabase = await createServerSupabaseClient()
+    const supabase = createServiceClient()
     const raw = await getSettings(supabase)
     const cfg = normalizeShippingFromConfig(raw.shipping)
 
@@ -77,7 +77,12 @@ export async function GET(request: NextRequest) {
       },
     ]
 
-    return NextResponse.json({ data: methods })
+    const response = NextResponse.json({ data: methods })
+    // Values are public and only change when store shipping settings change.
+    // Keep a short browser cache and a longer CDN cache to amortize typing and
+    // repeat checkout visits without making ETA dates stale for long.
+    response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=900')
+    return response
   } catch {
     return NextResponse.json(
       { error: 'No pudimos cargar los métodos de envío' },

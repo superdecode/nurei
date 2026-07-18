@@ -114,6 +114,12 @@ export const customerNoteSchema = z.object({
   is_pinned: z.boolean().default(false),
 })
 
+export const bulkCustomerTagsSchema = z.object({
+  customer_ids: z.array(z.string().uuid()).min(1, 'Selecciona al menos un cliente'),
+  tag: z.string().trim().min(1, 'Etiqueta requerida').max(40),
+  action: z.enum(['add', 'remove']),
+})
+
 /** Query strings are always strings; z.coerce.boolean() wrongly maps "false" → true. */
 const boolQuery = z
   .union([z.literal('true'), z.literal('false')])
@@ -143,3 +149,4 @@ export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>
 export type CustomerAddressInput = z.infer<typeof customerAddressSchema>
 export type CustomerNoteInput = z.infer<typeof customerNoteSchema>
 export type CustomerListQuery = z.infer<typeof customerListQuerySchema>
+export type BulkCustomerTagsInput = z.infer<typeof bulkCustomerTagsSchema>

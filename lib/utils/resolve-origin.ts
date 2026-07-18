@@ -4,6 +4,14 @@ function isLocalHost(value: string): boolean {
   return value.includes('localhost') || value.includes('127.0.0.1')
 }
 
+function isMailHost(value: string): boolean {
+  try {
+    return new URL(value).hostname.toLowerCase().startsWith('mail.')
+  } catch {
+    return false
+  }
+}
+
 function cleanUrl(value?: string | null): string {
   return value?.trim().replace(/\/$/, '') ?? ''
 }
@@ -20,9 +28,13 @@ function toOriginFromUrl(value?: string | null): string {
 function firstNonLocal(candidates: Array<string | undefined | null>): string {
   for (const candidate of candidates) {
     const clean = cleanUrl(candidate)
-    if (clean && !isLocalHost(clean)) return clean
+    // Mail delivery hosts are valid for MX but never serve the storefront. Using
+    // one here turns transactional-email CTAs into dead links.
+    if (clean && !isLocalHost(clean) && !isMailHost(clean)) return clean
   }
-  return ''
+  // The storefront has a stable canonical domain. This keeps background jobs
+  // (which do not have a request origin) from emitting relative/dead URLs.
+  return process.env.NODE_ENV === 'production' ? 'https://www.nurei.mx' : ''
 }
 
 /**

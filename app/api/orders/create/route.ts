@@ -1,10 +1,11 @@
-import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { rateLimit, getClientIp } from '@/lib/server/rate-limit'
 import { saveCheckoutOrder } from '@/lib/server/checkout-session-store'
 import { createPublicOrderAccessToken } from '@/lib/server/order-access'
 import { createInventoryMovement } from '@/lib/supabase/queries/inventory'
+import { resolveOrCreateCustomerId } from '@/lib/supabase/queries/customers'
+import { findRecentDuplicateOrder } from '@/lib/server/order-duplicate'
 import {
   createOrderPayloadSchema,
   formatCreateOrderPayloadErrors,
@@ -13,12 +14,7 @@ import { validateCoupon } from '@/lib/server/coupons/engine'
 import { getReferralLinkIdFromHeader } from '@/lib/affiliate/cookie'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { normalizeShippingFromConfig } from '@/lib/store/normalize-checkout-settings'
-
-/** Human-readable unique order number; avoids collisions vs. weak random 4-digit IDs. */
-function generateShortOrderId(): string {
-  const suffix = crypto.randomBytes(4).toString('hex').toUpperCase()
-  return `NUR-${suffix}`
-}
+import { reserveWeeklyOrderFolio } from '@/lib/server/order-folio'
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request.headers)
@@ -201,6 +197,39 @@ export async function POST(request: NextRequest) {
 
     const service = createServiceClient()
 
+    const duplicate = await findRecentDuplicateOrder(service, {
+      userId: user?.id ?? null,
+      email: payload.customer.email,
+      phone: payload.customer.phone,
+      items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+      total,
+    })
+
+    if (duplicate && !payload.confirm_duplicate) {
+      const { canOpen, ...duplicateDetails } = duplicate
+      return NextResponse.json(
+        {
+          error: 'duplicate_order',
+          duplicate: {
+            ...duplicateDetails,
+            // A matching contact field is not proof of ownership, so the
+            // access token is deliberately never exposed from this endpoint.
+            can_open: canOpen,
+          },
+        },
+        { status: 409 },
+      )
+    }
+
+    // Keep the CRM record and order connected so the customer stats trigger can
+    // maintain orders_count and LTV for both guest and authenticated checkouts.
+    const customerId = await resolveOrCreateCustomerId(service, {
+      userId: user?.id ?? null,
+      email: payload.customer.email ?? null,
+      phone: payload.customer.phone ?? null,
+      name: payload.customer.full_name ?? null,
+    })
+
     // Validate the referral cookie against existing links before using it as an FK.
     // A stale or forged `_nurei_ref` value (e.g. the link was deleted when an affiliate
     // was removed, but the 30-day cookie still lives in the browser) would otherwise
@@ -222,6 +251,7 @@ export async function POST(request: NextRequest) {
 
     const insertPayloadBase = {
       user_id: user?.id ?? null,
+      customer_id: customerId,
       customer_name: payload.customer.full_name,
       customer_phone: payload.customer.phone,
       customer_email: payload.customer.email,
@@ -248,8 +278,13 @@ export async function POST(request: NextRequest) {
       public_access_token: publicAccessToken,
     }
 
-    for (let attempt = 0; attempt < 10; attempt++) {
-      shortId = generateShortOrderId()
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        shortId = await reserveWeeklyOrderFolio(service)
+      } catch (folioError) {
+        console.error('[orders/create] folio reservation failed:', folioError)
+        return NextResponse.json({ error: 'No pudimos generar el número de pedido. Intenta nuevamente.' }, { status: 500 })
+      }
       const { data: order, error: orderError } = await service
         .from('orders')
         .insert({

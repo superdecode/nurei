@@ -185,7 +185,7 @@ export default function AffiliateVentasPage() {
             <thead>
               <tr className="bg-gray-50/60 border-b border-gray-100">
                 {['Fecha', '# Pedido', 'Cliente', 'Subtotal', 'Atribución', 'Comisión', 'Estado pago'].map((h) => (
-                  <th key={h} className="text-left py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                  <th key={h} className="text-left py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">
                     {h}
                   </th>
                 ))}

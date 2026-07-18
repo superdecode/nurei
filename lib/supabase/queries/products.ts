@@ -90,7 +90,7 @@ interface ListFilters {
   hasVariants?: boolean
 }
 
-export async function listProducts(filters: ListFilters = {}) {
+export async function listProducts(filters: ListFilters = {}, includeInactive = false) {
   const supabase = createServiceClient()
   let query = supabase.from('products').select('*, product_variants(id, name, price, image, status, sort_order, stock)')
   const normalizedSearch = filters.search
@@ -99,6 +99,8 @@ export async function listProducts(filters: ListFilters = {}) {
 
   if (filters.status) {
     query = query.eq('status', filters.status)
+  } else if (!includeInactive) {
+    query = query.eq('status', 'active').eq('is_active', true)
   }
   if (filters.category) {
     query = query.eq('category', filters.category)
@@ -142,10 +144,25 @@ export async function getProductBySlug(slug: string) {
     .from('products')
     .select('*, product_variants(id, name, price, image, status, sort_order, stock)')
     .eq('slug', slug)
+    .eq('status', 'active')
+    .eq('is_active', true)
     .single()
 
   if (error) throw error
   return mapRow(data)
+}
+
+/** Public product pages must not expose operating costs, internal SKUs or counters. */
+export async function getPublicProductBySlug(slug: string) {
+  const product = await getProductBySlug(slug)
+  const publicProduct: Partial<Product> = { ...product }
+  delete publicProduct.cost_estimate
+  delete publicProduct.sku
+  delete publicProduct.availability_score
+  delete publicProduct.is_favorite
+  delete publicProduct.views_count
+  delete publicProduct.purchases_count
+  return publicProduct as Product
 }
 
 // ─── Create product ─────────────────────────────────────────────────────
@@ -307,6 +324,20 @@ export async function listVariants(productId: string) {
     .from('product_variants')
     .select('*')
     .eq('product_id', productId)
+    .order('sort_order')
+
+  if (error) throw error
+  return (data ?? []) as ProductVariant[]
+}
+
+/** Public variant view; intentionally omits internal SKU and cost fields. */
+export async function listPublicVariants(productId: string) {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('product_variants')
+    .select('id, product_id, name, price, compare_at_price, stock, attributes, image, status, sort_order, created_at, updated_at')
+    .eq('product_id', productId)
+    .eq('status', 'active')
     .order('sort_order')
 
   if (error) throw error

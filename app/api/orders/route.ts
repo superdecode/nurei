@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createOrderSchema } from '@/lib/validations/order'
 import { createServerSupabaseClient, createServiceClient } from '@/lib/supabase/server'
 import { getUserOrders } from '@/lib/supabase/queries/userOrders'
+import { resolveOrCreateCustomerId } from '@/lib/supabase/queries/customers'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { validateCoupon } from '@/lib/server/coupons/engine'
 import { createPublicOrderAccessToken } from '@/lib/server/order-access'
+import { reserveWeeklyOrderFolio } from '@/lib/server/order-folio'
 import {
   computeStandardShippingFeeCents,
   normalizeShippingFromConfig,
@@ -110,19 +112,31 @@ export async function POST(request: NextRequest) {
 
     const total = subtotal + shippingFee - couponDiscount
 
-    // Generate short ID
-    const shortId = `NUR-${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`
     const publicAccessToken = createPublicOrderAccessToken()
 
-    // Try Supabase insert; fall back to mock if not configured
+    // Persist the order. A database failure must never be represented as a
+    // successful mock purchase: clients rely on the returned UUID to pay and
+    // track the order.
     try {
+      const shortId = await reserveWeeklyOrderFolio(supabaseService)
       const { data: { user } } = await supabase.auth.getUser()
+
+      // Link the order to the CRM customers table (separate from auth.users) so
+      // orders_count/total_spent_cents stay in sync via trg_orders_sync_customer_stats —
+      // without this, the customer looks like they've never ordered even after buying.
+      const customerId = await resolveOrCreateCustomerId(supabaseService, {
+        userId: user?.id ?? null,
+        email: customer_email ?? null,
+        phone: customer_phone,
+        name: customer_name ?? null,
+      })
 
       const { data: order, error } = await supabase
         .from('orders')
         .insert({
           short_id: shortId,
           user_id: user?.id ?? null,
+          customer_id: customerId,
           customer_name: customer_name ?? null,
           customer_phone,
           customer_email: customer_email ?? null,
@@ -145,12 +159,20 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
 
-      if (!error && order) {
+      if (error || !order) {
+        console.error('[orders] insert failed:', error)
+        return NextResponse.json(
+          { error: 'No pudimos registrar el pedido en la base de datos.' },
+          { status: 500 },
+        )
+      }
+
+      {
         // Coupon usage is claimed at PAYMENT confirmation (Stripe webhook / admin confirm),
         // not at order creation — an unpaid order must not consume coupon inventory.
 
         // Log initial status
-        await supabase.from('order_updates').insert({
+        await supabaseService.from('order_updates').insert({
           order_id: order.id,
           status: 'pending',
           message: 'Pedido recibido, procesando pago.',
@@ -169,21 +191,13 @@ export async function POST(request: NextRequest) {
           },
         })
       }
-    } catch {
-      // Supabase not configured — return mock response
+    } catch (error) {
+      console.error('[orders] failed to create order:', error)
+      return NextResponse.json(
+        { error: 'No pudimos registrar el pedido en la base de datos.' },
+        { status: 500 },
+      )
     }
-
-    // Mock fallback
-    return NextResponse.json({
-      data: {
-        order_id: `order-${Date.now()}`,
-        short_id: shortId,
-        subtotal,
-        shipping_fee: shippingFee,
-        coupon_discount: couponDiscount,
-        total,
-      },
-    })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error interno'
     return NextResponse.json({ error: message }, { status: 500 })

@@ -103,7 +103,7 @@ export function RankingTable<T extends object>({
                   key={String(col.key)}
                   onClick={() => col.sortable !== false && handleSort(col.key)}
                   className={cn(
-                    'px-4 py-3 font-medium text-gray-500 whitespace-nowrap',
+                    'px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap',
                     col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
                     col.sortable !== false && 'cursor-pointer select-none hover:text-gray-900',
                   )}

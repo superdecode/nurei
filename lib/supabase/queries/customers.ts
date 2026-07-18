@@ -189,6 +189,73 @@ export async function getCustomerById(
   }
 }
 
+export interface ResolveCustomerInput {
+  userId?: string | null
+  email?: string | null
+  phone?: string | null
+  name?: string | null
+}
+
+/**
+ * Finds the customers.id matching an order's contact info (checked in order:
+ * user_id, then email, then phone), or creates a minimal customer row if none
+ * matches. Without this, orders.customer_id stays null and the trigger that
+ * keeps customers.orders_count/total_spent_cents in sync never has anything
+ * to update — the customer looks like they've never ordered even when they have.
+ */
+export async function resolveOrCreateCustomerId(
+  supabase: SupabaseClient,
+  input: ResolveCustomerInput,
+): Promise<string | null> {
+  const email = input.email?.toLowerCase().trim() || null
+  const phone = input.phone?.trim() || null
+
+  if (input.userId) {
+    const { data } = await supabase.from('customers').select('id').eq('user_id', input.userId).maybeSingle()
+    if (data) return data.id as string
+  }
+  if (email) {
+    const { data } = await supabase.from('customers').select('id').eq('email', email).maybeSingle()
+    if (data) return data.id as string
+  }
+  if (phone) {
+    const { data } = await supabase.from('customers').select('id').eq('phone', phone).maybeSingle()
+    if (data) return data.id as string
+  }
+
+  // No existing customer — nothing to link to and nothing to create.
+  if (!email && !phone) return null
+
+  const nameParts = (input.name ?? '').trim().split(/\s+/).filter(Boolean)
+  const { data: created, error } = await supabase
+    .from('customers')
+    .insert({
+      first_name: nameParts[0] ?? null,
+      last_name: nameParts.slice(1).join(' ') || null,
+      email,
+      phone,
+      user_id: input.userId ?? null,
+      source: 'web',
+      segment: 'new',
+    })
+    .select('id')
+    .single()
+
+  if (!error && created) return created.id as string
+
+  // Unique-constraint race: another concurrent request created the same email/phone
+  // between our lookup and our insert. Re-query instead of failing the order.
+  if (email) {
+    const { data } = await supabase.from('customers').select('id').eq('email', email).maybeSingle()
+    if (data) return data.id as string
+  }
+  if (phone) {
+    const { data } = await supabase.from('customers').select('id').eq('phone', phone).maybeSingle()
+    if (data) return data.id as string
+  }
+  return null
+}
+
 export async function createCustomer(
   supabase: SupabaseClient,
   input: CreateCustomerInput,

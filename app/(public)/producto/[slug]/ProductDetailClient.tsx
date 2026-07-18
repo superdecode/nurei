@@ -679,7 +679,7 @@ export function ProductDetailClient({
                     >
                       {v.image && (
                         <div className="w-5 h-5 rounded-md overflow-hidden flex-shrink-0 border border-gray-100">
-                          <img src={v.image} alt="" className="w-full h-full object-cover" />
+                          <img src={v.image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                         </div>
                       )}
                       <span>{v.name}</span>
@@ -737,7 +737,7 @@ export function ProductDetailClient({
                     >
                       <div className="relative aspect-square bg-gray-50 overflow-hidden">
                         {thumb ? (
-                          <img src={thumb} alt={p.name} className="w-full h-full object-cover group-active:opacity-90 transition-opacity" />
+                          <img src={thumb} alt={p.name} className="w-full h-full object-cover group-active:opacity-90 transition-opacity" loading="lazy" decoding="async" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">
                             {getCategoryEmoji(p.category)}

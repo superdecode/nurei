@@ -34,7 +34,7 @@ export default function AdminAffiliatesPagosPage() {
           <thead>
             <tr className="bg-gray-50/50 border-b">
               {['Afiliado', 'Pendiente', ''].map((h) => (
-                <th key={h} className="text-left py-3.5 px-4 text-[10px] font-bold text-gray-400 uppercase">{h}</th>
+                <th key={h} className="text-left py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">{h}</th>
               ))}
             </tr>
           </thead>

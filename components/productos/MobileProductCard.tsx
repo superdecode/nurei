@@ -259,7 +259,7 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                           }
                           aria-label={`${variant.name}${oos ? ' (agotado)' : ''}`}
                         >
-                          {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
+                          {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : <span className="block truncate">{variant.name}</span>}
                         </button>
                       )
                     })}
@@ -281,7 +281,7 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                       aria-label="Anterior"
                     >
                       {activeVariants[variantOffset - 1].image
-                        ? <img src={activeVariants[variantOffset - 1].image!} alt="" className="w-full h-full object-cover" />
+                        ? <img src={activeVariants[variantOffset - 1].image!} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                         : <span className="block w-full h-full flex items-center justify-center text-[7px] font-black text-gray-400 truncate px-0.5">{activeVariants[variantOffset - 1].name.charAt(0)}</span>}
                     </button>
                   )}
@@ -299,7 +299,7 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                         }
                         aria-label={`${variant.name}${oos ? ' (agotado)' : ''}`}
                       >
-                        {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" /> : <span className="block truncate">{variant.name}</span>}
+                        {variant.image ? <img src={variant.image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : <span className="block truncate">{variant.name}</span>}
                       </button>
                     )
                   })}
@@ -312,7 +312,7 @@ export function MobileProductCard({ product, searchQuery = '' }: MobileProductCa
                     >
                       <div className="w-6 h-6 flex items-center justify-center text-[8px] font-black text-gray-400">
                         {activeVariants[fullStart + fullCount].image
-                          ? <img src={activeVariants[fullStart + fullCount].image!} alt="" className="h-4 w-4 rounded-full object-cover" />
+                          ? <img src={activeVariants[fullStart + fullCount].image!} alt="" className="h-4 w-4 rounded-full object-cover" loading="lazy" decoding="async" />
                           : <span className="block truncate">{activeVariants[fullStart + fullCount].name}</span>}
                       </div>
                     </button>

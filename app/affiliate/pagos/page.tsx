@@ -125,13 +125,13 @@ export default function AffiliatePagosPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="text-left py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Fecha</th>
-                <th className="text-left py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Período</th>
-                <th className="text-right py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Monto</th>
-                <th className="text-left py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Tipo</th>
-                <th className="text-center py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Órdenes</th>
-                <th className="text-left py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Referencia</th>
-                <th className="text-right py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider" />
+                <th className="text-left py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">Fecha</th>
+                <th className="text-left py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">Período</th>
+                <th className="text-right py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">Monto</th>
+                <th className="text-left py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500 hidden sm:table-cell">Tipo</th>
+                <th className="text-center py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500">Órdenes</th>
+                <th className="text-left py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500 hidden md:table-cell">Referencia</th>
+                <th className="text-right py-3 px-4 text-[10px] font-bold uppercase tracking-wider text-gray-500" />
               </tr>
             </thead>
             <tbody>

@@ -59,8 +59,8 @@ export function renderCampaignEmailHtml(p: CampaignEmailProps): string {
               ${imageBlock}
               ${bodyParagraphs}
               ${couponBlock}
-              <div style="text-align:center;margin-top:20px;">
-                <a href="${escapeHtml(p.resolvedCtaUrl)}" style="display:inline-block;background:${TEXT_DARK};color:#FFFFFF;text-decoration:none;padding:12px 28px;border-radius:24px;font-weight:600;font-size:14px;">${escapeHtml(p.content.ctaLabel)}</a>
+              <div style="text-align:center;margin-top:24px;">
+                <a href="${escapeHtml(p.resolvedCtaUrl)}" style="display:inline-block;background:${BRAND_AMBER};color:${TEXT_DARK};text-decoration:none;padding:13px 28px;border:2px solid ${TEXT_DARK};border-radius:12px;font-weight:800;font-size:14px;">${escapeHtml(p.content.ctaLabel)}</a>
               </div>
             </td>
           </tr>

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { normalizeShippingFromConfig } from '@/lib/store/normalize-checkout-settings'
 
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = createServiceClient()
     const raw = await getSettings(supabase)
     const shipping = normalizeShippingFromConfig(raw.shipping)
 

@@ -8,6 +8,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const adminCheck = await requireAdmin()
+  if (adminCheck.error) return adminCheck.error
+
   try {
     const { id } = await params
     const product = await getProduct(id)

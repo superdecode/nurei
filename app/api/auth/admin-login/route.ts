@@ -79,7 +79,6 @@ export async function POST(request: NextRequest) {
           full_name: profile.full_name ?? null,
           role: 'admin',
         },
-        session: authData.session,
       },
     })
     return applyAuthCookies(res, pendingCookies)

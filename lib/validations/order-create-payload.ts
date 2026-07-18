@@ -83,6 +83,7 @@ export const createOrderPayloadSchema = z.object({
     estimated_date: z.string().min(8, 'Fecha de entrega no válida'),
   }),
   payment_method: z.string().min(1, 'Selecciona una forma de pago válida'),
+  confirm_duplicate: z.boolean().optional(),
 })
 
 export type CreateOrderPayload = z.infer<typeof createOrderPayloadSchema>
