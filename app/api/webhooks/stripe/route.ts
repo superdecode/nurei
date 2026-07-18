@@ -130,10 +130,23 @@ export async function POST(request: NextRequest) {
 
         const dbStatus = refund.status === 'succeeded' ? 'succeeded' : refund.status === 'failed' ? 'failed' : 'pending'
 
-        await supabase
-          .from('order_refunds')
-          .update({ status: dbStatus })
-          .eq('stripe_refund_id', refund.id)
+        if (dbStatus === 'failed') {
+          // Reverse the ledger effects (order status/refunded amount, affiliate
+          // commission clawback) that were applied optimistically when the
+          // refund was created. The RPC itself updates order_refunds.status —
+          // a plain update here would race with or precede its own state check.
+          const { error: reverseErr } = await supabase.rpc('reverse_failed_refund_atomic', {
+            p_stripe_refund_id: refund.id,
+          })
+          if (reverseErr) {
+            console.error('[stripe-webhook] Error reversing failed refund:', reverseErr)
+          }
+        } else {
+          await supabase
+            .from('order_refunds')
+            .update({ status: dbStatus })
+            .eq('stripe_refund_id', refund.id)
+        }
         break
       }
     }

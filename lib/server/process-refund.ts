@@ -18,6 +18,19 @@ export interface ProcessRefundResult {
   refundId?: string
 }
 
+/**
+ * Maps a Stripe refund status to the three values order_refunds.status accepts
+ * (per the CHECK constraint in supabase/migrations/051_refund_system.sql).
+ * 'requires_action' and 'null' are treated as non-final, same as 'pending'.
+ */
+function mapStripeRefundStatus(
+  status: Stripe.Refund['status']
+): 'pending' | 'succeeded' | 'failed' {
+  if (status === 'succeeded') return 'succeeded'
+  if (status === 'failed' || status === 'canceled') return 'failed'
+  return 'pending'
+}
+
 export async function processRefund(
   supabase: SupabaseClient,
   stripe: Stripe,
@@ -50,6 +63,9 @@ export async function processRefund(
 
   const refundMethod = resolveRefundMethod(order.payment_method)
   let stripeRefundId: string | null = null
+  // Manual refunds (cash/transfer) are always immediately final — the admin
+  // already performed the transfer before confirming in the UI.
+  let initialStatus: 'pending' | 'succeeded' | 'failed' = 'succeeded'
 
   if (refundMethod === 'stripe') {
     if (!order.stripe_payment_intent_id) {
@@ -62,6 +78,7 @@ export async function processRefund(
         reason: 'requested_by_customer',
       })
       stripeRefundId = refund.id
+      initialStatus = mapStripeRefundStatus(refund.status)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al procesar el reembolso en Stripe'
       return { ok: false, error: message, status: 502 }
@@ -76,6 +93,7 @@ export async function processRefund(
     p_stripe_refund_id: stripeRefundId,
     p_notes: referenceNote?.trim() || null,
     p_processed_by: processedBy,
+    p_initial_status: initialStatus,
   })
 
   if (rpcErr) {
