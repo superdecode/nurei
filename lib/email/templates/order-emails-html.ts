@@ -70,19 +70,20 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(17,24,39,0.08);border:1px solid ${CARD_BORDER};">
 
-        <!-- Header divertido -->
-        <tr><td style="background:linear-gradient(135deg, ${BRAND_BG} 0%, #FFF 50%, #ECFEFF 100%);padding:28px 24px;text-align:center;border-bottom:3px solid ${BRAND_AMBER};">
-          <div style="font-size:36px;line-height:1;margin-bottom:8px;">📦</div>
-          <p style="margin:0;font-size:22px;font-weight:800;color:${TEXT_DARK};letter-spacing:-0.02em;">¡Recibimos tu pedido!</p>
-          <p style="margin:10px 0 0;font-size:15px;color:${TEXT_MUTED};line-height:1.5;">Hola <strong style="color:${TEXT_DARK};">${escapeHtml(p.customerName)}</strong>, gracias por elegir <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong>. Tu snack ya está en fila.</p>
+        <!-- Encabezado: únicamente el mensaje principal -->
+        <tr><td style="background:${BRAND_AMBER};padding:28px 24px;text-align:center;border-bottom:3px solid ${TEXT_DARK};">
+          <h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:900;color:${TEXT_DARK};letter-spacing:-0.02em;">¡Recibimos tu pedido!</h1>
         </td></tr>
 
         <tr><td style="padding:24px;">
-          ${pendingBox}
-
-          <p style="margin:0 0 16px;font-size:15px;color:${TEXT_DARK};line-height:1.55;">
-            Aquí tienes el resumen. Puedes seguir el estado cuando quieras:
+          <p style="margin:0 0 8px;font-size:16px;line-height:1.55;color:${TEXT_DARK};">
+            Hola <strong>${escapeHtml(p.customerName)}</strong>,
           </p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${TEXT_MUTED};">
+            Gracias por elegir <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong>. Tu pedido ya quedó registrado y aquí puedes consultar todos sus detalles.
+          </p>
+
+          ${pendingBox}
 
           ${renderOrderSummary(p.shortId, p.orderDate, p.total)}
 
@@ -166,29 +167,29 @@ function renderOrderSummary(shortId: string, orderDate: string, total: number): 
   </table>`
 }
 
-function renderOrderStatusHtml(p: OrderStatusEmailProps, content: { title: string; message: string; status: string; accent: string; background: string; details?: string }): string {
+function renderOrderStatusHtml(p: OrderStatusEmailProps, content: { title: string; message: string; status: string; details?: string }): string {
   const address = p.deliveryAddress
     ? `<tr><td style="padding:13px 16px;border-top:1px solid ${CARD_BORDER};"><p style="margin:0;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${TEXT_MUTED};">Dirección de entrega</p><p style="margin:5px 0 0;font-size:13px;line-height:1.5;color:${TEXT_DARK};">${escapeHtml(p.deliveryAddress)}</p></td></tr>`
     : ''
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>${escapeHtml(content.title)} · ${escapeHtml(p.shortId)}</title></head>
 <body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border:1px solid ${CARD_BORDER};border-radius:20px;overflow:hidden;">
-<tr><td style="padding:28px 24px;text-align:center;background:${content.background};border-bottom:3px solid ${content.accent};"><div style="font-size:34px;line-height:1;margin-bottom:9px;">📦</div><h1 style="margin:0;font-size:23px;line-height:1.2;font-weight:800;letter-spacing:-.02em;color:${TEXT_DARK};">${escapeHtml(content.title)}</h1><p style="margin:10px 0 0;font-size:15px;line-height:1.5;color:${TEXT_MUTED};">Hola <strong style="color:${TEXT_DARK};">${escapeHtml(p.customerName)}</strong>, ${escapeHtml(content.message)}</p></td></tr>
-<tr><td style="padding:24px;">${renderOrderSummary(p.shortId, p.orderDate, p.total)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid ${CARD_BORDER};border-left:4px solid ${content.accent};border-radius:12px;overflow:hidden;"><tr><td style="padding:14px 16px;background:#FFFFFF;"><p style="margin:0;font-size:14px;font-weight:800;color:${TEXT_DARK};">${escapeHtml(content.status)}</p>${content.details ?? ''}</td></tr>${address}</table><table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td align="center" bgcolor="${BRAND_AMBER}" style="border-radius:12px;"><a href="${escapeHtml(p.orderUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;border:2px solid ${TEXT_DARK};border-radius:12px;background:${BRAND_AMBER};color:${TEXT_DARK};font-size:15px;font-weight:800;text-decoration:none;">Ver mi pedido</a></td></tr></table><p style="margin:26px 0 0;text-align:center;font-size:13px;line-height:1.6;color:${TEXT_MUTED};">¿Tienes dudas? Estamos para ayudarte.<br/>El equipo de <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong></p></td></tr>
+<tr><td style="padding:28px 24px;text-align:center;background:${BRAND_AMBER};border-bottom:3px solid ${TEXT_DARK};"><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:900;letter-spacing:-.02em;color:${TEXT_DARK};">${escapeHtml(content.title)}</h1></td></tr>
+<tr><td style="padding:24px;"><p style="margin:0 0 8px;font-size:16px;line-height:1.55;color:${TEXT_DARK};">Hola <strong>${escapeHtml(p.customerName)}</strong>,</p><p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${TEXT_MUTED};">${escapeHtml(content.message)}</p>${renderOrderSummary(p.shortId, p.orderDate, p.total)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #FDE68A;border-left:4px solid ${BRAND_AMBER};border-radius:12px;overflow:hidden;background:${BRAND_BG};"><tr><td style="padding:14px 16px;background:${BRAND_BG};"><p style="margin:0;font-size:14px;font-weight:800;color:${TEXT_DARK};">${escapeHtml(content.status)}</p>${content.details ?? ''}</td></tr>${address}</table><table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td align="center" bgcolor="${BRAND_AMBER}" style="border-radius:12px;"><a href="${escapeHtml(p.orderUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;border:2px solid ${TEXT_DARK};border-radius:12px;background:${BRAND_AMBER};color:${TEXT_DARK};font-size:15px;font-weight:800;text-decoration:none;">Ver mi pedido</a></td></tr></table><p style="margin:26px 0 0;text-align:center;font-size:13px;line-height:1.6;color:${TEXT_MUTED};">¿Tienes dudas? Estamos para ayudarte.<br/>El equipo de <strong style="color:${TEXT_DARK};">${escapeHtml(p.brandName)}</strong></p></td></tr>
 <tr><td style="padding:14px 24px;background:#FAFAFA;border-top:1px solid ${CARD_BORDER};text-align:center;font-size:11px;color:${TEXT_MUTED};">© ${new Date().getFullYear()} ${escapeHtml(p.brandName)}</td></tr></table></td></tr></table></body></html>`
 }
 
 /** Notificaciones de pedido con una jerarquía uniforme y segura para clientes de correo. */
 export function renderOrderPreparingHtml(p: OrderStatusEmailProps): string {
-  return renderOrderStatusHtml(p, { title: 'Tu pedido está en preparación', message: 'ya estamos alistando tus productos.', status: 'Estamos preparando tu pedido', accent: BRAND_AMBER, background: BRAND_BG, details: p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : undefined })
+  return renderOrderStatusHtml(p, { title: 'Tu pedido está en preparación', message: 'Ya estamos alistando tus productos con cuidado. Te avisaremos en cuanto salgan rumbo a tu dirección.', status: 'Estamos preparando tu pedido', details: p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : undefined })
 }
 
 export function renderOrderShippedHtml(p: OrderStatusEmailProps): string {
   const guide = p.trackingNumber ? `Guía: <strong style="color:${TEXT_DARK};">${escapeHtml(p.trackingNumber)}</strong>${p.carrier ? ` · ${escapeHtml(p.carrier)}` : ''}` : 'Tu pedido ya salió rumbo a tu dirección.'
-  return renderOrderStatusHtml(p, { title: 'Tu pedido va en camino', message: 'tus snacks ya salieron rumbo a ti.', status: 'En camino', accent: '#0284C7', background: '#F0F9FF', details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">${guide}</p>${p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : ''}` })
+  return renderOrderStatusHtml(p, { title: 'Tu pedido va en camino', message: 'Tus productos ya salieron y avanzan rumbo a la dirección registrada en tu pedido.', status: 'En camino', details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">${guide}</p>${p.estimatedDelivery ? `<p style="margin:6px 0 0;font-size:13px;color:${TEXT_MUTED};">Entrega estimada: <strong style="color:${TEXT_DARK};">${escapeHtml(p.estimatedDelivery)}</strong></p>` : ''}` })
 }
 
 export function renderOrderDeliveredHtml(p: OrderStatusEmailProps): string {
-  return renderOrderStatusHtml(p, { title: 'Tu pedido fue entregado', message: 'esperamos que disfrutes mucho tus snacks.', status: 'Pedido entregado', accent: GREEN, background: '#F0FDF4', details: '<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:#047857;">Gracias por elegirnos. ¡Buen provecho!</p>' })
+  return renderOrderStatusHtml(p, { title: 'Tu pedido fue entregado', message: 'La entrega quedó registrada correctamente. Esperamos que disfrutes mucho tus snacks.', status: 'Pedido entregado', details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${GREEN};">Gracias por elegirnos. ¡Buen provecho!</p>` })
 }
 
 export type OrderRefundEmailProps = OrderStatusEmailProps & {
@@ -203,10 +204,8 @@ export function renderOrderRefundedHtml(p: OrderRefundEmailProps): string {
   const amountLabel = formatPrice(p.amountCents)
   return renderOrderStatusHtml(p, {
     title: isPartial ? 'Reembolso parcial procesado' : 'Reembolso procesado',
-    message: 'procesamos un reembolso de tu pedido.',
+    message: 'Procesamos correctamente el reembolso asociado con tu pedido. A continuación encontrarás el detalle.',
     status: `Monto reembolsado: ${amountLabel}`,
-    accent: '#6B7280',
-    background: '#F9FAFB',
     details: `<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">Motivo: ${escapeHtml(p.reason)}</p>${isPartial ? '<p style="margin:6px 0 0;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">El resto de tu pedido sigue vigente.</p>' : ''}`,
   })
 }
@@ -226,7 +225,7 @@ export function renderAdminNewOrderHtml(p: AdminNewOrderEmailProps): string {
     <tr><td style="background:${BRAND_AMBER};padding:14px 18px;font-weight:800;color:${TEXT_DARK};font-size:16px;">🛒 Nuevo pedido · ${escapeHtml(p.shortId)}</td></tr>
     <tr><td style="padding:18px;font-size:14px;color:${TEXT_DARK};line-height:1.5;">
       <p style="margin:0 0 12px;"><strong>${escapeHtml(p.customerName)}</strong><br/>
-      <a href="mailto:${escapeHtml(p.customerEmail)}" style="color:#2563EB;">${escapeHtml(p.customerEmail)}</a><br/>
+      <a href="mailto:${escapeHtml(p.customerEmail)}" style="color:${TEXT_DARK};text-decoration:underline;">${escapeHtml(p.customerEmail)}</a><br/>
       ${escapeHtml(p.customerPhone)}</p>
       <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;color:${TEXT_MUTED};letter-spacing:0.06em;">Productos</p>
       <ul style="margin:0;padding-left:18px;">${lines}${more}</ul>

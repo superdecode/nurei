@@ -25,14 +25,28 @@ describe('renderOrderShippedHtml', () => {
     expect(html.indexOf('Total</p>')).toBeLessThan(html.indexOf('En camino'))
   })
 
-  it('uses a single header icon and a direct order CTA', () => {
-    expect((html.match(/📦/g) ?? [])).toHaveLength(1)
+  it('keeps the header title-only and uses a direct order CTA', () => {
+    const titleIndex = html.indexOf('Tu pedido va en camino</h1>')
+    const headerCloseIndex = html.indexOf('</td></tr>', titleIndex)
+    const greetingIndex = html.indexOf('Hola <strong>', headerCloseIndex)
+
+    expect(titleIndex).toBeGreaterThan(-1)
+    expect(headerCloseIndex).toBeGreaterThan(titleIndex)
+    expect(greetingIndex).toBeGreaterThan(headerCloseIndex)
+    expect(html).not.toContain('📦')
     expect(html).toContain('href="https://www.nurei.mx/pedido/order-id?token=access-token"')
     expect(html).toContain('>Ver mi pedido</a>')
   })
 
   it('does not use flex layout for the status card', () => {
     expect(html).not.toContain('display:flex')
+  })
+
+  it('uses the Nurei palette without the legacy shipping blue', () => {
+    expect(html).toContain('#FFC107')
+    expect(html).toContain('#FFFBEB')
+    expect(html).not.toContain('#0284C7')
+    expect(html).not.toContain('#F0F9FF')
   })
 
   it('renders every status template as a complete email document', () => {
