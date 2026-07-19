@@ -7,7 +7,7 @@ import {
   Package, Eye, MoreHorizontal, Printer, ChevronDown, ChevronUp,
   MessageSquare, MapPin, Phone, Mail, Clock, FileText, Loader2,
   Check, Minus, CreditCard, Truck, CheckCircle2, XCircle, AlertTriangle,
-  ArrowRight, Copy, Send, Ban, RotateCcw, Filter,
+  ArrowRight, Copy, Send, Ban, RotateCcw, Filter, Upload,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -36,6 +36,7 @@ import { formatPrice, formatDate, formatRelativeTime, formatPhone } from '@/lib/
 import { cn } from '@/lib/utils'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 import { TicketSurtidoModal } from '@/components/admin/pedidos/TicketSurtidoModal'
+import { BulkTrackingImportModal } from '@/components/admin/pedidos/BulkTrackingImportModal'
 
 function playSuccessAudio(): void {
   const el = document.getElementById('nurei-success-sound') as HTMLAudioElement | null
@@ -195,6 +196,7 @@ export default function PedidosAdminPage() {
 
   // Export
   const [exportOpen, setExportOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [exportStatus, setExportStatus] = useState('')
   const [exportFrom, setExportFrom] = useState('')
   const [exportTo, setExportTo] = useState('')
@@ -218,6 +220,8 @@ export default function PedidosAdminPage() {
       params.set('sortDir', sortDir)
       if (searchApplied) params.set('search', searchApplied)
       if (statusFilter) params.set('status', statusFilter)
+      if (paymentFilter) params.set('paymentMethod', paymentFilter)
+      if (orderTypeFilter) params.set('orderType', orderTypeFilter)
       if (dateFrom) params.set('dateFrom', dateFrom)
       if (dateTo) params.set('dateTo', dateTo)
 
@@ -233,7 +237,7 @@ export default function PedidosAdminPage() {
     } finally {
       setLoading(false)
     }
-  }, [searchApplied, statusFilter, dateFrom, dateTo, sortBy, sortDir, page, pageSize])
+  }, [searchApplied, statusFilter, paymentFilter, orderTypeFilter, dateFrom, dateTo, sortBy, sortDir, page, pageSize])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
@@ -479,6 +483,9 @@ export default function PedidosAdminPage() {
               <Printer className="h-3.5 w-3.5" /> Surtido ({selectedIds.size})
             </Button>
           )}
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5 h-8 rounded-full text-xs font-semibold">
+            <Upload className="h-3.5 w-3.5" /> Importar guías
+          </Button>
           <Button variant="outline" onClick={() => setExportOpen(true)} className="gap-1.5 h-8 rounded-full text-xs font-semibold">
             <Download className="h-3.5 w-3.5" /> Exportar
           </Button>
@@ -1097,7 +1104,9 @@ export default function PedidosAdminPage() {
             <div className="space-y-3">
               <Select value={exportStatus} onValueChange={(v) => setExportStatus(v ?? '')}>
                 <SelectTrigger className="h-9 w-full text-sm rounded-xl border-gray-200">
-                  <SelectValue placeholder="Filtrar por estado" />
+                  <SelectValue>
+                    {(v: string) => v === 'all' ? 'Todos los estados' : v ? statusMeta(v as OrderStatus).label : 'Filtrar por estado'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-sm">Todos los estados</SelectItem>
@@ -1135,6 +1144,12 @@ export default function PedidosAdminPage() {
         orderIds={printModal?.ids ?? []}
         type={printModal?.type ?? 'ticket'}
         autoPrint={printModal?.autoPrint ?? false}
+      />
+
+      <BulkTrackingImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => fetchOrders()}
       />
     </div>
   )

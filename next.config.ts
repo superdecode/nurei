@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
     remotePatterns: supabaseHostname
       ? [{ protocol: 'https', hostname: supabaseHostname, pathname: '/storage/v1/object/public/**' }]
       : [],
-    formats: ['image/webp'],
+    formats: ['image/avif', 'image/webp'],
   },
   async headers() {
     return [
@@ -78,7 +78,6 @@ const nextConfig: NextConfig = {
       'framer-motion',
       '@tiptap/react',
       '@tiptap/starter-kit',
-      'date-fns',
     ],
   },
   productionBrowserSourceMaps: false,

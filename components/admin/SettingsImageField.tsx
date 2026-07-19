@@ -23,7 +23,7 @@ export function SettingsImageField({
   hint,
   value,
   onChange,
-  accept = 'image/png,image/jpeg,image/webp,image/svg+xml,.ico',
+  accept = 'image/png,image/jpeg,image/webp',
   previewClassName,
   compact,
   layout = 'vertical',

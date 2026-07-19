@@ -120,6 +120,21 @@ const UNITS: { value: UnitOfMeasure; label: string }[] = [
   { value: 'pack', label: 'Pack' },
 ]
 
+const MEDIA_SORT_LABELS: Record<string, string> = {
+  newest: 'Más recientes',
+  oldest: 'Más antiguos',
+  largest: 'Más grandes (KB)',
+  smallest: 'Más pequeños (KB)',
+  az: 'Nombre (A-Z)',
+}
+
+const MEDIA_TYPE_LABELS: Record<string, string> = {
+  all: 'Todos',
+  jpg: 'JPG',
+  png: 'PNG',
+  webp: 'WebP',
+}
+
 const ORIGINS = [
   'Japon', 'Corea del Sur', 'China', 'Tailandia', 'Taiwan',
   'Vietnam', 'Indonesia', 'Filipinas', 'Malasia', 'India', 'Mexico',
@@ -1270,7 +1285,9 @@ export default function ProductForm({
                 <label className="text-xs font-medium text-gray-500">Unidad de medida {!isEdit && '*'}</label>
                 <div className="flex gap-2 items-center">
                   <Select value={form.unit_of_measure || undefined} onValueChange={(v) => { if (v) update({ unit_of_measure: v as UnitOfMeasure }) }}>
-                    <SelectTrigger className="h-10 flex-1"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 flex-1">
+                      <SelectValue>{(v: UnitOfMeasure) => UNITS.find((u) => u.value === v)?.label ?? v}</SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
                       {UNITS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
                     </SelectContent>
@@ -1388,7 +1405,12 @@ export default function ProductForm({
                     <label className="text-xs font-medium text-gray-500">Categoria</label>
                     <Select value={form.category ? form.category : undefined} onValueChange={(v) => { if (v) update({ category: v }) }}>
                       <SelectTrigger className="h-11 w-full text-sm">
-                        <SelectValue placeholder="Escoger categoría" />
+                        <SelectValue>
+                          {(v: string) => {
+                            const c = categories.find((cat) => cat.value === v)
+                            return c ? `${c.emoji} ${c.label}` : 'Escoger categoría'
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map(c => (
@@ -1913,7 +1935,7 @@ export default function ProductForm({
                     <SelectTrigger className="h-10 w-44 rounded-xl border-gray-200 bg-white text-xs font-bold">
                       <div className="flex items-center gap-2">
                         <SortDesc className="w-3.5 h-3.5 text-gray-400" />
-                        <SelectValue placeholder="Ordenar por" />
+                        <SelectValue>{(v: string) => MEDIA_SORT_LABELS[v] ?? 'Ordenar por'}</SelectValue>
                       </div>
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -1929,7 +1951,7 @@ export default function ProductForm({
                     <SelectTrigger className="h-10 w-32 rounded-xl border-gray-200 bg-white text-xs font-bold">
                       <div className="flex items-center gap-2">
                         <Layers className="w-3.5 h-3.5 text-gray-400" />
-                        <SelectValue placeholder="Tipo" />
+                        <SelectValue>{(v: string) => MEDIA_TYPE_LABELS[v] ?? 'Tipo'}</SelectValue>
                       </div>
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">

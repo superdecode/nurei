@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Package, BarChart3, LogOut, ShoppingBag, FolderTree,
   Image as ImageIcon, Settings, Menu, X, ChevronRight, Ticket,
   Users, CreditCard, Loader2, Mail, Lock, Eye, EyeOff, Boxes, UserCheck, Users2,
-  KanbanSquare, Megaphone,
+  KanbanSquare, Megaphone, RotateCcw, MessageSquare,
 } from 'lucide-react'
 import { AdminNotificationBell } from '@/components/admin/AdminNotificationBell'
 import { AdminTopBar } from '@/components/admin/AdminTopBar'
@@ -27,6 +27,8 @@ function countOpenOrdersFromStatusMap(counts: Record<string, number>): number {
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag, ordersBadge: true as const },
+  { href: '/admin/reembolsos', label: 'Reembolsos', icon: RotateCcw },
+  { href: '/admin/pqr', label: 'PQR', icon: MessageSquare },
   { href: '/admin/productos', label: 'Productos', icon: Package },
   { href: '/admin/inventario', label: 'Inventario', icon: Boxes },
   { href: '/admin/categorias', label: 'Categorias', icon: FolderTree },
@@ -386,7 +388,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Content — margin matches sidebar width, same top bar height */}
       {/* Notification sound — preloaded here so the audio element exists before any user gesture.
           The bell component calls unlockNotificationAudio() on first click, then play() on demand. */}
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio id="nurei-notification-sound" src="/sounds/notification.wav" preload="auto" />
       <audio id="nurei-success-sound" src="/sounds/success.wav" preload="auto" />
 

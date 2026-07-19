@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import Papa from 'papaparse'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/server/require-admin'
+import { parseCsvUpload } from '@/lib/server/csv-import'
 import { createProduct, getProduct, updateProduct } from '@/lib/supabase/queries/products'
 import type { Product, ProductStatus, UnitOfMeasure } from '@/types'
 
@@ -141,15 +141,11 @@ export async function POST(request: NextRequest) {
     }
 
     const text = await file.text()
-    const parsed = Papa.parse<Record<string, string>>(text, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (h) => h.trim(),
-    })
+    const parsed = parseCsvUpload<Record<string, string>>(text)
 
     if (parsed.errors.length) {
       return NextResponse.json(
-        { error: 'CSV inválido', details: parsed.errors.map((e) => e.message) },
+        { error: 'CSV inválido', details: parsed.errors },
         { status: 400 },
       )
     }

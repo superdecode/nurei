@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
       pageSize: Number(searchParams.get('pageSize') ?? '20'),
       status: searchParams.get('status') ?? undefined,
       paymentMethod: searchParams.get('paymentMethod') ?? undefined,
+      orderType: searchParams.get('orderType') ?? undefined,
       search: searchParams.get('search') ?? undefined,
       dateFrom: searchParams.get('dateFrom') ?? undefined,
       dateTo: searchParams.get('dateTo') ?? undefined,

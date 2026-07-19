@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import sharp from 'sharp'
 import { requireAdmin } from '@/lib/server/require-admin'
+import { ALLOWED_MEDIA_MIME_TYPES, COMPRESSIBLE_MEDIA_MIME_TYPES } from '@/lib/server/media-mime-types'
 
 const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024
-// jpeg/png/webp get recompressed regardless of client flags — prevents
-// oversized originals from reaching storage
-const COMPRESSIBLE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 export async function POST(request: NextRequest) {
   const guard = await requireAdmin()
@@ -38,8 +36,11 @@ export async function POST(request: NextRequest) {
     }
 
     const contentType = (fetchRes.headers.get('content-type') ?? '').split(';')[0].trim()
-    if (!contentType.startsWith('image/')) {
-      return NextResponse.json({ error: 'La URL no apunta a una imagen' }, { status: 400 })
+    if (!ALLOWED_MEDIA_MIME_TYPES.has(contentType)) {
+      return NextResponse.json(
+        { error: 'La URL no apunta a una imagen JPG, PNG, WebP o GIF' },
+        { status: 400 }
+      )
     }
 
     const declaredLength = Number(fetchRes.headers.get('content-length') ?? 0)
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     const originalName = parsed.pathname.split('/').pop()?.split('?')[0] ?? 'image'
     const baseName = originalName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'image'
-    const shouldConvert = COMPRESSIBLE_TYPES.has(contentType)
+    const shouldConvert = COMPRESSIBLE_MEDIA_MIME_TYPES.has(contentType)
     const extFromMime = contentType.split('/')[1]?.toLowerCase() || 'jpg'
     const finalExt = shouldConvert ? 'webp' : extFromMime
     const filename = `${Date.now()}-${baseName}.${finalExt}`

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'lectura')
   if (guard.error) return guard.error
 
   const { id } = await params
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'total')
   if (guard.error) return guard.error
 
   const { id } = await params

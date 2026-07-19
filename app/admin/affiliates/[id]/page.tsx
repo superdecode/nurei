@@ -77,6 +77,7 @@ interface PendingOrder {
   order_date: string
   commission_pct: number
   commission_amount_cents: number
+  payout_status: 'pending' | 'approved'
 }
 
 interface PaymentRecord {
@@ -424,7 +425,16 @@ export default function AdminAffiliateDetailPage() {
       }),
     })
     if (res.ok) {
-      toast.success('Pago registrado correctamente')
+      const json = await res.json() as { data?: { amount_cents?: number } | null }
+      const amountPaid = json.data?.amount_cents
+      if (typeof amountPaid === 'number' && amountPaid !== selectedTotal) {
+        // Legitimate reason for a lower amount: clawback debt from a prior
+        // refund was netted out of this payout. Still surface it — the admin
+        // selected $selectedTotal but only $amountPaid actually moved.
+        toast.success(`Pago registrado: ${formatPrice(amountPaid)} (se descontó deuda de reembolsos previos de ${formatPrice(selectedTotal - amountPaid)})`)
+      } else {
+        toast.success('Pago registrado correctamente')
+      }
       setPayModalOpen(false)
       void fetchData()
       if (activeTab === 'pagos') void fetchPayments()
@@ -441,6 +451,11 @@ export default function AdminAffiliateDetailPage() {
         (o.customer_name ?? '').toLowerCase().includes(paySearch.toLowerCase())
       )
     : pendingOrders
+
+  // Only 'approved' attributions are actually payable — process_affiliate_payout_atomic
+  // silently ignores anything else, so the UI must never let an admin select a
+  // 'pending' row (order not yet confirmed) into a payout batch.
+  const payableCount = filteredPending.filter((o) => o.payout_status === 'approved').length
 
   const selectedTotal = pendingOrders
     .filter((o) => selectedAttrIds.has(o.attribution_id))
@@ -1258,19 +1273,21 @@ export default function AdminAffiliateDetailPage() {
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                       Órdenes pendientes ({filteredPending.length})
                     </p>
-                    {filteredPending.length > 0 && (
+                    {payableCount > 0 && (
                       <button
                         type="button"
                         className="text-[10px] font-semibold text-primary-cyan hover:underline"
                         onClick={() => {
-                          if (selectedAttrIds.size === filteredPending.length) {
+                          if (selectedAttrIds.size === payableCount) {
                             setSelectedAttrIds(new Set())
                           } else {
-                            setSelectedAttrIds(new Set(filteredPending.map((o) => o.attribution_id)))
+                            setSelectedAttrIds(new Set(
+                              filteredPending.filter((o) => o.payout_status === 'approved').map((o) => o.attribution_id)
+                            ))
                           }
                         }}
                       >
-                        {selectedAttrIds.size === filteredPending.length ? 'Deseleccionar todas' : 'Seleccionar todas'}
+                        {selectedAttrIds.size === payableCount ? 'Deseleccionar todas' : 'Seleccionar todas'}
                       </button>
                     )}
                   </div>
@@ -1291,15 +1308,21 @@ export default function AdminAffiliateDetailPage() {
                     <div className="space-y-1">
                       {filteredPending.map((o) => {
                         const checked = selectedAttrIds.has(o.attribution_id)
+                        const payable = o.payout_status === 'approved'
                         return (
                           <button
                             key={o.attribution_id}
                             type="button"
+                            disabled={!payable}
+                            title={payable ? undefined : 'El pedido aún no ha sido confirmado — no se puede pagar todavía'}
                             className={cn(
                               'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors',
-                              checked ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50 border border-transparent hover:bg-gray-100'
+                              !payable
+                                ? 'bg-gray-50/60 border border-transparent opacity-60 cursor-not-allowed'
+                                : checked ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50 border border-transparent hover:bg-gray-100'
                             )}
                             onClick={() => {
+                              if (!payable) return
                               setSelectedAttrIds((prev) => {
                                 const next = new Set(prev)
                                 if (next.has(o.attribution_id)) next.delete(o.attribution_id)
@@ -1308,9 +1331,11 @@ export default function AdminAffiliateDetailPage() {
                               })
                             }}
                           >
-                            {checked
-                              ? <CheckSquare className="w-4 h-4 text-emerald-600 shrink-0" />
-                              : <Square className="w-4 h-4 text-gray-300 shrink-0" />
+                            {!payable
+                              ? <Clock className="w-4 h-4 text-gray-300 shrink-0" />
+                              : checked
+                                ? <CheckSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                                : <Square className="w-4 h-4 text-gray-300 shrink-0" />
                             }
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
@@ -1321,8 +1346,13 @@ export default function AdminAffiliateDetailPage() {
                                 <span className="text-[10px] text-gray-400 truncate">{o.customer_name ?? 'Sin nombre'}</span>
                                 <span className="text-[10px] text-gray-400">{Number(o.commission_pct).toFixed(1)}%</span>
                               </div>
-                              <div className="text-[10px] text-gray-400 mt-0.5">
-                                {new Date(o.order_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="text-[10px] text-gray-400">
+                                  {new Date(o.order_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                                {!payable && (
+                                  <span className="text-[10px] font-semibold text-amber-600">Esperando confirmación</span>
+                                )}
                               </div>
                             </div>
                           </button>

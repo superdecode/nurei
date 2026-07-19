@@ -22,6 +22,7 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { customerDisplayName } from '@/lib/utils/customer-display'
+import { formatPrice } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import type {
   Customer, CustomerAddress, CustomerNoteKind,
@@ -64,9 +65,7 @@ const NOTE_KIND_STYLE: Record<CustomerNoteKind, string> = {
   system: 'bg-gray-100 text-gray-500',
 }
 
-const fmtMXN = (cents: number) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
-    .format((cents ?? 0) / 100)
+const fmtMXN = (cents: number) => formatPrice(cents ?? 0)
 
 const fmtDate = (iso: string | null) => {
   if (!iso) return '—'
@@ -480,7 +479,7 @@ export default function ClienteDetailPage({
               <div className="flex items-center justify-between gap-2">
                 <Select value={noteKind} onValueChange={(v) => setNoteKind((v ?? 'note') as CustomerNoteKind)}>
                   <SelectTrigger className="w-[160px] h-9 bg-white border-gray-200">
-                    <SelectValue />
+                    <SelectValue>{(v: CustomerNoteKind) => NOTE_KIND_LABEL[v]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(NOTE_KIND_LABEL) as CustomerNoteKind[]).filter(k => k !== 'system').map(k => (

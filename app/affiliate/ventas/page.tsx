@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Clock, X } from 'lucide-react'
-import { formatPrice } from '@/lib/utils/format'
+import { formatPrice, formatDate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils'
 
 type PayoutStatus = 'pending' | 'approved' | 'paid' | 'clawback_pending' | 'reversed'
@@ -211,7 +211,7 @@ export default function AffiliateVentasPage() {
               ) : paginated.map((row) => (
                 <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/30 transition-colors">
                   <td className="py-3.5 px-4 text-xs text-gray-500 whitespace-nowrap">
-                    {new Date(row.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {formatDate(row.created_at)}
                   </td>
                   <td className="py-3.5 px-4 font-mono text-xs font-bold text-primary-dark">
                     #{row.orders?.short_id ?? row.order_id.slice(0, 8)}

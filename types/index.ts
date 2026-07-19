@@ -42,7 +42,36 @@ export type AdminModule =
   | 'dashboard' | 'pedidos' | 'productos' | 'categorias'
   | 'inventario' | 'cupones' | 'multimedia' | 'clientes'
   | 'usuarios' | 'roles' | 'configuracion' | 'analytics' | 'pagos' | 'afiliados' | 'marketing'
-  | 'reembolsos'
+  | 'reembolsos' | 'pqr'
+
+export type PqrType = 'peticion' | 'queja' | 'reclamo' | 'sugerencia'
+export type PqrStatus = 'abierto' | 'en_proceso' | 'resuelto' | 'cerrado'
+export type PqrPriority = 'baja' | 'media' | 'alta' | 'urgente'
+
+export interface PqrTicket {
+  id: string
+  ticket_number: string
+  access_token: string
+  tipo: PqrType
+  estado: PqrStatus
+  prioridad: PqrPriority
+  asunto: string
+  mensaje: string
+  user_id: string | null
+  customer_id: string | null
+  cliente_email: string
+  cliente_nombre: string | null
+  order_id: string | null
+  assigned_to: string | null
+  respuesta: string | null
+  resuelto_at: string | null
+  sla_due_at: string | null
+  first_response_at: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  order?: Pick<Order, 'id' | 'short_id'> | null
+}
 
 export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste' | 'venta' | 'devolucion'
 
@@ -260,6 +289,7 @@ export interface Order {
   operator_notes: string | null
   tracking_number: string | null
   carrier: string | null
+  tracking_url: string | null
   source: string
   created_at: string
   updated_at: string
@@ -275,6 +305,25 @@ export interface OrderUpdate {
   updated_by: string | null
   metadata: Record<string, unknown> | null
   created_at: string
+}
+
+export type RefundStatus = 'pending' | 'succeeded' | 'failed'
+export type RefundMethod = 'stripe' | 'cash' | 'bank_transfer' | 'other'
+
+export interface OrderRefund {
+  id: string
+  order_id: string
+  amount_cents: number
+  reason: string | null
+  refund_method: RefundMethod
+  status: RefundStatus
+  stripe_refund_id: string | null
+  notes: string | null
+  processed_by: string | null
+  refunded_at: string
+  created_at: string
+  // Joined
+  order?: Pick<Order, 'id' | 'short_id' | 'customer_name' | 'customer_email' | 'total'> | null
 }
 
 export interface Coupon {

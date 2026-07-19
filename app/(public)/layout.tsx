@@ -8,6 +8,7 @@ import { StoreCheckoutProvider } from '@/components/providers/StoreCheckoutProvi
 import { ConsentProvider } from '@/components/consent/ConsentProvider'
 import { ConsentBanner } from '@/components/consent/ConsentBanner'
 import { TrackingScripts } from '@/components/tracking/TrackingScripts'
+import { WhatsAppFloatingButton } from '@/components/layout/WhatsAppFloatingButton'
 
 export default function PublicLayout({
   children,
@@ -27,6 +28,7 @@ export default function PublicLayout({
         <CartFlightLayer />
         <ConsentBanner />
         <TrackingScripts />
+        <WhatsAppFloatingButton />
       </StoreCheckoutProvider>
     </ConsentProvider>
   )

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import type { MediaItem } from '@/types'
 
@@ -31,11 +32,6 @@ const MIME_LABELS: Record<MimeFilter, string> = {
 function formatSize(bytes: number): string {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
   return `${(bytes / 1024).toFixed(0)} KB`
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function mimeShortLabel(mime: string): string {

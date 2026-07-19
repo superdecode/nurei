@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 import { resolveAffiliateFirstLast } from '@/lib/server/affiliate-display-name'
 import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 
 export async function GET(req: NextRequest) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'lectura')
   if (guard.error) return guard.error
 
   const sp = req.nextUrl.searchParams
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'escritura')
   if (guard.error) return guard.error
 
   const supabase = createServiceClient()

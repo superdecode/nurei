@@ -24,6 +24,7 @@ export async function GET() {
         : typeof storeInfoRaw.email === 'string'
           ? storeInfoRaw.email
           : '',
+      notes: typeof storeInfoRaw.notes === 'string' ? storeInfoRaw.notes : '',
     }
 
     const response = NextResponse.json({ data: { store_info, shipping } })

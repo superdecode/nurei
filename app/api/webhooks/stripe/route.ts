@@ -61,8 +61,12 @@ export async function POST(request: NextRequest) {
           metadata: { event: 'payment_confirmed' },
         })
 
+        // Everything below must be awaited — Vercel can freeze fire-and-forget
+        // work as soon as the response is returned, silently dropping it.
         // Register coupon usage now that the order is paid (idempotent per order).
-        void claimCouponForPaidOrder(orderId).catch(() => {})
+        await claimCouponForPaidOrder(orderId).catch((err) => {
+          console.error('[stripe webhook] claimCouponForPaidOrder failed', { orderId, err })
+        })
 
         const { data: order } = await supabase
           .from('orders')
@@ -71,17 +75,31 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (order) {
-          void executeAffiliateAttribution({
+          const attribution = await executeAffiliateAttribution({
             orderId,
             couponCode: order.coupon_code ?? null,
             cookieHeader: session.metadata?.referral_link_id
               ? `_nurei_ref=${session.metadata.referral_link_id}`
               : null,
-          }).catch(() => {})
+          }).catch((err) => {
+            console.error('[stripe webhook] executeAffiliateAttribution failed', { orderId, err })
+            return null
+          })
+
+          // Mirrors the admin order-confirm route: a Stripe payment is itself
+          // the confirmation, so approve immediately rather than leaving the
+          // attribution stuck at payout_status='pending' forever (nothing else
+          // approves attributions created via this path).
+          if (attribution?.ok && attribution.attributed) {
+            const { error: approveErr } = await supabase.rpc('approve_attribution_for_order', { p_order_id: orderId })
+            if (approveErr) {
+              console.error('[stripe webhook] approve_attribution_for_order failed', { orderId, approveErr })
+            }
+          }
 
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
           const orderItems = (order.items as Array<{ product_id: string }>) ?? []
-          void sendMetaPurchaseEvent({
+          await sendMetaPurchaseEvent({
             orderId,
             eventId: `purchase_${orderId}`,
             eventSourceUrl: `${appUrl}/pedido/${orderId}`,
@@ -96,11 +114,11 @@ export async function POST(request: NextRequest) {
               clientIpAddress: session.metadata?.client_ip ?? undefined,
               clientUserAgent: session.metadata?.client_ua ?? undefined,
             },
-          }).catch(() => {})
+          }).catch((err) => {
+            console.error('[stripe webhook] sendMetaPurchaseEvent failed', { orderId, err })
+          })
         }
 
-        // Submit the confirmation before acknowledging the webhook. Vercel can
-        // freeze fire-and-forget work as soon as the response is returned.
         // The email sender uses an order-scoped idempotency key, so Stripe
         // webhook retries cannot generate duplicate confirmations.
         const emailDelivery = await sendOrderConfirmationEmails(orderId)

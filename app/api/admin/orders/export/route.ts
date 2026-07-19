@@ -11,10 +11,13 @@ function formatCents(cents: number) {
 
 function csvEscape(val: string | null | undefined): string {
   if (!val) return ''
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-    return `"${val.replace(/"/g, '""')}"`
+  // Neutralize spreadsheet formula injection: a leading = + - @ (or tab/CR)
+  // makes Excel/Sheets evaluate the cell as a formula when the export is opened.
+  const s = /^[=+\-@\t\r]/.test(val) ? `'${val}` : val
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`
   }
-  return val
+  return s
 }
 
 function buildCsv(orders: Order[]): string {

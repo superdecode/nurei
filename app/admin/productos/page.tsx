@@ -35,6 +35,7 @@ import { Separator } from '@/components/ui/separator'
 import { formatPrice } from '@/lib/utils/format'
 import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
+import { totalPages as computeTotalPages } from '@/lib/utils/pagination'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 import { toast } from 'sonner'
@@ -51,7 +52,7 @@ const STATUS_FILTERS = [
 ] as const
 
 type StatusFilter = typeof STATUS_FILTERS[number]['value']
-type SortField = 'display_order' | 'name' | 'category' | 'country' | 'price' | 'status' | 'created_at'
+type SortField = 'display_order' | 'name' | 'category' | 'country' | 'price' | 'status' | 'stock' | 'created_at'
 type SortDirection = 'asc' | 'desc'
 type ViewMode = 'table' | 'list' | 'kanban'
 type CategoryOption = { slug: string; name: string; emoji?: string | null }
@@ -128,6 +129,15 @@ const cardVariants = {
 }
 
 const MAX_ORDER = Number.MAX_SAFE_INTEGER
+
+const BULK_ACTION_LABELS: Record<string, string> = {
+  desactivar: 'Desactivar productos',
+  activar: 'Activar productos',
+  descuento: 'Aplicar el mismo descuento porcentual a todos',
+  alerta: 'Establecer el mismo umbral de alerta de stock bajo',
+  stock_fijo: 'Establecer la misma cantidad de stock fija en todos',
+  ajuste_stock: 'Sumar o restar la misma cantidad de stock en todos',
+}
 
 function compareManualOrder(a: Product, b: Product) {
   const orderDiff = (a.display_order ?? MAX_ORDER) - (b.display_order ?? MAX_ORDER)
@@ -392,13 +402,14 @@ export default function ProductosAdminPage() {
         case 'country': cmp = (a.origin_country ?? a.origin ?? '').localeCompare(b.origin_country ?? b.origin ?? '', 'es'); break
         case 'price': cmp = (a.base_price ?? a.price) - (b.base_price ?? b.price); break
         case 'status': cmp = (a.status ?? '').localeCompare(b.status ?? ''); break
+        case 'stock': cmp = (a.stock_quantity ?? 0) - (b.stock_quantity ?? 0); break
         case 'created_at': cmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break
       }
       return sortDir === 'asc' ? cmp : -cmp
     })
     return result
   }, [products, sortField, sortDir, hasDiscountFilter, stockFilterProd, countryFilter, categoryRank])
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
+  const totalPages = computeTotalPages(filteredProducts.length, pageSize)
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize
     return filteredProducts.slice(start, start + pageSize)
@@ -1131,7 +1142,9 @@ export default function ProductosAdminPage() {
                   <TableHead className={cn('w-[10%] min-w-0 whitespace-normal p-1.5', TABLE_HEADER_TEXT_CLASS)}>
                     <SortHeader field="status">Estado</SortHeader>
                   </TableHead>
-                  <TableHead className={cn('w-[8%] min-w-0 whitespace-normal p-1.5 text-center text-gray-500', TABLE_HEADER_TEXT_CLASS)}>Stock</TableHead>
+                  <TableHead className={cn('w-[8%] min-w-0 whitespace-normal p-1.5 text-center', TABLE_HEADER_TEXT_CLASS)}>
+                    <SortHeader field="stock">Stock</SortHeader>
+                  </TableHead>
                   <TableHead className={cn('w-[8%] min-w-0 whitespace-normal p-1.5 text-center text-gray-500', TABLE_HEADER_TEXT_CLASS)}>Favorito</TableHead>
                   <TableHead className={cn('w-[15%] min-w-0 whitespace-normal p-1.5 text-right text-gray-500', TABLE_HEADER_TEXT_CLASS)}>Acciones</TableHead>
                 </TableRow>
@@ -1872,9 +1885,9 @@ export default function ProductosAdminPage() {
           <div className="mt-4 space-y-4">
             <Select value={bulkAction} onValueChange={(v) => setBulkAction(v as typeof bulkAction)}>
               <SelectTrigger className="h-12 min-h-[3rem] w-full text-base font-medium">
-                <SelectValue placeholder="Selecciona" />
+                <SelectValue>{(v: string) => BULK_ACTION_LABELS[v] ?? 'Selecciona'}</SelectValue>
               </SelectTrigger>
-              <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[min(100vw-2rem,28rem)]">
+              <SelectContent className="max-w-[min(100vw-2rem,28rem)]">
                 <SelectItem value="desactivar" className="py-3 text-base">
                   Desactivar productos
                 </SelectItem>

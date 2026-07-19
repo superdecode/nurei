@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAllUsers, createAdminUser } from '@/lib/supabase/queries/adminUsers'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 
 export async function GET() {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('usuarios', 'lectura')
   if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('usuarios', 'total')
   if (guard.error) return guard.error
   try {
     const supabase = createServiceClient()

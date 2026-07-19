@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { getPublicProductBySlug, listProducts, listPublicVariants } from '@/lib/supabase/queries/products'
 import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 import { ProductDetailClient } from './ProductDetailClient'
-import type { Product, ProductVariant } from '@/types'
+import type { Product } from '@/types'
 
 export const revalidate = 300
 
@@ -62,23 +62,21 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
     notFound()
   }
 
-  let variants: ProductVariant[] = product.variants ?? []
-  let variantsError = false
-  if (product.has_variants) {
-    try {
-      variants = await listPublicVariants(product.id)
-    } catch {
-      variantsError = true
-    }
-  }
+  const [variantsResult, relatedResult] = await Promise.all([
+    product.has_variants
+      ? listPublicVariants(product.id).then(
+          (v) => ({ variants: v, variantsError: false }),
+          () => ({ variants: product.variants ?? [], variantsError: true })
+        )
+      : Promise.resolve({ variants: product.variants ?? [], variantsError: false }),
+    listProducts({ category: product.category, status: 'active' }).then(
+      (categoryProducts) => categoryProducts.filter((p) => p.id !== product.id).slice(0, 4),
+      () => [] as Product[]
+    ),
+  ])
 
-  let related: Product[] = []
-  try {
-    const categoryProducts = await listProducts({ category: product.category, status: 'active' })
-    related = categoryProducts.filter((p) => p.id !== product.id).slice(0, 4)
-  } catch {
-    related = []
-  }
+  const { variants, variantsError } = variantsResult
+  const related = relatedResult
 
   const base = resolvePublicUrl()
   const jsonLd = {

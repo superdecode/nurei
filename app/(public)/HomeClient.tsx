@@ -7,6 +7,7 @@ import { ArrowRight, Check, Plus, ChevronRight, Ban } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/layout/Container'
+import { MotionImage } from '@/components/ui/motion-image'
 import { SPICE_LABELS } from '@/lib/utils/constants'
 import { formatPrice, stripHtml } from '@/lib/utils/format'
 import { useCartStore } from '@/lib/stores/cart'
@@ -72,10 +73,13 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         {/* Image area */}
         <div className="relative aspect-square bg-yellow-50 flex items-center justify-center overflow-hidden rounded-t-[1.25rem]">
           {product.images && product.images.length > 0 ? (
-            <motion.img
+            <MotionImage
               src={product.images[product.primary_image_index ?? 0] || product.images[0]}
               alt={product.name}
-              className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+              fill
+              sizes="(max-width: 640px) 50vw, 25vw"
+              priority={index < 4}
+              className={`object-cover transition-transform duration-700 ease-out ${
                 isOutOfStock ? '' : 'group-hover:scale-110'
               }`}
               initial={{ opacity: 0 }}

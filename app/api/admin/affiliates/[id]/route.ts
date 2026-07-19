@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 import { resolveAffiliateFirstLast } from '@/lib/server/affiliate-display-name'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'lectura')
   if (guard.error) return guard.error
 
   const { id } = await params
@@ -182,7 +182,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'escritura')
   if (guard.error) return guard.error
 
   const { id } = await params
@@ -244,7 +244,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'total')
   if (guard.error) return guard.error
 
   const { id } = await params

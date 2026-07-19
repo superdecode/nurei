@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'lectura')
   if (guard.error) return guard.error
 
   const { id } = await params
@@ -37,6 +37,11 @@ export async function GET(req: NextRequest, { params }: Params) {
       order_date: order?.created_at ?? a.created_at,
       commission_pct: a.commission_pct,
       commission_amount_cents: a.commission_amount_cents,
+      // 'pending' means the order hasn't been confirmed yet (or, historically,
+      // came through a path that never approved it) — process_affiliate_payout_atomic
+      // only pays 'approved' rows, so the UI needs this to keep admins from
+      // selecting a row that can never actually be paid.
+      payout_status: a.payout_status as 'pending' | 'approved',
     }
   })
 

@@ -25,6 +25,7 @@ import type { Product, ProductVariant } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatProductPresentation } from '@/lib/utils/product-presentation'
 import { countryToFlag } from '@/lib/utils/country-flag'
+import { resolvePublicUrl } from '@/lib/utils/resolve-origin'
 import { trackViewItem } from '@/lib/tracking/ga4'
 import { trackViewContent } from '@/lib/tracking/meta-pixel'
 
@@ -565,7 +566,7 @@ export function ProductDetailClient({
                 <Share2 className="w-4 h-4" />
               </button>
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Mira ${product.name} en nurei ${typeof window !== 'undefined' ? window.location.href : ''}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`Mira ${product.name} en nurei ${resolvePublicUrl()}/producto/${product.slug}`)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="p-2 rounded-xl bg-black/30 backdrop-blur-sm text-white"

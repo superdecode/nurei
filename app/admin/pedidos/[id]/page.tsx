@@ -340,7 +340,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const canShowRefundButton = (order.payment_status === 'paid' || order.payment_status === 'partially_refunded') && remainingRefundableCents > 0
 
   const createdDate = new Date(order.created_at)
-  const createdDateStr = createdDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  const createdDateStr = formatDate(order.created_at)
   const createdTimeStr = createdDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })
 
   return (

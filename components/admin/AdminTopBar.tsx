@@ -37,6 +37,7 @@ const ADMIN_TAB_ITEMS = [
   { href: '/admin/categorias', label: 'Categorias' },
   { href: '/admin/media', label: 'Multimedia' },
   { href: '/admin/cupones', label: 'Cupones' },
+  { href: '/admin/pqr', label: 'PQR' },
   { href: '/admin/affiliates', label: 'Afiliados' },
   { href: '/admin/pagos', label: 'Pagos' },
   { href: '/admin/clientes', label: 'Clientes' },

@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { updateUserProfile, toggleUserActive } from '@/lib/supabase/queries/adminUsers'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('usuarios', 'total')
   if (guard.error) return guard.error
   try {
     const { id } = await params
     const supabase = createServiceClient()
     const body = await request.json()
+
+    // An admin can never change their own role/admin_role_id, even with
+    // 'total' permission on 'usuarios' — otherwise a compromised or malicious
+    // admin session could self-escalate to super-admin.
+    if (id === guard.userId && ('role' in body || 'admin_role_id' in body)) {
+      return NextResponse.json(
+        { error: 'No puedes cambiar tu propio rol o nivel de permisos' },
+        { status: 403 }
+      )
+    }
 
     // Handle toggle active separately
     if (body.is_active !== undefined && Object.keys(body).length === 1) {
@@ -44,10 +54,13 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('usuarios', 'total')
   if (guard.error) return guard.error
   try {
     const { id } = await params
+    if (id === guard.userId) {
+      return NextResponse.json({ error: 'No puedes eliminar tu propia cuenta' }, { status: 403 })
+    }
     const supabase = createServiceClient()
 
     // 1) Delete the auth user (this cascades to user_profiles via FK on delete)

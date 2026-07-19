@@ -6,7 +6,7 @@ import {
   Users, Shield, Plus, Search, Edit2, Trash2, ToggleLeft, ToggleRight,
   LayoutDashboard, ShoppingCart, Package, FolderTree, Warehouse, Ticket,
   Image, UserCheck, UserCog, Lock, Settings, BarChart3, CreditCard, X, Check, BellRing,
-  Megaphone, RotateCcw,
+  Megaphone, RotateCcw, MessageSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { formatDate as formatDateUtil } from '@/lib/utils/format'
 import { toast } from 'sonner'
 import type {
   AdminRole, UserProfile, AdminModule, PermissionLevel,
@@ -30,11 +31,12 @@ import type {
 
 type Tab = 'usuarios' | 'roles'
 
+// Order mirrors the admin sidebar (app/admin/layout.tsx NAV_ITEMS) so the
+// permissions matrix reads top-to-bottom the same way the nav does.
 const ALL_MODULES: AdminModule[] = [
-  'dashboard', 'pedidos', 'productos', 'categorias', 'inventario',
-  'cupones', 'multimedia', 'clientes', 'usuarios', 'roles',
-  'configuracion', 'analytics', 'pagos',
-  'afiliados', 'marketing', 'reembolsos',
+  'dashboard', 'pedidos', 'reembolsos', 'pqr', 'productos', 'inventario',
+  'categorias', 'multimedia', 'cupones', 'marketing', 'afiliados',
+  'pagos', 'clientes', 'usuarios', 'roles', 'analytics', 'configuracion',
 ]
 
 const MODULE_LABELS: Record<AdminModule, string> = {
@@ -43,6 +45,7 @@ const MODULE_LABELS: Record<AdminModule, string> = {
   multimedia: 'Multimedia', clientes: 'Clientes', usuarios: 'Usuarios',
   roles: 'Roles', configuracion: 'Administración', analytics: 'Analytics',
   pagos: 'Pagos', afiliados: 'Afiliados', marketing: 'Marketing', reembolsos: 'Reembolsos',
+  pqr: 'PQR',
 }
 
 const MODULE_ICONS: Record<AdminModule, React.ElementType> = {
@@ -51,6 +54,7 @@ const MODULE_ICONS: Record<AdminModule, React.ElementType> = {
   multimedia: Image, clientes: UserCheck, usuarios: Users,
   roles: Shield, configuracion: Settings, analytics: BarChart3,
   pagos: CreditCard, afiliados: Users, marketing: Megaphone, reembolsos: RotateCcw,
+  pqr: MessageSquare,
 }
 
 const PERMISSION_LEVELS: PermissionLevel[] = ['total', 'escritura', 'lectura', 'sin_acceso']
@@ -344,12 +348,7 @@ export default function UsuariosPage() {
   const countUsersWithRole = (roleId: string) =>
     users.filter((u) => u.admin_role_id === roleId).length
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '—'
-    return new Date(dateStr).toLocaleDateString('es-MX', {
-      day: '2-digit', month: 'short', year: 'numeric',
-    })
-  }
+  const formatDate = (dateStr: string | null) => (dateStr ? formatDateUtil(dateStr) : '—')
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -423,7 +422,9 @@ export default function UsuariosPage() {
                 </div>
                 <Select value={userRoleFilter} onValueChange={(v) => setUserRoleFilter(v ?? 'all')}>
                   <SelectTrigger className="w-[180px] h-10 border-gray-200">
-                    <SelectValue placeholder="Filtrar por rol" />
+                    <SelectValue>
+                      {(v: string) => v === 'all' ? 'Todos' : roles.find((r) => r.id === v)?.name ?? 'Filtrar por rol'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>

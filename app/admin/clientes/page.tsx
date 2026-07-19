@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
 import { customerDisplayName, customerToFirstLast } from '@/lib/utils/customer-display'
+import { formatPrice } from '@/lib/utils/format'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 import { TagPickerModal } from '@/components/admin/clientes/TagPickerModal'
 import { toast } from 'sonner'
@@ -54,9 +55,7 @@ const TYPE_LABEL: Record<CustomerType, string> = {
   business: 'Empresa',
 }
 
-const fmtMXN = (cents: number) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
-    .format((cents ?? 0) / 100)
+const fmtMXN = (cents: number) => formatPrice(cents ?? 0)
 
 const fmtDate = (iso: string | null) => {
   if (!iso) return '—'
@@ -1310,7 +1309,7 @@ export default function ClientesPage() {
                   onValueChange={(v) => setForm({ ...form, segment: (v ?? 'new') as CustomerSegment })}
                 >
                   <SelectTrigger className="h-10 border-gray-200">
-                    <SelectValue />
+                    <SelectValue>{(v: CustomerSegment) => SEGMENT_LABEL[v]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(SEGMENT_LABEL) as CustomerSegment[]).map(s => (

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 
 export async function GET(request: NextRequest) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('afiliados', 'lectura')
   if (guard.error) return guard.error
 
   const query = (request.nextUrl.searchParams.get('q') ?? '').trim().toLowerCase()

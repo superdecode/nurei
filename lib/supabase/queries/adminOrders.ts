@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { toRange } from '@/lib/supabase/pagination'
 import type { Order, OrderUpdate, OrderStatus } from '@/types'
 
 // ── List with server-side pagination & filters ──────────────────────────
@@ -8,6 +9,7 @@ export interface ListOrdersOptions {
   pageSize?: number
   status?: string
   paymentMethod?: string
+  orderType?: string
   search?: string
   dateFrom?: string
   dateTo?: string
@@ -40,7 +42,7 @@ export async function listOrders(
     .from('orders')
     .select('*')
     .order(sortBy, { ascending: sortDir === 'asc' })
-    .range((page - 1) * pageSize, page * pageSize - 1)
+    .range(...toRange(page, pageSize))
 
   // Filters
   if (opts.status && opts.status !== 'all') {
@@ -66,6 +68,17 @@ export async function listOrders(
   if (opts.paymentMethod && opts.paymentMethod !== 'all') {
     countQuery = countQuery.eq('payment_method', opts.paymentMethod)
     dataQuery = dataQuery.eq('payment_method', opts.paymentMethod)
+  }
+
+  // 'items' is a jsonb array — items->1 is the second element, present only
+  // on multi-product orders. No item-count column exists, so this jsonb path
+  // filter avoids a schema change.
+  if (opts.orderType === 'single') {
+    countQuery = countQuery.is('items->1', null)
+    dataQuery = dataQuery.is('items->1', null)
+  } else if (opts.orderType === 'multi') {
+    countQuery = countQuery.not('items->1', 'is', null)
+    dataQuery = dataQuery.not('items->1', 'is', null)
   }
 
   if (opts.search) {

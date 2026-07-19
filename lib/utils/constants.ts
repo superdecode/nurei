@@ -1,4 +1,4 @@
-import type { OrderStatus } from '@/types'
+import type { OrderStatus, RefundStatus, PqrStatus, PqrPriority, PqrType } from '@/types'
 
 export const APP_NAME = 'nurei'
 export const APP_TAGLINE = 'Premium Asian Snacks — Curated from Tokyo to CDMX'
@@ -79,6 +79,38 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   mercado_pago: 'Mercado Pago',
   paypal: 'PayPal',
   stripe: 'Stripe',
+  other: 'Otro',
+}
+
+// ── Refund statuses ──────────────────────────────────────────────────────
+
+export const REFUND_STATUS_MAP: Record<RefundStatus, StatusMeta> = {
+  pending:   { label: 'Pendiente',  color: 'text-yellow-700',  bgColor: 'bg-yellow-50',  borderColor: 'border-yellow-300', icon: '⏳' },
+  succeeded: { label: 'Completado', color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-300', icon: '✅' },
+  failed:    { label: 'Fallido',    color: 'text-red-700',     bgColor: 'bg-red-50',     borderColor: 'border-red-300', icon: '⚠️' },
+}
+
+// ── PQR (peticiones, quejas, reclamos, sugerencias) ──────────────────────
+
+export const PQR_ESTADO_MAP: Record<PqrStatus, StatusMeta> = {
+  abierto:    { label: 'Abierto',    color: 'text-blue-700',    bgColor: 'bg-blue-50',    borderColor: 'border-blue-300', icon: '📬' },
+  en_proceso: { label: 'En proceso', color: 'text-yellow-700',  bgColor: 'bg-yellow-50',  borderColor: 'border-yellow-300', icon: '🔄' },
+  resuelto:   { label: 'Resuelto',   color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-300', icon: '✅' },
+  cerrado:    { label: 'Cerrado',    color: 'text-gray-600',    bgColor: 'bg-gray-100',   borderColor: 'border-gray-300', icon: '🔒' },
+}
+
+export const PQR_PRIORIDAD_MAP: Record<PqrPriority, StatusMeta> = {
+  baja:    { label: 'Baja',    color: 'text-gray-600',  bgColor: 'bg-gray-100',  borderColor: 'border-gray-300' },
+  media:   { label: 'Media',   color: 'text-blue-700',  bgColor: 'bg-blue-50',   borderColor: 'border-blue-300' },
+  alta:    { label: 'Alta',    color: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-300' },
+  urgente: { label: 'Urgente', color: 'text-red-700',   bgColor: 'bg-red-50',    borderColor: 'border-red-300' },
+}
+
+export const PQR_TIPO_LABELS: Record<PqrType, string> = {
+  peticion: 'Petición',
+  queja: 'Queja',
+  reclamo: 'Reclamo',
+  sugerencia: 'Sugerencia',
 }
 
 // Shipping fees, free-shipping threshold, and min order: app_config → GET /api/store/checkout
@@ -86,8 +118,6 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 // ── Contact ─────────────────────────────────────────────────────────────
 
 export const SUPPORT_EMAIL = 'hola@nurei.mx'
-export const SUPPORT_PHONE = '5555555555'
-export const SUPPORT_WHATSAPP_URL = `https://wa.me/52${SUPPORT_PHONE}`
 
 export const SPICE_LABELS: Record<number, string> = {
   0: 'Sin picante',

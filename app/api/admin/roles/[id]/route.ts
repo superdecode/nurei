@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { updateAdminRole, deleteAdminRole } from '@/lib/supabase/queries/adminRoles'
-import { requireAdmin } from '@/lib/server/require-admin'
+import { requireAdminPermission } from '@/lib/server/require-admin-permission'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('roles', 'total')
   if (guard.error) return guard.error
   try {
     const { id } = await params
@@ -25,7 +25,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const guard = await requireAdmin()
+  const guard = await requireAdminPermission('roles', 'total')
   if (guard.error) return guard.error
   try {
     const { id } = await params

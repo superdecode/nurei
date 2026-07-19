@@ -118,7 +118,7 @@ export async function PATCH(
             couponCode: orderSnap?.coupon_code ?? null,
             referralLinkId: orderSnap?.referral_link_id ?? null,
           })
-          console.log('[attribution] admin confirm', id, result)
+          void result
 
           // Approve so commission is ready for payout.
           const { error } = await supabase.rpc('approve_attribution_for_order', { p_order_id: id })

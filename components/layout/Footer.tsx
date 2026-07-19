@@ -3,17 +3,20 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Container } from './Container'
-import { APP_NAME, SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from '@/lib/utils/constants'
+import { APP_NAME, SUPPORT_EMAIL } from '@/lib/utils/constants'
+import { buildWhatsAppUrl } from '@/lib/config/contact'
 
 export function Footer() {
   const [notes, setNotes] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/settings')
+    fetch('/api/store/info', { cache: 'force-cache' })
       .then((r) => r.json())
       .then((data) => {
         const info = data.data?.store_info as Record<string, string> | undefined
         setNotes(info?.notes ?? '')
+        setWhatsapp(info?.whatsapp ?? '')
       })
       .catch(() => {})
   }, [])
@@ -64,14 +67,22 @@ export function Footer() {
             >
               ✨ Nuestra historia
             </Link>
-            <a
-              href={SUPPORT_WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+            {whatsapp ? (
+              <a
+                href={buildWhatsAppUrl(whatsapp)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm"
+              >
+                💬 Soporte WhatsApp
+              </a>
+            ) : null}
+            <Link
+              href="/pqr"
               className="text-gray-500 hover:text-gray-900 font-medium transition-colors text-sm"
             >
-              💬 Soporte WhatsApp
-            </a>
+              📮 Peticiones, quejas y reclamos
+            </Link>
           </div>
 
           {/* Legal */}

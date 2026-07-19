@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronUp, ChevronDown, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { totalPages as computeTotalPages } from '@/lib/utils/pagination'
 
 interface Column<T> {
   key: keyof T
@@ -56,7 +57,7 @@ export function RankingTable<T extends object>({
     })
   }, [filtered, sortKey, sortDir])
 
-  const totalPages = Math.ceil(sorted.length / pageSize)
+  const totalPages = computeTotalPages(sorted.length, pageSize)
   const paginated = sorted.slice((page - 1) * pageSize, page * pageSize)
 
   const handleSort = (key: keyof T) => {

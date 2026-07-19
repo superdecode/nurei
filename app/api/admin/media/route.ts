@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getMediaItems, deleteMedia, bulkDeleteMedia } from '@/lib/supabase/queries/media'
 import { requireAdmin } from '@/lib/server/require-admin'
+import { ALLOWED_MEDIA_MIME_TYPES, COMPRESSIBLE_MEDIA_MIME_TYPES } from '@/lib/server/media-mime-types'
 
 export async function GET() {
   const guard = await requireAdmin()
@@ -16,16 +17,6 @@ export async function GET() {
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // pre-compression input cap
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/svg+xml',
-])
-// jpeg/png/webp get recompressed server-side regardless of client flags —
-// prevents oversized originals from ever reaching storage (egress cost).
-const COMPRESSIBLE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 export async function POST(request: NextRequest) {
   const guard = await requireAdmin()
@@ -39,9 +30,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    if (!ALLOWED_MEDIA_MIME_TYPES.has(file.type)) {
       return NextResponse.json(
-        { error: 'Formato no permitido. Usa JPG, PNG, WebP, GIF o SVG.' },
+        { error: 'Formato no permitido. Usa JPG, PNG, WebP o GIF.' },
         { status: 400 },
       )
     }
@@ -58,7 +49,7 @@ export async function POST(request: NextRequest) {
     let originalName = file.name
     let uploadSize = file.size
 
-    if (COMPRESSIBLE_TYPES.has(file.type)) {
+    if (COMPRESSIBLE_MEDIA_MIME_TYPES.has(file.type)) {
       const sharp = (await import('sharp')).default
       const webpBuffer = await sharp(Buffer.from(uploadBuffer))
         .rotate() // respect EXIF orientation before stripping metadata

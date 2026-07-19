@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { toRange } from '@/lib/supabase/pagination'
 import type {
   Customer,
   CustomerAddress,
@@ -107,7 +108,7 @@ export async function listCustomers(
   } else {
     query = query.order(sort, { ascending: asc })
   }
-  query = query.range((page - 1) * limit, page * limit - 1)
+  query = query.range(...toRange(page, limit))
 
   const { data, error, count } = await query
   if (error) throw error
@@ -610,7 +611,11 @@ export async function exportCustomersCsv(supabase: SupabaseClient): Promise<stri
   ]
   const escape = (v: unknown) => {
     if (v === null || v === undefined) return ''
-    const s = String(v).replace(/"/g, '""')
+    let s = String(v)
+    // Neutralize spreadsheet formula injection: a leading = + - @ (or tab/CR)
+    // makes Excel/Sheets evaluate the cell as a formula when the export is opened.
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+    s = s.replace(/"/g, '""')
     return /[",\n]/.test(s) ? `"${s}"` : s
   }
   const lines = rows.map((r: Record<string, unknown>) => [

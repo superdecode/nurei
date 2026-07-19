@@ -51,6 +51,7 @@ import { downloadCsv } from '@/lib/utils/download-csv'
 import type { InventoryMovement, InventoryMovementType, Product, ProductVariant, StockStatus } from '@/types'
 import { computeStockStatus, stockStatusLabel } from '@/lib/inventory/stock-status'
 import { cn } from '@/lib/utils'
+import { totalPages as computeTotalPages } from '@/lib/utils/pagination'
 import { AnchoredFilterPanel } from '@/components/admin/AnchoredFilterPanel'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -85,6 +86,18 @@ const MOTIVO_PRESETS = [
   'Promoción / muestra',
   'Otro',
 ]
+
+const ADJUST_KIND_LABELS: Record<string, string> = {
+  entrada: 'Entrada — sumar unidades',
+  salida: 'Salida — restar unidades',
+  correccion: 'Corrección — fijar stock total',
+}
+
+const BULK_ADJUST_KIND_LABELS: Record<string, string> = {
+  entrada: 'Entrada — sumar a todos',
+  salida: 'Salida — restar a todos',
+  correccion: 'Corrección — mismo total en todos',
+}
 
 const STATUS_COLORS: Record<StockStatus, string> = {
   available: 'bg-emerald-100 text-emerald-700',
@@ -441,7 +454,7 @@ export default function InventoryAdminPage() {
     return result
   }, [apiData.products, inventoryView, searchApplied, catFilter, stockStatusFilter, priceMin, priceMax, stockMin, stockMax])
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
+  const totalPages = computeTotalPages(filteredProducts.length, pageSize)
   const paginatedProducts = useMemo(() => {
     const s = (page - 1) * pageSize
     return filteredProducts.slice(s, s + pageSize)
@@ -1340,7 +1353,7 @@ export default function InventoryAdminPage() {
                 onValueChange={(v) => setAdjustKind((v ?? 'entrada') as typeof adjustKind)}
               >
                 <SelectTrigger className="h-9 text-sm rounded-xl">
-                  <SelectValue />
+                  <SelectValue>{(v: string) => ADJUST_KIND_LABELS[v] ?? v}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="entrada" className="text-sm">Entrada — sumar unidades</SelectItem>
@@ -1423,9 +1436,9 @@ export default function InventoryAdminPage() {
               onValueChange={(v) => setBulkAdjustKind((v ?? 'entrada') as typeof bulkAdjustKind)}
             >
               <SelectTrigger className="h-9 w-full text-sm rounded-xl">
-                <SelectValue />
+                <SelectValue>{(v: string) => BULK_ADJUST_KIND_LABELS[v] ?? v}</SelectValue>
               </SelectTrigger>
-              <SelectContent className="min-w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 <SelectItem value="entrada" className="text-sm py-2.5">Entrada — sumar a todos</SelectItem>
                 <SelectItem value="salida" className="text-sm py-2.5">Salida — restar a todos</SelectItem>
                 <SelectItem value="correccion" className="text-sm py-2.5">Corrección — mismo total en todos</SelectItem>
@@ -1616,7 +1629,9 @@ export default function InventoryAdminPage() {
                 onValueChange={(v) => setMovementTypeFilter((v ?? 'todos') as typeof movementTypeFilter)}
               >
                 <SelectTrigger className="h-9 text-sm rounded-xl border-gray-200">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v: string) => v === 'todos' ? 'Todos los tipos' : MOVEMENT_TYPE_LABEL[v as InventoryMovementType] ?? v}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos" className="text-sm">Todos los tipos</SelectItem>
