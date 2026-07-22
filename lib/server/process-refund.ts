@@ -115,5 +115,21 @@ export async function processRefund(
     console.error('[refund] Error enviando correo de reembolso:', e)
   })
 
+  await supabase
+    .rpc('reverse_loyalty_points_for_refund_atomic', {
+      p_order_id: orderId,
+      p_refund_id: refundId as string,
+      p_amount_cents: amountCents,
+    })
+    .then(({ error }) => {
+      if (error) {
+        console.error('[process-refund] reverse_loyalty_points_for_refund_atomic failed', {
+          orderId,
+          refundId,
+          error: error.message,
+        })
+      }
+    })
+
   return { ok: true, refundId: refundId as string }
 }
