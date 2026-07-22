@@ -25,6 +25,8 @@ import { Input } from '@/components/ui/input'
 import { Container } from '@/components/layout/Container'
 import { useCartStore } from '@/lib/stores/cart'
 import { useAuthStore } from '@/lib/stores/auth'
+import { useLoyaltyStore } from '@/lib/stores/loyaltyStore'
+import { CheckoutLoyaltyRedemption } from '@/components/loyalty/CheckoutLoyaltyRedemption'
 import { formatPrice } from '@/lib/utils/format'
 import {
   Dialog,
@@ -85,6 +87,7 @@ type OrderConfirmation = {
   shipping_fee: number
   subtotal: number
   coupon_discount: number
+  points_discount: number
   total: number
   customer: {
     full_name: string
@@ -246,6 +249,9 @@ export default function CheckoutPage() {
     loading: false,
     error: null,
   })
+  const loyaltyBalance = useLoyaltyStore((s) => s.balance)
+  const fetchLoyaltyStatus = useLoyaltyStore((s) => s.fetchStatus)
+  const [pointsRedeemed, setPointsRedeemed] = useState(0)
 
   const [shippingForm, setShippingForm] = useState<ShippingForm>(DEFAULT_SHIPPING_FORM)
   const [locationStateOptions, setLocationStateOptions] = useState<string[]>([])
@@ -296,6 +302,10 @@ export default function CheckoutPage() {
   const refreshUser = useAuthStore((s) => s.refreshUser)
   const loadAddresses = useAuthStore((s) => s.loadAddresses)
   const savedAddresses = useAuthStore((s) => s.addresses)
+
+  useEffect(() => {
+    if (authOk) fetchLoyaltyStatus()
+  }, [authOk, fetchLoyaltyStatus])
 
   useEffect(() => {
     setMounted(true)
@@ -432,7 +442,15 @@ export default function CheckoutPage() {
   const selectedMethod = shippingMethods.find((method) => method.id === selectedShippingMethod)
   const shippingFee = selectedMethod?.price ?? 0
   const effectiveCouponDiscount = couponState.discountAmount
-  const total = Math.max(0, subtotal + shippingFee - effectiveCouponDiscount)
+  const pointsDiscount = pointsRedeemed * 10
+  const total = Math.max(0, subtotal + shippingFee - effectiveCouponDiscount - pointsDiscount)
+
+  useEffect(() => {
+    const ceiling = Math.max(0, subtotal - effectiveCouponDiscount)
+    if (pointsRedeemed * 10 > ceiling) {
+      setPointsRedeemed(0)
+    }
+  }, [subtotal, effectiveCouponDiscount, pointsRedeemed])
 
   const scrollCheckoutTop = useCallback(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -754,6 +772,7 @@ export default function CheckoutPage() {
             quantity: item.quantity,
           })),
           coupon_code: couponState.appliedCode ?? undefined,
+          points_redeemed: pointsRedeemed,
           customer: {
             full_name: `${ship.firstName} ${ship.lastName}`.trim(),
             email: ship.email,
@@ -1232,6 +1251,17 @@ export default function CheckoutPage() {
                       </div>
                     )}
                   </div>
+
+                  {authOk && (
+                    <div className="mt-5">
+                      <CheckoutLoyaltyRedemption
+                        balance={loyaltyBalance}
+                        maxDiscountCents={Math.max(0, subtotal - effectiveCouponDiscount)}
+                        value={pointsRedeemed}
+                        onChange={setPointsRedeemed}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1650,6 +1680,9 @@ export default function CheckoutPage() {
                         <p>Subtotal: {formatPrice(orderConfirmation.subtotal)}</p>
                         <p>Envío: {orderConfirmation.shipping_fee === 0 ? 'Gratis' : formatPrice(orderConfirmation.shipping_fee)}</p>
                         <p>Descuento: -{formatPrice(orderConfirmation.coupon_discount)}</p>
+                        {orderConfirmation.points_discount > 0 && (
+                          <p>Puntos canjeados: -{formatPrice(orderConfirmation.points_discount)}</p>
+                        )}
                         <p className="text-base font-bold text-primary-dark">Total: {formatPrice(orderConfirmation.total)}</p>
                         <p>
                           Entrega estimada:{' '}
