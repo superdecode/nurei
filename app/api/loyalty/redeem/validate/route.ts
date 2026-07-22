@@ -24,7 +24,13 @@ export async function POST(request: NextRequest) {
     const subtotal = Number(body?.subtotal ?? 0)
     const couponDiscount = Number(body?.couponDiscount ?? 0)
 
-    if (!Number.isInteger(points) || points < 0 || Number.isNaN(subtotal)) {
+    if (
+      !Number.isInteger(points) ||
+      points < 0 ||
+      !Number.isFinite(subtotal) ||
+      !Number.isFinite(couponDiscount) ||
+      couponDiscount < 0
+    ) {
       return NextResponse.json({ valid: false, error: 'Datos inválidos' }, { status: 400 })
     }
 
