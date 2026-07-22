@@ -9,6 +9,7 @@ import type { Product, CartItem, ProductVariant } from '@/types'
 
 interface CartStore {
   items: CartItem[]
+  cartSessionId: string
   addItem: (product: Product, variant?: Pick<ProductVariant, 'id' | 'name' | 'image' | 'price'> | null) => void
   removeItem: (productId: string, variantId?: string | null) => void
   updateQuantity: (productId: string, quantity: number, variantId?: string | null) => void
@@ -33,6 +34,7 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
+      cartSessionId: crypto.randomUUID(),
 
       addItem: (product: Product, variant?: Pick<ProductVariant, 'id' | 'name' | 'image' | 'price'> | null) => {
         const priceCentavos = variant?.price ?? product.base_price ?? product.price
@@ -84,7 +86,7 @@ export const useCartStore = create<CartStore>()(
 
       clearCart: () => {
         clearShippingDraft()
-        set({ items: [] })
+        set({ items: [], cartSessionId: crypto.randomUUID() })
       },
 
       getSubtotal: () => {
