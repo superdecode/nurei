@@ -7,6 +7,7 @@ import { useAuthStore } from '@/lib/stores/auth'
 import { useLoyaltyStore } from '@/lib/stores/loyaltyStore'
 import { LoyaltyTierBadge } from './LoyaltyTierBadge'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
+import { useConsent } from '@/components/consent/ConsentProvider'
 
 const REASON_LABELS: Record<string, string> = {
   signup: 'Bono de bienvenida',
@@ -27,6 +28,7 @@ export function LoyaltyWidget() {
   const { balance, tier, history, loaded, fetchStatus } = useLoyaltyStore()
   const [open, setOpen] = useState(false)
   const [coupons, setCoupons] = useState<UserCoupon[]>([])
+  const { consent } = useConsent()
 
   useEffect(() => {
     if (isAuthenticated && !loaded) {
@@ -52,7 +54,9 @@ export function LoyaltyWidget() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Abrir mi programa de lealtad"
-        className="fixed bottom-24 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/15 transition-transform hover:scale-105 motion-reduce:transition-none print:hidden"
+        className={`fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/15 transition-[transform,bottom] hover:scale-105 motion-reduce:transition-none print:hidden ${
+          consent === 'pending' ? 'bottom-44 sm:bottom-40' : 'bottom-24'
+        }`}
       >
         <Gift className="h-6 w-6" />
         {unusedCoupons.length > 0 && (
