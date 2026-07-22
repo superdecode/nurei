@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
 import { executeAffiliateAttribution } from '@/lib/server/affiliate-attribution'
 import { claimCouponForPaidOrder } from '@/lib/server/coupons/engine'
+import { awardPointsForPaidOrder, claimRedeemedPointsForPaidOrder } from '@/lib/server/loyalty/engine'
 import { sendMetaPurchaseEvent } from '@/lib/server/meta-capi'
 import { centavosToPesos } from '@/lib/tracking/currency'
 import { mapStripeRefundStatus } from '@/lib/server/process-refund'
@@ -66,6 +67,14 @@ export async function POST(request: NextRequest) {
         // Register coupon usage now that the order is paid (idempotent per order).
         await claimCouponForPaidOrder(orderId).catch((err) => {
           console.error('[stripe webhook] claimCouponForPaidOrder failed', { orderId, err })
+        })
+
+        await claimRedeemedPointsForPaidOrder(orderId).catch((err) => {
+          console.error('[stripe webhook] claimRedeemedPointsForPaidOrder failed', { orderId, err })
+        })
+
+        await awardPointsForPaidOrder(orderId).catch((err) => {
+          console.error('[stripe webhook] awardPointsForPaidOrder failed', { orderId, err })
         })
 
         const { data: order } = await supabase
@@ -173,6 +182,21 @@ export async function POST(request: NextRequest) {
           })
           if (reverseErr) {
             console.error('[stripe-webhook] Error reversing failed refund:', reverseErr)
+          }
+
+          const { data: refundRow } = await supabase
+            .from('order_refunds')
+            .select('id')
+            .eq('stripe_refund_id', refund.id)
+            .maybeSingle()
+
+          if (refundRow?.id) {
+            const { error: restoreErr } = await supabase.rpc('restore_loyalty_points_for_reversed_refund_atomic', {
+              p_refund_id: refundRow.id,
+            })
+            if (restoreErr) {
+              console.error('[stripe-webhook] Error restoring loyalty points:', restoreErr)
+            }
           }
         } else {
           await supabase
