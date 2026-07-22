@@ -21,6 +21,7 @@ const FIELD_LABEL: Record<string, string> = {
   eta_label: 'Tiempo de entrega',
   estimated_date: 'Fecha estimada de entrega',
   payment_method: 'Forma de pago',
+  points_redeemed: 'Puntos',
 }
 
 function labelForIssuePath(path: PropertyKey[]): string {
@@ -84,6 +85,13 @@ export const createOrderPayloadSchema = z.object({
   }),
   payment_method: z.string().min(1, 'Selecciona una forma de pago válida'),
   confirm_duplicate: z.boolean().optional(),
+  points_redeemed: z
+    .number({ error: () => 'Puntos a canjear no válidos' })
+    .int('Los puntos deben ser un número entero')
+    .min(0, 'Los puntos no pueden ser negativos')
+    .multipleOf(100, 'Los puntos se canjean en múltiplos de 100')
+    .optional()
+    .default(0),
 })
 
 export type CreateOrderPayload = z.infer<typeof createOrderPayloadSchema>

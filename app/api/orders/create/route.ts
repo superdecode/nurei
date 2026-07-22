@@ -11,6 +11,7 @@ import {
   formatCreateOrderPayloadErrors,
 } from '@/lib/validations/order-create-payload'
 import { validateCoupon } from '@/lib/server/coupons/engine'
+import { validateRedemptionAmount } from '@/lib/server/loyalty/points'
 import { getReferralLinkIdFromHeader } from '@/lib/affiliate/cookie'
 import { getSettings } from '@/lib/supabase/queries/settings'
 import { normalizeShippingFromConfig } from '@/lib/store/normalize-checkout-settings'
@@ -184,7 +185,41 @@ export async function POST(request: NextRequest) {
       couponSnapshot = result.snapshot
     }
 
-    const total = Math.max(0, subtotal + serverShippingFee - couponDiscount)
+    let pointsRedeemed = 0
+    let pointsDiscount = 0
+    if (payload.points_redeemed > 0) {
+      const supabaseSession = await createServerSupabaseClient()
+      const {
+        data: { user: sessionUser },
+      } = await supabaseSession.auth.getUser()
+
+      if (!sessionUser) {
+        return NextResponse.json({ error: 'Debes iniciar sesión para canjear puntos' }, { status: 401 })
+      }
+
+      const service1 = createServiceClient()
+      const { data: loyalty } = await service1
+        .from('loyalty_points')
+        .select('balance')
+        .eq('user_id', sessionUser.id)
+        .maybeSingle()
+
+      const validation = validateRedemptionAmount({
+        points: payload.points_redeemed,
+        balance: loyalty?.balance ?? 0,
+        subtotal,
+        couponDiscount,
+      })
+
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
+      }
+
+      pointsRedeemed = payload.points_redeemed
+      pointsDiscount = validation.discountCents
+    }
+
+    const total = Math.max(0, subtotal + serverShippingFee - couponDiscount - pointsDiscount)
 
     // Capture referral link from the customer's cookie NOW — it won't be available later
     // (e.g. when admin confirms a cash order days later).
@@ -268,6 +303,8 @@ export async function POST(request: NextRequest) {
       coupon_code: couponCode,
       coupon_discount: couponDiscount,
       coupon_snapshot: couponSnapshot,
+      points_redeemed: pointsRedeemed,
+      points_discount: pointsDiscount,
       discount: 0,
       total,
       status: 'pending',
@@ -381,6 +418,8 @@ export async function POST(request: NextRequest) {
         shipping_fee: serverShippingFee,
         coupon_discount: couponDiscount,
         coupon_snapshot: couponSnapshot,
+        points_redeemed: pointsRedeemed,
+        points_discount: pointsDiscount,
         total,
       },
     })
