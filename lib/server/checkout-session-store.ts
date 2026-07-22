@@ -35,6 +35,7 @@ type StoredOrder = {
   }>
   couponCode: string | null
   couponDiscount: number
+  pointsDiscount: number
   subtotal: number
   total: number
 }

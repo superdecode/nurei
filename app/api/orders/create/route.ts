@@ -405,6 +405,7 @@ export async function POST(request: NextRequest) {
       items: orderItems,
       couponCode,
       couponDiscount,
+      pointsDiscount,
       subtotal,
       total,
     })

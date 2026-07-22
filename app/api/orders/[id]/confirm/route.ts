@@ -22,6 +22,7 @@ export async function GET(
           shipping_fee: dbOrder.shipping_fee,
           subtotal: dbOrder.subtotal,
           coupon_discount: dbOrder.coupon_discount,
+          points_discount: dbOrder.points_discount,
           total: dbOrder.total,
           items: dbOrder.items,
           customer: {
@@ -49,6 +50,7 @@ export async function GET(
         shipping_fee: cached.shippingMethod.price,
         subtotal: cached.subtotal,
         coupon_discount: cached.couponDiscount,
+        points_discount: cached.pointsDiscount,
         total: cached.total,
         items: cached.items.map((item) => ({
           product_id: item.productId,

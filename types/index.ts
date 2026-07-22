@@ -268,6 +268,7 @@ export interface Order {
   coupon_code: string | null
   coupon_discount: number
   coupon_snapshot?: Record<string, unknown> | null
+  points_discount: number
   discount: number
   tax?: number
   total: number
