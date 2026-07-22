@@ -59,6 +59,10 @@ export async function POST(request: NextRequest) {
     // Stripe Checkout supports discounts via coupons — but for simplicity we adjust the total directly
     // by using a single line-item approach if there are discounts
 
+    // Combine the per-order coupon discount with any Nurei Coins points redemption discount so the
+    // Stripe charge reflects the full amount the customer actually owes.
+    const totalDiscount = (order.coupon_discount ?? 0) + (order.points_discount ?? 0)
+
     // Forward referral cookie so webhook can attribute the order
     const referralLinkId = request.cookies.get('_nurei_ref')?.value ?? null
 
@@ -89,11 +93,11 @@ export async function POST(request: NextRequest) {
           ...(clientUa ? { client_ua: clientUa } : {}),
         },
       },
-      ...(order.coupon_discount > 0
+      ...(totalDiscount > 0
         ? {
             discounts: [
               {
-                coupon: await getOrCreateStripeCoupon(stripe, order.coupon_discount, order.id),
+                coupon: await getOrCreateStripeCoupon(stripe, totalDiscount, order.id),
               },
             ],
           }

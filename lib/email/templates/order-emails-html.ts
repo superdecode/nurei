@@ -17,6 +17,7 @@ export type CustomerOrderEmailProps = {
   shippingFee: number
   couponDiscount: number
   couponCode: string | null
+  pointsDiscount: number
   total: number
   orderDate: string
   deliveryAddress: string
@@ -51,6 +52,14 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
       ? `<tr>
           <td style="padding:8px 0;font-size:13px;color:${GREEN};font-weight:600;">Cupón ${escapeHtml(p.couponCode ?? '')}</td>
           <td style="padding:8px 12px 8px 0;text-align:right;font-size:14px;color:${GREEN};font-weight:600;">-${formatPrice(p.couponDiscount)}</td>
+        </tr>`
+      : ''
+
+  const pointsDiscountRow =
+    p.pointsDiscount > 0
+      ? `<tr>
+          <td style="padding:8px 0;font-size:13px;color:${GREEN};font-weight:600;">Puntos canjeados</td>
+          <td style="padding:8px 12px 8px 0;text-align:right;font-size:14px;color:${GREEN};font-weight:600;">-${formatPrice(p.pointsDiscount)}</td>
         </tr>`
       : ''
 
@@ -102,6 +111,7 @@ export function renderCustomerOrderConfirmationHtml(p: CustomerOrderEmailProps):
             <tr><td width="60%" style="padding:6px 0;color:${TEXT_MUTED};">Subtotal</td><td width="40%" align="right" style="padding:6px 12px 6px 0;text-align:right;font-weight:600;">${formatPrice(p.subtotal)}</td></tr>
             <tr><td width="60%" style="padding:6px 0;color:${TEXT_MUTED};">Envío</td><td width="40%" align="right" style="padding:6px 12px 6px 0;text-align:right;font-weight:600;">${p.shippingFee === 0 ? '<span style="color:' + GREEN + ';">¡Gratis!</span>' : formatPrice(p.shippingFee)}</td></tr>
             ${couponRow}
+            ${pointsDiscountRow}
             <tr><td style="padding:12px 0 8px;border-top:2px solid ${CARD_BORDER};font-size:16px;font-weight:800;color:${TEXT_DARK};">Total</td><td align="right" style="padding:12px 12px 8px 0;border-top:2px solid ${CARD_BORDER};text-align:right;font-size:18px;font-weight:800;color:${TEXT_DARK};">${formatPrice(p.total)}</td></tr>
           </table>
 

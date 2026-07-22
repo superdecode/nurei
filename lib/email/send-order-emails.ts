@@ -56,6 +56,7 @@ type NormalizedPayload = {
   shippingFee: number
   couponDiscount: number
   couponCode: string | null
+  pointsDiscount: number
   total: number
   createdAt: string
   items: OrderEmailLineItem[]
@@ -124,7 +125,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
       const { data, error } = await supabase
         .from('orders')
         .select(
-          'short_id, public_access_token, customer_email, customer_name, customer_phone, delivery_address, subtotal, shipping_fee, coupon_discount, coupon_code, total, created_at, items'
+          'short_id, public_access_token, customer_email, customer_name, customer_phone, delivery_address, subtotal, shipping_fee, coupon_discount, coupon_code, points_discount, total, created_at, items'
         )
         .eq('id', orderId)
         .maybeSingle()
@@ -142,6 +143,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
           shippingFee: data.shipping_fee ?? 0,
           couponDiscount: data.coupon_discount ?? 0,
           couponCode: data.coupon_code,
+          pointsDiscount: data.points_discount ?? 0,
           total: data.total,
           createdAt: data.created_at,
           items: raw.map((i) => ({
@@ -182,6 +184,7 @@ async function loadOrderPayload(orderId: string): Promise<NormalizedPayload | nu
     shippingFee: cached.shippingMethod.price,
     couponDiscount: cached.couponDiscount,
     couponCode: cached.couponCode,
+    pointsDiscount: cached.pointsDiscount,
     total: cached.total,
     createdAt: new Date().toISOString(),
     items: cached.items.map((i) => ({
@@ -232,6 +235,7 @@ export async function sendOrderConfirmationEmails(
     shippingFee: payload.shippingFee,
     couponDiscount: payload.couponDiscount,
     couponCode: payload.couponCode,
+    pointsDiscount: payload.pointsDiscount,
     total: payload.total,
     orderDate: formatOrderDate(payload.createdAt),
     deliveryAddress: payload.deliveryAddress,

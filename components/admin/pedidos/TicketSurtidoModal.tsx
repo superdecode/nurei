@@ -207,6 +207,12 @@ function TicketView({ orders, brandColor }: { orders: Order[]; brandColor: strin
                   <span className="tabular-nums">-{formatPrice(order.coupon_discount)}</span>
                 </div>
               )}
+              {order.points_discount > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>Puntos canjeados</span>
+                  <span className="tabular-nums">-{formatPrice(order.points_discount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-gray-500">
                 <span>Envío</span>
                 <span className="tabular-nums">{order.shipping_fee === 0 ? 'Gratis' : formatPrice(order.shipping_fee)}</span>

@@ -590,6 +590,12 @@ export default function TrackingPage() {
                           <span>-{formatPrice(order.coupon_discount)}</span>
                         </div>
                       )}
+                      {order.points_discount > 0 && (
+                        <div className="flex justify-between text-nurei-stock">
+                          <span>Puntos canjeados</span>
+                          <span>-{formatPrice(order.points_discount)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between font-bold text-base pt-1">
                         <span>Total</span>
                         <span>{formatPrice(order.total)}</span>

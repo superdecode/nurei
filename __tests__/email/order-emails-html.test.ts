@@ -66,6 +66,7 @@ describe('renderOrderShippedHtml', () => {
       shippingFee: 9900,
       couponDiscount: 1000,
       couponCode: 'NUREI10',
+      pointsDiscount: 0,
       total: 21800,
       deliveryAddress: 'Roma Norte, CDMX',
     })
