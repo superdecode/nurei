@@ -9,7 +9,6 @@ import { ConsentProvider } from '@/components/consent/ConsentProvider'
 import { ConsentBanner } from '@/components/consent/ConsentBanner'
 import { TrackingScripts } from '@/components/tracking/TrackingScripts'
 import { WhatsAppFloatingButton } from '@/components/layout/WhatsAppFloatingButton'
-import { LoyaltyWidget } from '@/components/loyalty/LoyaltyWidget'
 import { GamificationWheel } from '@/components/loyalty/GamificationWheel'
 
 export default function PublicLayout({
@@ -31,7 +30,6 @@ export default function PublicLayout({
         <ConsentBanner />
         <TrackingScripts />
         <WhatsAppFloatingButton />
-        <LoyaltyWidget />
         <GamificationWheel />
       </StoreCheckoutProvider>
     </ConsentProvider>
