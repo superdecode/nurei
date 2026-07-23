@@ -1,20 +1,4 @@
-export const TIER_CONFIG = [
-  { tier: 'curioso', minPoints: 0, multiplier: 1.0 },
-  { tier: 'antojadizo', minPoints: 1000, multiplier: 1.0 },
-  { tier: 'fanatico', minPoints: 2500, multiplier: 1.2 },
-  { tier: 'snack_lover', minPoints: 6500, multiplier: 1.5 },
-  { tier: 'leyenda', minPoints: 17500, multiplier: 1.5 },
-] as const
-
-export function tierForLifetimePoints(lifetimePoints: number): string {
-  let result = TIER_CONFIG[0].tier as string
-  for (const entry of TIER_CONFIG) {
-    if (lifetimePoints >= entry.minPoints) {
-      result = entry.tier
-    }
-  }
-  return result
-}
+export { TIER_CONFIG, tierForLifetimePoints } from '@/lib/loyalty/tiers'
 
 /** Base points before any tier/wheel multiplier — award_points_atomic applies those server-side. */
 export function pointsEarnedForPurchase(chargeableCents: number): number {

@@ -5,6 +5,7 @@ import {
   redemptionDiscountCents,
   validateRedemptionAmount,
 } from '../../lib/server/loyalty/points'
+import { tierProgress } from '../../lib/loyalty/tiers'
 
 describe('tierForLifetimePoints', () => {
   it('returns curioso at 0', () => {
@@ -76,5 +77,49 @@ describe('validateRedemptionAmount', () => {
     const result = validateRedemptionAmount({ points: 300, balance: 1000, subtotal: 50000, couponDiscount: 0 })
     expect(result.valid).toBe(true)
     expect(result.discountCents).toBe(3000)
+  })
+})
+
+describe('tierProgress', () => {
+  it('reports progress within the first tier', () => {
+    const result = tierProgress(500)
+    expect(result).toEqual({
+      tier: 'curioso',
+      nextTier: 'antojadizo',
+      currentMin: 0,
+      nextMin: 1000,
+      pointsToNext: 500,
+      progressPct: 50,
+    })
+  })
+
+  it('reports 0% right at a tier boundary', () => {
+    const result = tierProgress(1000)
+    expect(result.tier).toBe('antojadizo')
+    expect(result.pointsToNext).toBe(1500)
+    expect(result.progressPct).toBe(0)
+  })
+
+  it('reports progress in the last tier before the cap', () => {
+    const result = tierProgress(6500)
+    expect(result.tier).toBe('snack_lover')
+    expect(result.nextTier).toBe('leyenda')
+    expect(result.pointsToNext).toBe(11000)
+    expect(result.progressPct).toBe(0)
+  })
+
+  it('reports 100% progress and no next tier at the max tier', () => {
+    const result = tierProgress(20000)
+    expect(result.tier).toBe('leyenda')
+    expect(result.nextTier).toBeNull()
+    expect(result.nextMin).toBeNull()
+    expect(result.pointsToNext).toBeNull()
+    expect(result.progressPct).toBe(100)
+  })
+
+  it('floors progressPct to an integer', () => {
+    const result = tierProgress(1333)
+    // antojadizo: 1000-2499, span 1500, progress = 333/1500 = 22.2%
+    expect(result.progressPct).toBe(22)
   })
 })
