@@ -8,12 +8,15 @@ import {
   MapPin, Plus, Edit2, Trash2, Star, Check, X, Ticket,
   ArrowLeft, Clock, Truck, CheckCircle2, XCircle, AlertCircle,
   Copy, ExternalLink, ShoppingBag, Calendar, Tag, CreditCard, RotateCcw,
-  ChevronUp, ChevronDown, Send, AlertTriangle,
+  ChevronUp, ChevronDown, Send, AlertTriangle, Award,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useAuthStore } from '@/lib/stores/auth'
 import { useFavoritesStore } from '@/lib/stores/favorites'
+import { useLoyaltyStore, type LoyaltyLedgerEntry } from '@/lib/stores/loyaltyStore'
+import { LoyaltyTierCard } from '@/components/loyalty/LoyaltyTierCard'
+import { LoyaltyHistoryList } from '@/components/loyalty/LoyaltyHistoryList'
 import { formatPrice, formatDate } from '@/lib/utils/format'
 import { ORDER_STATUS_MAP } from '@/lib/utils/constants'
 import { fetchWithCredentials } from '@/lib/http/fetch-with-credentials'
@@ -1262,13 +1265,35 @@ function TabCuenta({ couponActiveCount }: { couponActiveCount: number }) {
   )
 }
 
+// ─── Tab: Lealtad ───────────────────────────────────────────────────────────
+
+function TabLealtad({ lifetimePoints, balance, history }: {
+  lifetimePoints: number
+  balance: number
+  history: LoyaltyLedgerEntry[]
+}) {
+  return (
+    <div className="space-y-6">
+      <LoyaltyTierCard lifetimePoints={lifetimePoints} balance={balance} variant="expanded" />
+
+      <div>
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+          Historial de movimientos
+        </h3>
+        <LoyaltyHistoryList history={history} />
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Profile Page ────────────────────────────────────────────────────────
 
-type TabId = 'pedidos' | 'cupones' | 'direcciones' | 'cuenta'
+type TabId = 'pedidos' | 'cupones' | 'direcciones' | 'lealtad' | 'cuenta'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'pedidos', label: 'Pedidos', icon: <Package className="w-4 h-4" /> },
   { id: 'cupones', label: 'Cupones', icon: <Ticket className="w-4 h-4" /> },
+  { id: 'lealtad', label: 'Lealtad', icon: <Award className="w-4 h-4" /> },
   { id: 'direcciones', label: 'Direcciones', icon: <MapPin className="w-4 h-4" /> },
   { id: 'cuenta', label: 'Cuenta', icon: <User className="w-4 h-4" /> },
 ]
@@ -1318,6 +1343,7 @@ function PerfilPageContent() {
   const searchParams = useSearchParams()
   const { user, email, isAuthenticated, isLoading, checkSession, refreshUser, loadAddresses } = useAuthStore()
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
+  const { balance, lifetimePoints, loaded: loyaltyLoaded, fetchStatus: fetchLoyaltyStatus, history: loyaltyHistory } = useLoyaltyStore()
   const [activeTab, setActiveTab] = useState<TabId>('pedidos')
   const [mounted, setMounted] = useState(false)
   const [activeOrderCount, setActiveOrderCount] = useState(0)
@@ -1331,7 +1357,7 @@ function PerfilPageContent() {
   useEffect(() => {
     queueMicrotask(() => {
       const tab = searchParams.get('tab')
-      if (tab === 'pedidos' || tab === 'cupones' || tab === 'direcciones' || tab === 'cuenta') {
+      if (tab === 'pedidos' || tab === 'cupones' || tab === 'lealtad' || tab === 'direcciones' || tab === 'cuenta') {
         setActiveTab(tab)
       } else {
         setActiveTab('pedidos')
@@ -1372,6 +1398,7 @@ function PerfilPageContent() {
       refreshUser()
       loadAddresses()
       loadOrders()
+      fetchLoyaltyStatus()
       fetchWithCredentials('/api/profile/coupons')
         .then((r) => (r.ok ? r.json() : null))
         .then((json) => {
@@ -1380,7 +1407,7 @@ function PerfilPageContent() {
         })
         .catch(() => setCouponActiveCount(0))
     })
-  }, [mounted, isAuthenticated, isLoading, router, refreshUser, loadAddresses, loadOrders])
+  }, [mounted, isAuthenticated, isLoading, router, refreshUser, loadAddresses, loadOrders, fetchLoyaltyStatus])
 
   if (!mounted || isLoading || !isAuthenticated || !user) {
     return <ProfileSkeleton />
@@ -1421,7 +1448,16 @@ function PerfilPageContent() {
 
           {/* Quick stats */}
           {showAccountSummary && (
-          <div className="grid grid-cols-2 gap-3 mt-5">
+          <>
+          <div className="mt-5">
+            <LoyaltyTierCard
+              lifetimePoints={lifetimePoints}
+              balance={balance}
+              variant="compact"
+              onClick={() => setActiveTab('lealtad')}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-3">
             <div className="bg-gray-50 rounded-2xl p-3 text-center">
               <p className="text-xl font-black text-gray-900">{orders.length}</p>
               <p className="text-[11px] text-gray-400 font-bold mt-0.5">Pedidos</p>
@@ -1433,6 +1469,7 @@ function PerfilPageContent() {
               </Link>
             </div>
           </div>
+          </>
           )}
         </div>
 
@@ -1480,6 +1517,9 @@ function PerfilPageContent() {
               <TabPedidos orders={orders} loading={ordersLoading} />
             )}
             {activeTab === 'cupones' && <TabCupones />}
+            {activeTab === 'lealtad' && (
+              <TabLealtad lifetimePoints={lifetimePoints} balance={balance} history={loyaltyHistory} />
+            )}
             {activeTab === 'direcciones' && <TabDirecciones />}
             {activeTab === 'cuenta' && <TabCuenta couponActiveCount={couponActiveCount} />}
           </motion.div>
