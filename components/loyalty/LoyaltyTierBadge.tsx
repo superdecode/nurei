@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 
-export const TIER_LABELS: Record<string, string> = {
+const TIER_LABELS: Record<string, string> = {
   curioso: 'Curioso',
   antojadizo: 'Antojadizo',
   fanatico: 'Fanático',

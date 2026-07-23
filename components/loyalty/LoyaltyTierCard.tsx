@@ -1,8 +1,25 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { Sprout, Flame, Star, Crown, Gem } from 'lucide-react'
 import { tierProgress } from '@/lib/loyalty/tiers'
-import { LoyaltyTierBadge, TIER_LABELS } from './LoyaltyTierBadge'
+import { LoyaltyTierBadge } from './LoyaltyTierBadge'
+
+const TIER_ICONS: Record<string, React.ElementType> = {
+  curioso: Sprout,
+  antojadizo: Flame,
+  fanatico: Star,
+  snack_lover: Crown,
+  leyenda: Gem,
+}
+
+const TIER_ICON_STYLES: Record<string, string> = {
+  curioso: 'bg-muted text-muted-foreground',
+  antojadizo: 'bg-amber-100 text-amber-700',
+  fanatico: 'bg-orange-100 text-orange-700',
+  snack_lover: 'bg-rose-100 text-rose-700',
+  leyenda: 'bg-violet-100 text-violet-700',
+}
 
 const TIER_MULTIPLIER_LABEL: Record<string, string> = {
   curioso: '',
@@ -30,7 +47,8 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
   const progress = tierProgress(lifetimePoints)
   const multiplierLabel = TIER_MULTIPLIER_LABEL[progress.tier]
 
-  const tierLabel = TIER_LABELS[progress.tier] ?? progress.tier
+  const TierIcon = TIER_ICONS[progress.tier] ?? Sprout
+  const iconStyle = TIER_ICON_STYLES[progress.tier] ?? TIER_ICON_STYLES.curioso
 
   if (variant === 'compact') {
     return (
@@ -39,12 +57,14 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
         onClick={onClick}
         className="w-full text-left bg-gray-50 rounded-2xl p-3 hover:bg-gray-100 transition-colors"
       >
-        <div className="flex items-center justify-between mb-0.5">
-          <p className="text-sm font-black text-gray-900">Nivel {tierLabel}</p>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${iconStyle}`}>
+              <TierIcon className="w-4 h-4" />
+            </div>
+            <LoyaltyTierBadge tier={progress.tier} />
+          </div>
           <span className="text-xs font-bold text-gray-900">{balance} pts</span>
-        </div>
-        <div className="mb-1.5">
-          <LoyaltyTierBadge tier={progress.tier} />
         </div>
         <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
           <motion.div
@@ -65,16 +85,17 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-lg font-black text-gray-900">Nivel {tierLabel}</h3>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconStyle}`}>
+            <TierIcon className="w-5 h-5" />
+          </div>
+          <LoyaltyTierBadge tier={progress.tier} />
+        </div>
         <div className="text-right">
           <p className="text-2xl font-black text-gray-900">{balance}</p>
           <p className="text-[11px] text-gray-400 font-bold">puntos disponibles</p>
         </div>
-      </div>
-
-      <div className="mb-3">
-        <LoyaltyTierBadge tier={progress.tier} />
       </div>
 
       <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
