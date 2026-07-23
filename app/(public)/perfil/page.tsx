@@ -1343,7 +1343,7 @@ function PerfilPageContent() {
   const searchParams = useSearchParams()
   const { user, email, isAuthenticated, isLoading, checkSession, refreshUser, loadAddresses } = useAuthStore()
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
-  const { balance, lifetimePoints, loaded: loyaltyLoaded, fetchStatus: fetchLoyaltyStatus, history: loyaltyHistory } = useLoyaltyStore()
+  const { balance, lifetimePoints, fetchStatus: fetchLoyaltyStatus, history: loyaltyHistory } = useLoyaltyStore()
   const [activeTab, setActiveTab] = useState<TabId>('pedidos')
   const [mounted, setMounted] = useState(false)
   const [activeOrderCount, setActiveOrderCount] = useState(0)
