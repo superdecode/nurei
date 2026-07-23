@@ -1,7 +1,8 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { tierProgress } from '@/lib/loyalty/tiers'
-import { LoyaltyTierBadge } from './LoyaltyTierBadge'
+import { LoyaltyTierBadge, TIER_LABELS } from './LoyaltyTierBadge'
 
 const TIER_MULTIPLIER_LABEL: Record<string, string> = {
   curioso: '',
@@ -29,6 +30,8 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
   const progress = tierProgress(lifetimePoints)
   const multiplierLabel = TIER_MULTIPLIER_LABEL[progress.tier]
 
+  const tierLabel = TIER_LABELS[progress.tier] ?? progress.tier
+
   if (variant === 'compact') {
     return (
       <button
@@ -36,14 +39,19 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
         onClick={onClick}
         className="w-full text-left bg-gray-50 rounded-2xl p-3 hover:bg-gray-100 transition-colors"
       >
-        <div className="flex items-center justify-between mb-1.5">
-          <LoyaltyTierBadge tier={progress.tier} />
+        <div className="flex items-center justify-between mb-0.5">
+          <p className="text-sm font-black text-gray-900">Nivel {tierLabel}</p>
           <span className="text-xs font-bold text-gray-900">{balance} pts</span>
         </div>
+        <div className="mb-1.5">
+          <LoyaltyTierBadge tier={progress.tier} />
+        </div>
         <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-nurei-cta transition-all"
-            style={{ width: `${progress.progressPct}%` }}
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-amber-400 via-orange-400 to-nurei-cta"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress.progressPct}%` }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
           />
         </div>
         {progress.nextTier && (
@@ -57,18 +65,24 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-3">
-        <LoyaltyTierBadge tier={progress.tier} />
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-lg font-black text-gray-900">Nivel {tierLabel}</h3>
         <div className="text-right">
           <p className="text-2xl font-black text-gray-900">{balance}</p>
           <p className="text-[11px] text-gray-400 font-bold">puntos disponibles</p>
         </div>
       </div>
 
+      <div className="mb-3">
+        <LoyaltyTierBadge tier={progress.tier} />
+      </div>
+
       <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-nurei-cta transition-all"
-          style={{ width: `${progress.progressPct}%` }}
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-amber-400 via-orange-400 to-nurei-cta"
+          initial={{ width: 0 }}
+          animate={{ width: `${progress.progressPct}%` }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
         />
       </div>
 
