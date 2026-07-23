@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { Sprout, Flame, Star, Crown, Gem } from 'lucide-react'
 import { tierProgress } from '@/lib/loyalty/tiers'
-import { LoyaltyTierBadge } from './LoyaltyTierBadge'
+import { LoyaltyTierBadge, TIER_LABELS } from './LoyaltyTierBadge'
 
 const TIER_ICONS: Record<string, React.ElementType> = {
   curioso: Sprout,
@@ -29,13 +29,6 @@ const TIER_MULTIPLIER_LABEL: Record<string, string> = {
   leyenda: '1.5x puntos por compra',
 }
 
-const NEXT_TIER_LABELS: Record<string, string> = {
-  antojadizo: 'Antojadizo',
-  fanatico: 'Fanático',
-  snack_lover: 'Snack Lover',
-  leyenda: 'Leyenda',
-}
-
 interface LoyaltyTierCardProps {
   lifetimePoints: number
   balance: number
@@ -55,6 +48,7 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
       <button
         type="button"
         onClick={onClick}
+        aria-label="Ver mi programa de lealtad"
         className="w-full text-left bg-gray-50 rounded-2xl p-3 hover:bg-gray-100 transition-colors"
       >
         <div className="flex items-center justify-between mb-1.5">
@@ -76,7 +70,7 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
         </div>
         {progress.nextTier && (
           <p className="mt-1 text-[11px] text-gray-400 font-bold">
-            {progress.pointsToNext} pts para {NEXT_TIER_LABELS[progress.nextTier]}
+            {progress.pointsToNext} pts para {TIER_LABELS[progress.nextTier]}
           </p>
         )}
       </button>
@@ -110,7 +104,7 @@ export function LoyaltyTierCard({ lifetimePoints, balance, variant, onClick }: L
       <div className="mt-2 flex items-center justify-between text-xs">
         <span className="text-gray-400 font-bold">
           {progress.nextTier
-            ? `${progress.pointsToNext} pts para ${NEXT_TIER_LABELS[progress.nextTier]}`
+            ? `${progress.pointsToNext} pts para ${TIER_LABELS[progress.nextTier]}`
             : 'Nivel máximo alcanzado'}
         </span>
         {multiplierLabel && (

@@ -1267,11 +1267,24 @@ function TabCuenta({ couponActiveCount }: { couponActiveCount: number }) {
 
 // ─── Tab: Lealtad ───────────────────────────────────────────────────────────
 
-function TabLealtad({ lifetimePoints, balance, history }: {
+function TabLealtad({ lifetimePoints, balance, history, loaded }: {
   lifetimePoints: number
   balance: number
   history: LoyaltyLedgerEntry[]
+  loaded: boolean
 }) {
+  if (!loaded) {
+    return (
+      <div className="space-y-6" role="status" aria-label="Cargando programa de lealtad">
+        <div className="h-40 rounded-2xl bg-gray-100 animate-pulse" />
+        <div className="space-y-3">
+          <div className="h-16 rounded-2xl bg-gray-100 animate-pulse" />
+          <div className="h-16 rounded-2xl bg-gray-100 animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <LoyaltyTierCard lifetimePoints={lifetimePoints} balance={balance} variant="expanded" />
@@ -1343,7 +1356,7 @@ function PerfilPageContent() {
   const searchParams = useSearchParams()
   const { user, email, isAuthenticated, isLoading, checkSession, refreshUser, loadAddresses } = useAuthStore()
   const favCount = useFavoritesStore((s) => s.favoriteIds.length)
-  const { balance, lifetimePoints, fetchStatus: fetchLoyaltyStatus, history: loyaltyHistory } = useLoyaltyStore()
+  const { balance, lifetimePoints, loaded: loyaltyLoaded, fetchStatus: fetchLoyaltyStatus, history: loyaltyHistory } = useLoyaltyStore()
   const [activeTab, setActiveTab] = useState<TabId>('pedidos')
   const [mounted, setMounted] = useState(false)
   const [activeOrderCount, setActiveOrderCount] = useState(0)
@@ -1450,12 +1463,16 @@ function PerfilPageContent() {
           {showAccountSummary && (
           <>
           <div className="mt-5">
-            <LoyaltyTierCard
-              lifetimePoints={lifetimePoints}
-              balance={balance}
-              variant="compact"
-              onClick={() => setActiveTab('lealtad')}
-            />
+            {loyaltyLoaded ? (
+              <LoyaltyTierCard
+                lifetimePoints={lifetimePoints}
+                balance={balance}
+                variant="compact"
+                onClick={() => setActiveTab('lealtad')}
+              />
+            ) : (
+              <div className="h-[72px] rounded-2xl bg-gray-100 animate-pulse" role="status" aria-label="Cargando nivel de lealtad" />
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3 mt-3">
             <div className="bg-gray-50 rounded-2xl p-3 text-center">
@@ -1518,7 +1535,7 @@ function PerfilPageContent() {
             )}
             {activeTab === 'cupones' && <TabCupones />}
             {activeTab === 'lealtad' && (
-              <TabLealtad lifetimePoints={lifetimePoints} balance={balance} history={loyaltyHistory} />
+              <TabLealtad lifetimePoints={lifetimePoints} balance={balance} history={loyaltyHistory} loaded={loyaltyLoaded} />
             )}
             {activeTab === 'direcciones' && <TabDirecciones />}
             {activeTab === 'cuenta' && <TabCuenta couponActiveCount={couponActiveCount} />}
