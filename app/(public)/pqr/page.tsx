@@ -108,7 +108,7 @@ export default function PqrPage() {
           <div>
             <label htmlFor="pqr-tipo" className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">Tipo</label>
             <Select value={tipo} onValueChange={(v) => setTipo((v as PqrType) ?? 'peticion')}>
-              <SelectTrigger id="pqr-tipo" className="h-11">
+              <SelectTrigger id="pqr-tipo" className="h-11 w-full">
                 <SelectValue>{(v: string) => TIPO_OPTIONS.find((o) => o.value === v)?.label ?? 'Tipo'}</SelectValue>
               </SelectTrigger>
               <SelectContent>

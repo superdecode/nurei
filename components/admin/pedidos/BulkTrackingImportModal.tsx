@@ -104,7 +104,7 @@ export function BulkTrackingImportModal({ open, onClose, onImported }: Props) {
         </DialogHeader>
 
         {!summary ? (
-          <div className="space-y-4">
+          <div className="space-y-4 px-6 pb-6">
             <p className="text-sm text-gray-500">
               Sube un CSV con las columnas <strong>folio</strong>, <strong>transportadora</strong> y{' '}
               <strong>numero_guia</strong> (opcionalmente <strong>url_tracking</strong>). Cada pedido pasa a
@@ -145,7 +145,7 @@ export function BulkTrackingImportModal({ open, onClose, onImported }: Props) {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 px-6 pb-6">
             <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-4">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <p className="text-sm text-emerald-800">
