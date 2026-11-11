@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Empezar con el chino — Elian x China</title>
+<meta name="description" content="Guía para empezar a aprender chino mandarín desde cero, en español. Qué es difícil de verdad, qué no, y los mejores recursos gratuitos organizados.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Poppins:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0A0A0A;
+  --bg:#070707;
+  --bg-2:#0E0E0E;
+  --lime:#BDFE00;
+  --lime-light:#E8FF3D;
+  --lime-dark:#8FCC00;
+  --white:#FFFFFF;
+  --alert:#FF4D4D;
+  --card:rgba(8,8,8,0.62);
+  --muted:rgba(255,255,255,0.58);
+  --muted-2:rgba(255,255,255,0.38);
+  --line:rgba(255,255,255,0.10);
+  --maxw:1600px;
+  --sidebar-w:252px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--white);
+  font-family:'Poppins',system-ui,sans-serif;
+  font-weight:400;
+  line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+h1,h2,h3{font-family:'Montserrat',sans-serif;font-weight:900;line-height:1.02;letter-spacing:-0.02em}
+h1{font-size:clamp(2.6rem,7.5vw,5.2rem);text-transform:uppercase}
+h2{font-size:clamp(1.9rem,4.4vw,3.1rem);text-transform:uppercase}
+h3{font-family:'Poppins',sans-serif;font-weight:700;font-size:1.16rem;letter-spacing:-0.01em}
+p{color:rgba(255,255,255,0.80);font-size:1.02rem}
+a{color:var(--lime)}
+
+.eyebrow{
+  font-weight:700;font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.22em;color:var(--lime);margin-bottom:18px;display:block;
+}
+.eyebrow.dim{color:var(--muted-2)}
+
+/* ---------- LAYOUT + SIDEBAR ---------- */
+.layout{display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr)}
+.side-nav{
+  border-right:1px solid var(--line);
+  padding:32px 22px;
+  position:sticky;
+  top:0;
+  align-self:start;
+  height:100vh;
+  overflow-y:auto;
+}
+.side-nav-toggle{
+  display:flex;align-items:center;justify-content:space-between;width:100%;
+  background:transparent;border:none;color:var(--white);cursor:default;pointer-events:none;
+  font-family:'Montserrat',sans-serif;font-weight:900;font-size:.78rem;
+  text-transform:uppercase;letter-spacing:.08em;padding:0 0 22px;text-align:left;
+}
+.side-nav-toggle .chev{display:none}
+.nav-utility{
+  display:block;width:100%;text-align:left;background:transparent;border:1.5px solid var(--lime);
+  color:var(--lime);font-family:'Poppins',sans-serif;font-size:.7rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.1em;padding:10px 12px;margin-bottom:18px;cursor:pointer;
+  border-radius:2px;transition:all .18s;
+}
+.nav-utility:hover{background:var(--lime);color:var(--ink)}
+.side-nav-list{display:flex;flex-direction:column;gap:2px}
+.nav-link{
+  display:block;padding:10px 12px;font-size:.82rem;font-weight:600;color:var(--muted);
+  text-decoration:none;border-left:2px solid transparent;transition:all .18s;line-height:1.4;
+}
+.nav-link:hover{color:var(--white)}
+.nav-link.active{color:var(--lime);border-left-color:var(--lime);background:rgba(189,254,0,0.06)}
+.nav-link-alt{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);color:var(--lime)}
+
+/* ---------- HERO / BIENVENIDA ---------- */
+.hero{padding:96px 0 72px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:1.25fr .85fr;gap:56px;align-items:center}
+.hero h1 em{font-style:normal;color:var(--lime);display:block}
+.hero-lead{margin-top:26px;font-size:1.12rem;max-width:46ch;color:rgba(255,255,255,0.72)}
+.hero-meta{
+  margin-top:34px;display:flex;gap:26px;flex-wrap:wrap;
+  font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.14em;
+  color:var(--muted-2);
+}
+.hero-meta span{padding-left:14px;border-left:2px solid var(--lime-dark)}
+
+.portrait{position:relative;aspect-ratio:4/5;background:var(--card);border:1px solid var(--line);overflow:hidden}
+.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.portrait-fallback{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Montserrat',sans-serif;font-weight:900;font-size:2.4rem;
+  color:rgba(255,255,255,0.14);letter-spacing:.05em;
+}
+.portrait-cap{margin-top:14px;font-size:.7rem;color:var(--muted-2);letter-spacing:.08em;text-transform:uppercase}
+
+/* ---------- SECCIONES COLAPSABLES ---------- */
+section{padding:82px 0;border-bottom:1px solid var(--line)}
+.wrap-narrow{max-width:840px;margin-left:0}
+.sec-details{width:100%}
+.sec-details>summary{list-style:none;cursor:pointer;display:block}
+.sec-details>summary::-webkit-details-marker{display:none}
+.sec-head{max-width:62ch}
+.sec-head-row{display:flex;align-items:flex-start;gap:18px;max-width:64ch}
+.sec-head p{margin-top:16px;color:rgba(255,255,255,0.66)}
+.sec-toggle-icon{
+  flex:none;width:38px;height:38px;border-radius:50%;
+  background:var(--card);border:1.5px solid var(--lime);color:var(--lime);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .2s,background .2s,color .2s;margin-top:2px;
+}
+.sec-details[open]>summary .sec-toggle-icon{transform:rotate(45deg)}
+.sec-details>summary:hover .sec-toggle-icon{background:var(--lime);color:var(--ink)}
+.sec-body{margin-top:44px}
+
+.prose{max-width:60ch}
+.prose p+p{margin-top:19px}
+.prose strong{color:var(--white);font-weight:600}
+.mark{color:var(--lime);font-weight:600}
+
+.pull{
+  margin:38px 0;padding:26px 30px;
+  background:var(--card);backdrop-filter:blur(10px);
+  border-left:3px solid var(--lime);
+}
+.pull p{font-size:1.12rem;color:var(--white);font-weight:500;line-height:1.5}
+
+/* ---------- TONOS (sección propia) ---------- */
+.tones{background:var(--card);backdrop-filter:blur(10px);border:1px solid var(--line);padding:26px 24px 20px;max-width:680px}
+.tones-title{
+  font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.2em;
+  color:var(--muted);margin-bottom:20px;
+}
+.tone-rows{display:grid;grid-template-columns:1fr;gap:4px}
+.tone-row{
+  display:grid;grid-template-columns:48px 60px 1fr 34px;align-items:center;gap:10px;
+  padding:11px 8px;border-radius:4px;cursor:default;transition:background .22s;
+}
+.tone-row:hover,.tone-row:focus-within{background:rgba(189,254,0,0.07)}
+.tone-char{
+  font-family:'Noto Sans SC',sans-serif;font-weight:700;font-size:1.5rem;
+  color:var(--white);transition:color .22s;line-height:1;
+}
+.tone-row:hover .tone-char{color:var(--lime)}
+.tone-svg{width:100%;max-width:60px;height:26px;display:block;overflow:visible}
+.tone-svg path{
+  fill:none;stroke:var(--muted);stroke-width:2.4;
+  stroke-linecap:round;transition:stroke .22s,stroke-width .22s;
+}
+.tone-row:hover .tone-svg path{stroke:var(--lime);stroke-width:3.2}
+.tone-gloss{
+  font-size:.72rem;font-weight:500;color:var(--muted-2);
+  white-space:nowrap;letter-spacing:.03em;
+}
+.tone-play{
+  flex:none;width:30px;height:30px;border-radius:50%;
+  background:transparent;border:1px solid var(--line);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:all .18s;
+}
+.tone-row:hover .tone-play,.tone-play:hover,.tone-play:focus-visible{
+  border-color:var(--lime);color:var(--lime);background:rgba(189,254,0,0.1);
+}
+.tones-foot{
+  margin-top:16px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:.78rem;color:var(--muted);line-height:1.55;
+}
+.sec-note{margin-top:32px}
+
+/* ---------- DECISIONES ---------- */
+.decisions{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.dec{
+  background:var(--card);backdrop-filter:blur(10px);
+  border:1px solid var(--line);padding:28px 24px;
+}
+.dec-q{font-weight:600;font-size:1.02rem;margin-bottom:16px;line-height:1.4}
+.dec-a{
+  display:inline-block;background:var(--lime);color:var(--ink);
+  font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.12em;
+  padding:6px 12px;margin-bottom:14px;
+}
+.dec p{font-size:.92rem;color:var(--muted);line-height:1.6}
+
+/* ---------- RUTA ---------- */
+.route{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+.week{background:var(--bg-2);padding:28px 22px;position:relative}
+.week-n{
+  font-family:'Montserrat',sans-serif;font-weight:900;font-size:2.7rem;
+  color:rgba(255,255,255,0.09);line-height:1;margin-bottom:12px;
+}
+.week h3{font-size:1rem;margin-bottom:12px}
+.week p{font-size:.88rem;color:var(--muted);line-height:1.6}
+.week-out{
+  margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
+  font-size:.74rem;color:var(--lime-dark);font-weight:600;
+  text-transform:uppercase;letter-spacing:.1em;line-height:1.5;
+}
+
+/* ---------- FILTROS ---------- */
+.filters{margin-bottom:32px}
+.filter-label{
+  font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.18em;
+  color:var(--muted-2);margin-bottom:12px;display:block;
+}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.chip{
+  background:transparent;border:1px solid var(--line);color:var(--muted);
+  font-family:'Poppins',sans-serif;font-weight:600;font-size:.72rem;
+  text-transform:uppercase;letter-spacing:.09em;
+  padding:9px 15px;cursor:pointer;transition:all .18s;border-radius:2px;
+}
+.chip:hover{border-color:var(--lime-dark);color:var(--white)}
+.chip[aria-pressed="true"]{background:var(--lime);border-color:var(--lime);color:var(--ink)}
+.chip:focus-visible{outline:2px solid var(--lime-light);outline-offset:2px}
+.count{font-size:.76rem;color:var(--muted-2);margin-bottom:20px}
+.count b{color:var(--lime);font-weight:600}
+
+/* ---------- TARJETAS DE RECURSO ---------- */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.res{
+  background:var(--card);backdrop-filter:blur(10px);
+  border:1px solid var(--line);padding:24px;
+  display:flex;flex-direction:column;transition:border-color .2s;
+}
+.res:hover{border-color:rgba(189,254,0,0.35)}
+.res.star{border-left:3px solid var(--lime)}
+.res-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:6px}
+.res-name{font-weight:600;font-size:1.02rem;line-height:1.35}
+.res-name a{color:var(--white);text-decoration:none;border-bottom:1px solid rgba(189,254,0,0.4)}
+.res-name a:hover{color:var(--lime)}
+.star-tag{
+  font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--lime);white-space:nowrap;padding-top:4px;
+}
+.res-que{font-size:.9rem;color:var(--muted);margin:8px 0 14px;line-height:1.55}
+.res-porque{
+  font-size:.9rem;color:rgba(255,255,255,0.82);line-height:1.6;
+  padding-left:14px;border-left:1px solid var(--line);margin-bottom:18px;
+}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.tag{
+  font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.11em;
+  padding:4px 9px;border:1px solid var(--line);color:var(--muted-2);border-radius:2px;
+}
+.tag.gratis{color:var(--lime);border-color:rgba(189,254,0,0.35)}
+.tag.pago{color:var(--alert);border-color:rgba(255,77,77,0.35)}
+.tag.es{color:var(--white);border-color:rgba(255,255,255,0.32)}
+
+/* ---------- TODAVÍA NO ---------- */
+.nope{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.nope-item{padding:20px 22px;border:1px solid var(--line);border-left:3px solid var(--alert);background:var(--card)}
+.nope-item h3{font-size:.98rem;margin-bottom:8px;color:rgba(255,255,255,0.9)}
+.nope-item p{font-size:.88rem;color:var(--muted);line-height:1.6}
+
+/* ---------- CIERRE ---------- */
+.close-sec{border-bottom:none;text-align:center;padding:88px 0 100px}
+.close-sec h2{max-width:20ch;margin:0 auto 22px}
+.close-sec p{max-width:52ch;margin:0 auto 34px;color:var(--muted)}
+.form{display:flex;gap:10px;max-width:440px;margin:0 auto;flex-wrap:wrap}
+.form input{
+  flex:1;min-width:220px;background:rgba(255,255,255,0.05);border:1px solid var(--line);
+  color:var(--white);font-family:'Poppins',sans-serif;font-size:.94rem;padding:14px 16px;
+}
+.form input::placeholder{color:var(--muted-2)}
+.form input:focus{outline:none;border-color:var(--lime)}
+.form button{
+  background:var(--lime);border:none;color:var(--ink);
+  font-family:'Poppins',sans-serif;font-weight:700;font-size:.74rem;
+  text-transform:uppercase;letter-spacing:.13em;padding:14px 26px;cursor:pointer;transition:background .18s;
+}
+.form button:hover{background:var(--lime-light)}
+.form-note{font-size:.72rem;color:var(--muted-2);margin-top:16px}
+
+.next-page-card{
+  display:inline-flex;align-items:center;gap:10px;margin-top:32px;
+  padding:14px 22px;border:1px solid var(--line);color:var(--white);
+  text-decoration:none;font-weight:600;font-size:.86rem;transition:all .18s;
+}
+.next-page-card:hover{border-color:var(--lime);color:var(--lime)}
+.next-page-card svg{flex:none}
+
+footer{padding:36px 0;border-top:1px solid var(--line);text-align:center}
+footer p{font-size:.74rem;color:var(--muted-2);letter-spacing:.06em}
+
+@media(max-width:900px){
+  .layout{display:block;max-width:100%}
+  .side-nav{
+    position:sticky;top:0;z-index:50;height:auto;max-height:80vh;overflow-y:auto;
+    padding:0 20px;border-right:none;border-bottom:1px solid var(--line);
+    background:rgba(7,7,7,0.94);backdrop-filter:blur(10px);
+  }
+  .side-nav-toggle{cursor:pointer;pointer-events:auto;padding:16px 0}
+  .side-nav-toggle .chev{display:block;transition:transform .2s}
+  .side-nav-toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  .side-nav-list{display:none;padding-bottom:16px}
+  .side-nav-list.open{display:flex}
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .portrait{max-width:280px}
+  .decisions,.route,.grid,.nope{grid-template-columns:1fr}
+  .route{gap:1px}
+  section{padding:62px 0}
+  .hero{padding:64px 0 56px}
+  .sec-head-row{max-width:100%}
+  .tone-row{grid-template-columns:42px 50px 1fr 30px;gap:8px}
+}
+@media(max-width:480px){
+  .wrap{padding:0 18px}
+  .tone-char{font-size:1.25rem}
+  .tone-gloss{white-space:normal}
+}
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <nav class="side-nav" id="sideNav" aria-label="Contenido de la guía">
+    <button class="side-nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="navList">
+      <span>Contenido</span>
+      <svg class="chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="side-nav-list" id="navList">
+      <button class="nav-utility" id="toggleAll" type="button" data-state="expanded">Colapsar todo</button>
+      <a href="#bienvenida" class="nav-link" data-target="bienvenida">Bienvenida</a>
+      <a href="#dificultad" class="nav-link" data-target="dificultad">01 · Lo difícil no es lo que crees</a>
+      <a href="#tonos" class="nav-link" data-target="tonos">02 · Los tonos, de una vez</a>
+      <a href="#idioma" class="nav-link" data-target="idioma">03 · Mandarín, no "chino"</a>
+      <a href="#decisiones" class="nav-link" data-target="decisiones">04 · Tres decisiones</a>
+      <a href="#ruta" class="nav-link" data-target="ruta">05 · Primeros 30 días</a>
+      <a href="#baul" class="nav-link" data-target="baul">06 · El baúl de recursos</a>
+      <a href="#todavia-no" class="nav-link" data-target="todavia-no">07 · Todavía no uses esto</a>
+      <a href="empezar-de-nuevo.html" class="nav-link nav-link-alt">Si empezara de nuevo →</a>
+    </div>
+  </nav>
+
+  <div class="main">
+    <!-- ============ BIENVENIDA ============ -->
+    <header class="hero" id="bienvenida">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="eyebrow">Elian x China · Bienvenida</span>
+          <h1>Hola, soy<br><em>Elian</em></h1>
+          <p class="hero-lead">Viví cinco años en China. Esta es la guía que le mando a todo el que me escribe diciendo que quiere aprender chino y no sabe por dónde empezar: qué es difícil de verdad, qué no, y los recursos gratuitos que de verdad uso, organizados para que no tengas que adivinar por dónde seguir.</p>
+          <div class="hero-meta">
+            <span>Lectura de 8 minutos</span>
+            <span>30 recursos curados</span>
+            <span>Gratis, sin registro</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="portrait">
+            <img src="elian.jpg" alt="Elian" onerror="this.remove()">
+            <div class="portrait-fallback"><span>ExC</span></div>
+          </div>
+          <p class="portrait-cap">Elian · 5 años en China</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- ============ 01. EL DESMONTAJE ============ -->
+    <section id="dificultad">
+      <div class="wrap wrap-narrow">
+        <details class="sec-details" open>
+          <summary>
+            <div class="sec-head-row">
+              <span class="sec-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <div class="sec-head">
+                <span class="eyebrow dim">01 — Lo primero</span>
+                <h2>Lo difícil<br>no es lo que crees</h2>
+              </div>
+            </div>
+          </summary>
+
+          <div class="sec-body prose">
+            <p>Casi todo el que me escribe arranca igual: <em>«me encantaría, pero el chino es imposible»</em>. Esa idea viene de comparar el chino con el inglés o el francés, y ahí es donde está el error, porque el chino es difícil y fácil en lugares completamente distintos.</p>
+
+            <p>Empecemos por lo que nadie te cuenta. El chino <strong>no tiene conjugaciones verbales</strong>. No tiene <strong>género</strong>. No tiene <strong>plurales</strong>. No tiene <strong>artículos</strong>. No tiene <strong>tiempos verbales</strong>: el verbo nunca cambia, dices «ayer yo comer» y ya está en pasado.</p>
+
+            <div class="pull">
+              <p>Piensa en las horas que te costó el subjuntivo en la escuela. En chino esa categoría no existe. La gramática básica del mandarín es de las más simples que vas a encontrar en cualquier idioma.</p>
+            </div>
+
+            <p>Ahora lo difícil, sin adornos. Son dos cosas, y son distintas entre sí.</p>
+
+            <p><span class="mark">Los tonos.</span> La altura de tu voz cambia el significado de la palabra. Es una dimensión del sonido que en español simplemente no usamos, así que al principio el oído no la registra. La buena noticia es que se entrena rápido y hay un momento claro en el que hace clic, normalmente entre la segunda y la cuarta semana.</p>
+
+            <p><span class="mark">Los caracteres.</span> Aquí sí hay que ser honesto: no hay atajo. Se necesita volumen y constancia. Pero tampoco es memorizar dibujos al azar, que es lo que casi todo el mundo cree. Los caracteres están hechos de piezas que se repiten. Cuando aprendes las piezas, dejas de memorizar y empiezas a leer. <span class="mark">好</span> (bueno) es mujer 女 más niño 子. Una vez que ves eso, no lo puedes dejar de ver.</p>
+
+            <p>Entonces la conclusión real no es «es difícil» ni «es fácil»: es que hablar y leer avanzan a velocidades distintas. Vas a poder sostener una conversación básica mucho antes de lo que imaginas, pero leer con soltura te va a tomar bastante más tiempo. <strong>La mayoría abandona porque espera que las dos cosas avancen juntas</strong>, y se frustra cuando eso no pasa.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ 02. TONOS ============ -->
+    <section id="tonos">
+      <div class="wrap wrap-narrow">
+        <details class="sec-details" open>
+          <summary>
+            <div class="sec-head-row">
+              <span class="sec-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <div class="sec-head">
+                <span class="eyebrow dim">02 — Antes de seguir</span>
+                <h2>Los tonos,<br>de una vez</h2>
+                <p>Ya lo mencioné arriba: la altura de tu voz cambia el significado de la palabra. Es lo primero que asusta a todo el mundo, así que aquí tienes un ejemplo real de cómo funciona en la práctica. Toca el botón para escuchar cada uno.</p>
+              </div>
+            </div>
+          </summary>
+
+          <div class="sec-body">
+            <div class="tones">
+              <div class="tones-title">La misma sílaba, cuatro palabras</div>
+
+              <div class="tone-rows">
+                <div class="tone-row">
+                  <span class="tone-char">妈 mā</span>
+                  <svg class="tone-svg" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M4,6 L96,6"/></svg>
+                  <span class="tone-gloss">mamá</span>
+                  <button class="tone-play" type="button" data-say="妈" aria-label="Reproducir pronunciación de mā">
+                    <svg viewBox="0 0 24 24" width="13" height="13"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                  </button>
+                </div>
+
+                <div class="tone-row">
+                  <span class="tone-char">麻 má</span>
+                  <svg class="tone-svg" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M4,25 Q50,22 96,5"/></svg>
+                  <span class="tone-gloss">adormecido</span>
+                  <button class="tone-play" type="button" data-say="麻" aria-label="Reproducir pronunciación de má">
+                    <svg viewBox="0 0 24 24" width="13" height="13"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                  </button>
+                </div>
+
+                <div class="tone-row">
+                  <span class="tone-char">马 mǎ</span>
+                  <svg class="tone-svg" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M4,12 Q26,29 50,27 Q76,25 96,4"/></svg>
+                  <span class="tone-gloss">caballo</span>
+                  <button class="tone-play" type="button" data-say="马" aria-label="Reproducir pronunciación de mǎ">
+                    <svg viewBox="0 0 24 24" width="13" height="13"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                  </button>
+                </div>
+
+                <div class="tone-row">
+                  <span class="tone-char">骂 mà</span>
+                  <svg class="tone-svg" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M4,4 L96,27"/></svg>
+                  <span class="tone-gloss">regañar</span>
+                  <button class="tone-play" type="button" data-say="骂" aria-label="Reproducir pronunciación de mà">
+                    <svg viewBox="0 0 24 24" width="13" height="13"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <p class="tones-foot">Son cuatro, no cuarenta, y con repetición dejas de tener que pensarlos.</p>
+            </div>
+
+            <div class="sec-note prose">
+              <p>Mi consejo real, no el que se lee en todos lados: si al principio no te salen bien al hablar, no importa. Lo que sí importa es que empieces a <strong>reconocerlos claramente al oído</strong> — distinguir que mā, má, mǎ y mà son cuatro cosas distintas, aunque tú mismo los digas todos parecidos. Entre más los escuchas, más fino se vuelve el oído, y la pronunciación llega sola, poco a poco.</p>
+              <p>Esto no es una excusa para no practicarlos ni tomárselos en serio: es al revés, sigue practicando, pero sin la presión de dominarlos ya. A mí en particular el segundo tono me tomó casi un año en salir bien. No todos tenemos la misma facilidad, y es completamente normal.</p>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ 03. MANDARÍN, NO "CHINO" ============ -->
+    <section id="idioma">
+      <div class="wrap wrap-narrow">
+        <details class="sec-details" open>
+          <summary>
+            <div class="sec-head-row">
+              <span class="sec-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <div class="sec-head">
+                <span class="eyebrow dim">03 — Aclaración importante</span>
+                <h2>Esto es mandarín,<br>no "chino" en general</h2>
+              </div>
+            </div>
+          </summary>
+
+          <div class="sec-body prose">
+            <p>China tiene muchísimos idiomas y dialectos: cantonés, shanghainés, hokkien, y varias decenas más, cada uno con su propia pronunciación y, en algunos casos, hasta caracteres propios. El <strong>mandarín</strong> (普通话, "lengua común") es el estándar oficial: lo habla la inmensa mayoría del país, es el que se enseña en las escuelas, se usa en los medios y en cualquier entorno de negocios.</p>
+
+            <p>Todo lo que hay en esta guía —y cada recurso que comparto en el baúl— es para mandarín. Si lo que buscas es cantonés, cualquier otro dialecto o idioma regional, esto no te va a servir: son idiomas distintos, con sonidos y gramática propios, y nada de lo que recomiendo aquí aplica. No hay ningún problema con aprenderlos, simplemente no es lo que cubro.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ 04. TRES DECISIONES ============ -->
+    <section id="decisiones">
+      <div class="wrap">
+        <details class="sec-details" open>
+          <summary>
+            <div class="sec-head-row">
+              <span class="sec-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <div class="sec-head">
+                <span class="eyebrow dim">04 — Antes de empezar</span>
+                <h2>Tres decisiones<br>que te ahorran meses</h2>
+                <p>Tómalas hoy, en cinco minutos. Casi todo el que se frustra es porque nunca las tomó y fue avanzando sin saber hacia dónde.</p>
+              </div>
+            </div>
+          </summary>
+
+          <div class="sec-body decisions">
+            <div class="dec">
+              <div class="dec-q">¿Necesito aprender a escribir a mano?</div>
+              <span class="dec-a">Casi seguro que no</span>
+              <p>Escribir a mano es la parte más lenta de todo el proceso y en la vida real los chinos escriben en el teclado, con pinyin. Aprende a <strong>reconocer</strong> caracteres primero. Si algún día quieres escribir a mano, lo agregas. Al revés no funciona, y esta sola decisión te ahorra meses.</p>
+            </div>
+
+            <div class="dec">
+              <div class="dec-q">¿Simplificado o tradicional?</div>
+              <span class="dec-a">Simplificado</span>
+              <p>Es lo que se usa en China continental, Singapur y en prácticamente todo el material de estudio disponible. El tradicional se usa en Taiwán y Hong Kong. Si ya tienes base en simplificado, pasar al tradicional te toma semanas. Empezar por los dos a la vez no le sirve a nadie.</p>
+            </div>
+
+            <div class="dec">
+              <div class="dec-q">¿Cuánto tiempo tengo de verdad?</div>
+              <span class="dec-a">Sé honesto</span>
+              <p>Quince minutos diarios le ganan a dos horas los domingos, y no es una frase bonita: la memoria del vocabulario depende de la frecuencia, no del total de horas. Elige un número que puedas sostener un mal día y protégelo. Si un día no puedes, haz cinco minutos, pero no rompas la cadena.</p>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ 05. RUTA 30 DÍAS ============ -->
+    <section id="ruta">
+      <div class="wrap">
+        <details class="sec-details" open>
+          <summary>
+            <div class="sec-head-row">
+              <span class="sec-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <div class="sec-head">
+                <span class="eyebrow dim">05 — El plan</span>
+                <h2>Tus primeros<br>30 días</h2>
+                <p>Sin prometerte nada que no sea cierto. Al final del mes no vas a tener una conversación, pero vas a saber si esto es para ti, que es exactamente lo que necesitas saber ahora.</p>
+              </div>
+            </div>
+          </summary>
+
+          <div class="sec-body">
+            <div class="route">
+              <div class="week">
+                <div class="week-n">01</div>
+                <h3>Sonido, nada más</h3>
+                <p>Solo pinyin y tonos. Nada de caracteres, nada de vocabulario. Escucha sílabas y repítelas en voz alta hasta que distingas los cuatro tonos de oído.</p>
+                <div class="week-out">Distingues mā de mà</div>
+              </div>
+
+              <div class="week">
+                <div class="week-n">02</div>
+                <h3>Treinta palabras</h3>
+                <p>Vocabulario de uso inmediato, en pinyin, en voz alta. Saludos, números, pronombres, dos o tres verbos. Todavía sin escritura.</p>
+                <div class="week-out">Te presentas en chino</div>
+              </div>
+
+              <div class="week">
+                <div class="week-n">03</div>
+                <h3>Primeras frases</h3>
+                <p>Aquí descubres que la gramática es simple. Sujeto, verbo, objeto, igual que en español. Armas frases nuevas con las palabras que ya tienes.</p>
+                <div class="week-out">Construyes, no repites</div>
+              </div>
+
+              <div class="week">
+                <div class="week-n">04</div>
+                <h3>Los caracteres</h3>
+                <p>Recién ahora. Veinte caracteres de los que ya sabes decir. No los memorizas: los descompones y entiendes por qué se ven así.</p>
+                <div class="week-out">Lees tus primeras palabras</div>
+              </div>
+            </div>
+
+            <a class="next-page-card" href="plan-30-dias.html">
+              Leer el plan completo, día por día
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ 06. EL BAÚL ============ -->
+    <section id="baul">
+      <div class="wrap">
+        <details class="sec-details" open>
+          <summary>
+            <div class="sec-head-row">
+              <span class="sec-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <div class="sec-head">
+                <span class="eyebrow dim">06 — El baúl</span>
+                <h2>Los recursos<br>que sí sirven</h2>
+                <p>Todo lo que he ido encontrando y probando, organizado por lo que resuelve. Casi todo lo bueno de chino está en inglés: la etiqueta de idioma te dice en qué te estás metiendo antes de hacer clic.</p>
+              </div>
+            </div>
+          </summary>
+
+          <div class="sec-body">
+            <div class="filters">
+              <span class="filter-label">Qué necesitas resolver</span>
+              <div class="chips" id="chips-cat" role="group" aria-label="Filtrar por categoría"></div>
+
+              <span class="filter-label">Filtros rápidos</span>
+              <div class="chips" id="chips-flag" role="group" aria-label="Filtros adicionales">
+                <button class="chip" data-flag="gratis" aria-pressed="false">Solo gratis</button>
+                <button class="chip" data-flag="es" aria-pressed="false">Solo en español</button>
+                <button class="chip" data-flag="dia1" aria-pressed="false">Para el día 1</button>
+              </div>
+            </div>
+
+            <p class="count" id="count"></p>
+            <div class="grid" id="grid"></div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ 07. TODAVÍA NO ============ -->
+    <section id="todavia-no">
+      <div class="wrap">
+        <details class="sec-details" open>
+          <summary>
+            <div class="sec-head-row">
+              <span class="sec-toggle-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <div class="sec-head">
+                <span class="eyebrow dim">07 — Igual de importante</span>
+                <h2>Todavía<br>no uses esto</h2>
+                <p>Saber qué dejar para después ahorra más tiempo que cualquier app. Nada de esto es malo. Simplemente no es ahora.</p>
+              </div>
+            </div>
+          </summary>
+
+          <div class="sec-body nope" id="nope"></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ CIERRE ============ -->
+    <section class="close-sec">
+      <div class="wrap">
+        <span class="eyebrow">Lo que sigue</span>
+        <h2>Estoy armando el primer curso</h2>
+        <p>Una hora, desde cero, en español. Tonos, pinyin, tus primeras palabras y tus primeros caracteres. Gratis, como todo esto. Déjame tu correo y te aviso cuando esté.</p>
+        <div class="form">
+          <input type="email" id="email" placeholder="tu@correo.com" aria-label="Tu correo electrónico">
+          <button type="button" id="send">Avísame</button>
+        </div>
+        <p class="form-note" id="note">Un correo cuando esté listo. Nada más.</p>
+
+        <div>
+          <a class="next-page-card" href="empezar-de-nuevo.html">
+            Si tuviera que empezar de nuevo, esto es lo que haría
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap"><p>ELIAN X CHINA — 加油</p></div>
+    </footer>
+  </div>
+</div>
+
+<script src="recursos.js"></script>
+<script>
+const CATS = {
+  tonos:"Tonos y pinyin",
+  caracteres:"Caracteres",
+  vocabulario:"Vocabulario",
+  gramatica:"Gramática",
+  oido:"Entrenar el oído",
+  lectura:"Leer",
+  diccionario:"Consultar",
+  practica:"Hablar con gente",
+  libros:"Libros y examen"
+};
+const IDIOMAS = {es:"Español", en:"Inglés", zh:"Chino"};
+const COSTOS  = {gratis:"Gratis", freemium:"Gratis con límites", pago:"De pago"};
+const MOMENTOS= {dia1:"Desde el día 1", semanas:"Primeras semanas", despues:"Más adelante"};
+
+let cat = "todos";
+const flags = new Set();
+
+// --- construir chips de categoría ---
+const catBox = document.getElementById("chips-cat");
+const catList = ["todos", ...Object.keys(CATS)];
+catList.forEach(c => {
+  const b = document.createElement("button");
+  b.className = "chip";
+  b.dataset.cat = c;
+  b.textContent = c === "todos" ? "Todo" : CATS[c];
+  b.setAttribute("aria-pressed", c === "todos" ? "true" : "false");
+  b.addEventListener("click", () => {
+    cat = c;
+    [...catBox.children].forEach(x =>
+      x.setAttribute("aria-pressed", x.dataset.cat === c ? "true" : "false"));
+    render();
+  });
+  catBox.appendChild(b);
+});
+
+// --- chips de filtro rápido ---
+document.querySelectorAll("#chips-flag .chip").forEach(b => {
+  b.addEventListener("click", () => {
+    const f = b.dataset.flag;
+    if (flags.has(f)) { flags.delete(f); b.setAttribute("aria-pressed","false"); }
+    else { flags.add(f); b.setAttribute("aria-pressed","true"); }
+    render();
+  });
+});
+
+function pasa(r){
+  if (cat !== "todos" && r.categoria !== cat) return false;
+  if (flags.has("gratis") && r.costo === "pago") return false;
+  if (flags.has("es") && r.idioma !== "es") return false;
+  if (flags.has("dia1") && r.momento !== "dia1") return false;
+  return true;
+}
+
+function render(){
+  const list = RECURSOS.filter(pasa)
+    .sort((a,b) => (b.destacado === true) - (a.destacado === true));
+
+  const grid = document.getElementById("grid");
+  const count = document.getElementById("count");
+
+  count.innerHTML = list.length
+    ? `<b>${list.length}</b> ${list.length === 1 ? "recurso" : "recursos"}`
+    : "";
+
+  if (!list.length){
+    grid.innerHTML = `<div class="res"><div class="res-name">Nada con esos filtros</div>
+      <p class="res-que">Quita alguno y vuelve a intentar. Si crees que falta algo acá, escríbeme y lo agrego.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(r => {
+    const nombre = r.url
+      ? `<a href="${r.url}" target="_blank" rel="noopener noreferrer">${r.nombre}</a>`
+      : r.nombre;
+    const costoClase = r.costo === "gratis" ? "gratis" : (r.costo === "pago" ? "pago" : "");
+    const idiomaClase = r.idioma === "es" ? "es" : "";
+    return `
+    <article class="res ${r.destacado ? "star" : ""}">
+      <div class="res-top">
+        <div class="res-name">${nombre}</div>
+        ${r.destacado ? '<span class="star-tag">Empieza aquí</span>' : ""}
+      </div>
+      <p class="res-que">${r.que}</p>
+      <p class="res-porque">${r.porque}</p>
+      <div class="tags">
+        <span class="tag ${costoClase}">${COSTOS[r.costo]}</span>
+        <span class="tag ${idiomaClase}">${IDIOMAS[r.idioma]}</span>
+        <span class="tag">${MOMENTOS[r.momento]}</span>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+document.getElementById("nope").innerHTML = TODAVIA_NO.map(n => `
+  <div class="nope-item"><h3>${n.nombre}</h3><p>${n.razon}</p></div>`).join("");
+
+// --- captura de correo ---
+document.getElementById("send").addEventListener("click", async () => {
+  const input = document.getElementById("email");
+  const note = document.getElementById("note");
+  const btn = document.getElementById("send");
+  const val = input.value.trim();
+  if (!/^\S+@\S+\.\S+$/.test(val)){
+    note.textContent = "Ese correo no se ve bien. Revísalo.";
+    note.style.color = "var(--alert)";
+    input.focus();
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/mandarin/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: val }),
+    });
+    if (!res.ok) throw new Error("request failed");
+    note.textContent = "Listo. Te aviso cuando el curso esté arriba.";
+    note.style.color = "var(--lime)";
+    input.value = "";
+  } catch (err) {
+    note.textContent = "No se pudo enviar. Intenta de nuevo en un momento.";
+    note.style.color = "var(--alert)";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// --- navegación lateral: móvil desplegable ---
+const navToggle = document.getElementById("navToggle");
+const navList = document.getElementById("navList");
+navToggle.addEventListener("click", () => {
+  const open = navList.classList.toggle("open");
+  navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+});
+
+// --- expandir / colapsar todas las secciones ---
+const toggleAllBtn = document.getElementById("toggleAll");
+toggleAllBtn.addEventListener("click", () => {
+  const shouldOpen = toggleAllBtn.dataset.state === "collapsed";
+  document.querySelectorAll(".sec-details").forEach(d => { d.open = shouldOpen; });
+  toggleAllBtn.textContent = shouldOpen ? "Colapsar todo" : "Expandir todo";
+  toggleAllBtn.dataset.state = shouldOpen ? "expanded" : "collapsed";
+});
+
+// --- clic en el menú: abrir sección si estaba cerrada y cerrar menú móvil ---
+const navLinks = document.querySelectorAll(".nav-link[data-target]");
+navLinks.forEach(link => {
+  link.addEventListener("click", () => {
+    const target = document.getElementById(link.dataset.target);
+    const details = target?.tagName === "DETAILS" ? target : target?.querySelector(".sec-details");
+    if (details) details.open = true;
+    if (navList.classList.contains("open")) {
+      navList.classList.remove("open");
+      navToggle.setAttribute("aria-expanded", "false");
+    }
+  });
+});
+
+// --- resalta la sección visible en el menú ---
+const spySections = [...navLinks].map(l => document.getElementById(l.dataset.target)).filter(Boolean);
+const spyObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const id = entry.target.id;
+    navLinks.forEach(l => l.classList.toggle("active", l.dataset.target === id));
+  });
+}, { rootMargin: "-40% 0px -55% 0px" });
+spySections.forEach(s => spyObserver.observe(s));
+
+// --- reproducir tonos con el sintetizador de voz del navegador ---
+if (!('speechSynthesis' in window)) {
+  document.querySelectorAll(".tone-play").forEach(b => b.remove());
+} else {
+  document.querySelectorAll(".tone-play").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const utter = new SpeechSynthesisUtterance(btn.dataset.say);
+      utter.lang = "zh-CN";
+      utter.rate = 0.85;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utter);
+    });
+  });
+}
+
+render();
+</script>
+</body>
+</html>

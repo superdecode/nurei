@@ -24,6 +24,10 @@ const securityHeaders = [
       `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''} https://api.stripe.com wss://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.facebook.com https://*.clarity.ms`,
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
+      // Mandarin course pronunciation audio: some linked directly from
+      // Wikimedia Commons (CC BY-SA, Lingua Libre project), some hosted in
+      // this project's own Supabase Storage bucket
+      `media-src 'self' https://upload.wikimedia.org ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}`,
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",

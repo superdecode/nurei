@@ -5,6 +5,9 @@
 // CRM module (companies, pipeline, deals, tasks, activities)
 export * from './crm'
 
+// Mandarin lesson engine
+export * from './mandarin'
+
 export type ProductCategory = string
 
 export type OrderStatus =
