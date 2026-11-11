@@ -8,5 +8,5 @@ export const notoSerifSC = Noto_Serif_SC({
   weight: ['500', '700'],
   subsets: ['latin'],
   display: 'optional',
-  fallback: ['"PingFang SC"', '"Microsoft YaHei"', 'serif'],
+  fallback: ['PingFang SC', 'Microsoft YaHei', 'serif'],
 })
